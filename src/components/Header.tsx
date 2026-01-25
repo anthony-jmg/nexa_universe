@@ -1,4 +1,4 @@
-import { Menu, X, User, Shield, ShoppingCart, LayoutDashboard, Heart, Package, ChevronDown } from 'lucide-react';
+import { Menu, X, User, Shield, ShoppingCart, LayoutDashboard, Heart, Package, ChevronDown, GraduationCap, Users, Store, Bell, LogOut, LogIn, UserPlus } from 'lucide-react';
 import { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useCart } from '../contexts/CartContext';
@@ -31,7 +31,7 @@ export function Header({ onNavigate, currentPage }: HeaderProps) {
   return (
     <header className="fixed top-0 left-0 right-0 z-50 bg-gray-900/80 backdrop-blur-xl border-b border-gray-800/50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16">
+        <div className="flex items-center justify-between h-14 sm:h-16">
           <button
             onClick={() => onNavigate('landing')}
             className="flex items-center group"
@@ -39,7 +39,7 @@ export function Header({ onNavigate, currentPage }: HeaderProps) {
             <img
               src="/nexa-logo.png"
               alt="NEXA"
-              className="h-12 w-auto transition-transform group-hover:scale-105"
+              className="h-8 sm:h-10 md:h-12 w-auto transition-transform group-hover:scale-105 drop-shadow-[0_0_10px_rgba(212,172,91,0.3)]"
             />
           </button>
 
@@ -258,7 +258,10 @@ export function Header({ onNavigate, currentPage }: HeaderProps) {
                   }}
                   className="block w-full text-left px-4 py-3 text-sm font-medium text-gray-300 hover:text-white hover:bg-white/5 rounded-xl transition-all"
                 >
-                  Academy
+                  <span className="flex items-center space-x-3">
+                    <GraduationCap className="w-5 h-5 text-gold-400" />
+                    <span>Academy</span>
+                  </span>
                 </button>
                 <button
                   onClick={() => {
@@ -267,7 +270,10 @@ export function Header({ onNavigate, currentPage }: HeaderProps) {
                   }}
                   className="block w-full text-left px-4 py-3 text-sm font-medium text-gray-300 hover:text-white hover:bg-white/5 rounded-xl transition-all"
                 >
-                  Professors
+                  <span className="flex items-center space-x-3">
+                    <Users className="w-5 h-5 text-gold-400" />
+                    <span>Professors</span>
+                  </span>
                 </button>
                 <button
                   onClick={() => {
@@ -276,7 +282,10 @@ export function Header({ onNavigate, currentPage }: HeaderProps) {
                   }}
                   className="block w-full text-left px-4 py-3 text-sm font-medium text-gray-300 hover:text-white hover:bg-white/5 rounded-xl transition-all"
                 >
-                  Shop
+                  <span className="flex items-center space-x-3">
+                    <Store className="w-5 h-5 text-gold-400" />
+                    <span>Shop</span>
+                  </span>
                 </button>
                 {profile?.role !== 'admin' && (
                   <>
@@ -288,7 +297,10 @@ export function Header({ onNavigate, currentPage }: HeaderProps) {
                       className="block w-full text-left px-4 py-3 text-sm font-medium text-gray-300 hover:text-white hover:bg-white/5 rounded-xl transition-all relative"
                     >
                       <span className="flex items-center justify-between">
-                        Panier
+                        <span className="flex items-center space-x-3">
+                          <ShoppingCart className="w-5 h-5 text-gold-400" />
+                          <span>Panier</span>
+                        </span>
                         {getCartCount() > 0 && (
                           <span className="ml-2 px-2 py-1 bg-gradient-to-br from-[#B8913D] to-[#D4AC5B] text-white text-xs rounded-full font-bold">
                             {getCartCount()}
@@ -304,7 +316,10 @@ export function Header({ onNavigate, currentPage }: HeaderProps) {
                       className="block w-full text-left px-4 py-3 text-sm font-medium text-gray-300 hover:text-white hover:bg-white/5 rounded-xl transition-all relative"
                     >
                       <span className="flex items-center justify-between">
-                        Favoris
+                        <span className="flex items-center space-x-3">
+                          <Heart className="w-5 h-5 text-red-400" />
+                          <span>Favoris</span>
+                        </span>
                         {favorites.length > 0 && (
                           <span className="ml-2 px-2 py-1 bg-gradient-to-br from-red-500 to-pink-500 text-white text-xs rounded-full font-bold">
                             {favorites.length}
@@ -319,7 +334,10 @@ export function Header({ onNavigate, currentPage }: HeaderProps) {
                       }}
                       className="block w-full text-left px-4 py-3 text-sm font-medium text-gray-300 hover:text-white hover:bg-white/5 rounded-xl transition-all"
                     >
-                      Mes achats
+                      <span className="flex items-center space-x-3">
+                        <Package className="w-5 h-5 text-gold-400" />
+                        <span>Mes achats</span>
+                      </span>
                     </button>
                     <button
                       onClick={() => {
@@ -328,7 +346,10 @@ export function Header({ onNavigate, currentPage }: HeaderProps) {
                       }}
                       className="block w-full text-left px-4 py-3 text-sm font-medium text-gray-300 hover:text-white hover:bg-white/5 rounded-xl transition-all"
                     >
-                      Notifications
+                      <span className="flex items-center space-x-3">
+                        <Bell className="w-5 h-5 text-gold-400" />
+                        <span>Notifications</span>
+                      </span>
                     </button>
                   </>
                 )}
@@ -340,7 +361,10 @@ export function Header({ onNavigate, currentPage }: HeaderProps) {
                     }}
                     className="block w-full text-left px-4 py-3 text-sm font-medium text-gray-300 hover:text-white hover:bg-white/5 rounded-xl transition-all"
                   >
-                    Dashboard
+                    <span className="flex items-center space-x-3">
+                      <LayoutDashboard className="w-5 h-5 text-gold-400" />
+                      <span>Dashboard</span>
+                    </span>
                   </button>
                 )}
                 {profile?.role === 'admin' && (
@@ -351,9 +375,13 @@ export function Header({ onNavigate, currentPage }: HeaderProps) {
                     }}
                     className="block w-full text-left px-4 py-3 text-sm font-medium text-gray-300 hover:text-white hover:bg-white/5 rounded-xl transition-all"
                   >
-                    Admin
+                    <span className="flex items-center space-x-3">
+                      <Shield className="w-5 h-5 text-gold-400" />
+                      <span>Admin</span>
+                    </span>
                   </button>
                 )}
+                <div className="border-t border-gray-800/50 my-2"></div>
                 <button
                   onClick={() => {
                     onNavigate('account');
@@ -361,13 +389,19 @@ export function Header({ onNavigate, currentPage }: HeaderProps) {
                   }}
                   className="block w-full text-left px-4 py-3 text-sm font-medium text-gray-300 hover:text-white hover:bg-white/5 rounded-xl transition-all"
                 >
-                  Mon compte
+                  <span className="flex items-center space-x-3">
+                    <User className="w-5 h-5 text-gold-400" />
+                    <span>Mon compte</span>
+                  </span>
                 </button>
                 <button
                   onClick={handleSignOut}
-                  className="block w-full text-left px-4 py-3 text-sm font-medium text-gray-300 hover:text-white hover:bg-white/5 rounded-xl transition-all"
+                  className="block w-full text-left px-4 py-3 text-sm font-medium text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-xl transition-all"
                 >
-                  Déconnexion
+                  <span className="flex items-center space-x-3">
+                    <LogOut className="w-5 h-5" />
+                    <span>Déconnexion</span>
+                  </span>
                 </button>
               </>
             ) : (
@@ -379,7 +413,10 @@ export function Header({ onNavigate, currentPage }: HeaderProps) {
                   }}
                   className="block w-full text-left px-4 py-3 text-sm font-medium text-gray-300 hover:text-white hover:bg-white/5 rounded-xl transition-all"
                 >
-                  Academy
+                  <span className="flex items-center space-x-3">
+                    <GraduationCap className="w-5 h-5 text-gold-400" />
+                    <span>Academy</span>
+                  </span>
                 </button>
                 <button
                   onClick={() => {
@@ -388,7 +425,10 @@ export function Header({ onNavigate, currentPage }: HeaderProps) {
                   }}
                   className="block w-full text-left px-4 py-3 text-sm font-medium text-gray-300 hover:text-white hover:bg-white/5 rounded-xl transition-all"
                 >
-                  Professors
+                  <span className="flex items-center space-x-3">
+                    <Users className="w-5 h-5 text-gold-400" />
+                    <span>Professors</span>
+                  </span>
                 </button>
                 <button
                   onClick={() => {
@@ -397,8 +437,12 @@ export function Header({ onNavigate, currentPage }: HeaderProps) {
                   }}
                   className="block w-full text-left px-4 py-3 text-sm font-medium text-gray-300 hover:text-white hover:bg-white/5 rounded-xl transition-all"
                 >
-                  Shop
+                  <span className="flex items-center space-x-3">
+                    <Store className="w-5 h-5 text-gold-400" />
+                    <span>Shop</span>
+                  </span>
                 </button>
+                <div className="border-t border-gray-800/50 my-2"></div>
                 <button
                   onClick={() => {
                     onNavigate('signin');
@@ -406,7 +450,10 @@ export function Header({ onNavigate, currentPage }: HeaderProps) {
                   }}
                   className="block w-full text-left px-4 py-3 text-sm font-medium text-gray-300 hover:text-white hover:bg-white/5 rounded-xl transition-all"
                 >
-                  Connexion
+                  <span className="flex items-center space-x-3">
+                    <LogIn className="w-5 h-5 text-gold-400" />
+                    <span>Connexion</span>
+                  </span>
                 </button>
                 <button
                   onClick={() => {
@@ -415,7 +462,10 @@ export function Header({ onNavigate, currentPage }: HeaderProps) {
                   }}
                   className="block w-full px-4 py-3 bg-gradient-to-r from-[#B8913D] to-[#D4AC5B] text-white text-sm font-semibold rounded-xl hover:shadow-glow transition-all"
                 >
-                  S'inscrire
+                  <span className="flex items-center justify-center space-x-2">
+                    <UserPlus className="w-5 h-5" />
+                    <span>S'inscrire</span>
+                  </span>
                 </button>
               </>
             )}
