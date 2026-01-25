@@ -357,46 +357,46 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
   if (!profile) return null;
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-950 via-gray-900 to-gray-950 pt-20 pb-12 relative overflow-hidden">
+    <div className="min-h-screen bg-gradient-to-b from-gray-950 via-gray-900 to-gray-950 pt-16 sm:pt-20 pb-8 sm:pb-12 relative overflow-hidden">
       <BackgroundDecor />
       <div className="absolute top-40 right-0 w-96 h-96 bg-[#B8913D] opacity-5 rounded-full blur-3xl"></div>
       <div className="absolute bottom-40 left-0 w-96 h-96 bg-[#A07F35] opacity-5 rounded-full blur-3xl"></div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-        <div className="mb-8 text-center">
-          <h1 className="text-3xl sm:text-4xl font-light text-white mb-2">
+        <div className="mb-6 sm:mb-8 text-center">
+          <h1 className="text-2xl sm:text-3xl md:text-4xl font-light text-white mb-2 px-2">
             {t('purchases.title')}
           </h1>
-          <div className="flex justify-center mb-3">
-            <div className="w-16 h-1 bg-gradient-to-r from-transparent via-[#B8913D] to-transparent rounded-full"></div>
+          <div className="flex justify-center mb-2 sm:mb-3">
+            <div className="w-12 sm:w-16 h-1 bg-gradient-to-r from-transparent via-[#B8913D] to-transparent rounded-full"></div>
           </div>
-          <p className="text-gray-400">{t('purchases.subtitle')}</p>
+          <p className="text-sm sm:text-base text-gray-400 px-4">{t('purchases.subtitle')}</p>
         </div>
 
-        <div className="bg-gradient-to-br from-gray-800/60 to-gray-900/60 backdrop-blur-sm border border-gray-700/50 rounded-3xl p-6 mb-8 shadow-xl">
-          <div className="flex items-center space-x-4">
-            <div className="w-16 h-16 bg-gradient-to-br from-[#B8913D] to-[#D4AC5B] rounded-2xl flex items-center justify-center shadow-lg">
-              <Crown className="w-8 h-8 text-white" />
+        <div className="bg-gradient-to-br from-gray-800/60 to-gray-900/60 backdrop-blur-sm border border-gray-700/50 rounded-2xl sm:rounded-3xl p-4 sm:p-6 mb-6 sm:mb-8 shadow-xl">
+          <div className="flex items-center space-x-3 sm:space-x-4">
+            <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-br from-[#B8913D] to-[#D4AC5B] rounded-xl sm:rounded-2xl flex items-center justify-center shadow-lg flex-shrink-0">
+              <Crown className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
             </div>
-            <div className="flex-1">
-              <h3 className="text-xl font-medium text-white mb-1">Abonnement Plateforme</h3>
-              <div className="flex items-center space-x-3">
-                <span className={`px-3 py-1 rounded-full text-sm font-medium border ${getSubscriptionStatusColor(profile.platform_subscription_status)}`}>
+            <div className="flex-1 min-w-0">
+              <h3 className="text-base sm:text-lg md:text-xl font-medium text-white mb-1 truncate">Abonnement Plateforme</h3>
+              <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+                <span className={`px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm font-medium border ${getSubscriptionStatusColor(profile.platform_subscription_status)}`}>
                   {profile.platform_subscription_status === 'active' ? 'Actif' :
                    profile.platform_subscription_status === 'trial' ? 'Essai' : 'Inactif'}
                 </span>
                 {profile.platform_subscription_expires_at && (
-                  <span className="text-gray-400 text-sm flex items-center space-x-1">
-                    <Calendar className="w-4 h-4" />
-                    <span>
+                  <span className="text-gray-400 text-xs sm:text-sm flex items-center space-x-1">
+                    <Calendar className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
+                    <span className="truncate">
                       Expire le {new Date(profile.platform_subscription_expires_at).toLocaleDateString('fr-FR')}
                     </span>
                   </span>
                 )}
               </div>
               {profile.platform_subscription_expires_at && isSubscriptionExpiringSoon(profile.platform_subscription_expires_at) && (
-                <div className="mt-2 flex items-center space-x-2 text-yellow-400 text-sm">
-                  <AlertCircle className="w-4 h-4" />
+                <div className="mt-2 flex items-center space-x-2 text-yellow-400 text-xs sm:text-sm">
+                  <AlertCircle className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
                   <span>Votre abonnement expire bientôt</span>
                 </div>
               )}
@@ -404,80 +404,80 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
           </div>
         </div>
 
-        <div className="flex justify-center mb-8 overflow-x-auto">
-          <div className="inline-flex space-x-3 p-2 bg-gray-800/50 border border-gray-700/50 rounded-full shadow-md">
+        <div className="flex justify-start sm:justify-center mb-6 sm:mb-8 overflow-x-auto pb-2 -mx-4 px-4 sm:mx-0 sm:px-0">
+          <div className="inline-flex space-x-2 sm:space-x-3 p-1.5 sm:p-2 bg-gray-800/50 border border-gray-700/50 rounded-full shadow-md">
             <button
               onClick={() => setActiveTab('subscriptions')}
-              className={`px-6 py-3 rounded-full font-medium transition-all flex items-center space-x-2 whitespace-nowrap ${
+              className={`px-3 sm:px-4 md:px-6 py-2 sm:py-2.5 md:py-3 rounded-full text-xs sm:text-sm font-medium transition-all flex items-center space-x-1.5 sm:space-x-2 whitespace-nowrap ${
                 activeTab === 'subscriptions'
                   ? 'bg-gradient-to-r from-[#B8913D] to-[#D4AC5B] text-white'
                   : 'text-gray-300 hover:bg-gray-700/70'
               }`}
             >
-              <User className="w-4 h-4" />
+              <User className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               <span>Professeurs</span>
             </button>
             <button
               onClick={() => setActiveTab('programs')}
-              className={`px-6 py-3 rounded-full font-medium transition-all flex items-center space-x-2 whitespace-nowrap ${
+              className={`px-3 sm:px-4 md:px-6 py-2 sm:py-2.5 md:py-3 rounded-full text-xs sm:text-sm font-medium transition-all flex items-center space-x-1.5 sm:space-x-2 whitespace-nowrap ${
                 activeTab === 'programs'
                   ? 'bg-gradient-to-r from-[#B8913D] to-[#D4AC5B] text-white'
                   : 'text-gray-300 hover:bg-gray-700/70'
               }`}
             >
-              <Package className="w-4 h-4" />
+              <Package className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               <span>Programmes</span>
             </button>
             <button
               onClick={() => setActiveTab('videos')}
-              className={`px-6 py-3 rounded-full font-medium transition-all flex items-center space-x-2 whitespace-nowrap ${
+              className={`px-3 sm:px-4 md:px-6 py-2 sm:py-2.5 md:py-3 rounded-full text-xs sm:text-sm font-medium transition-all flex items-center space-x-1.5 sm:space-x-2 whitespace-nowrap ${
                 activeTab === 'videos'
                   ? 'bg-gradient-to-r from-[#B8913D] to-[#D4AC5B] text-white'
                   : 'text-gray-300 hover:bg-gray-700/70'
               }`}
             >
-              <Video className="w-4 h-4" />
+              <Video className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               <span>Vidéos</span>
             </button>
             <button
               onClick={() => setActiveTab('orders')}
-              className={`px-6 py-3 rounded-full font-medium transition-all flex items-center space-x-2 whitespace-nowrap ${
+              className={`px-3 sm:px-4 md:px-6 py-2 sm:py-2.5 md:py-3 rounded-full text-xs sm:text-sm font-medium transition-all flex items-center space-x-1.5 sm:space-x-2 whitespace-nowrap ${
                 activeTab === 'orders'
                   ? 'bg-gradient-to-r from-[#B8913D] to-[#D4AC5B] text-white'
                   : 'text-gray-300 hover:bg-gray-700/70'
               }`}
             >
-              <ShoppingBag className="w-4 h-4" />
+              <ShoppingBag className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               <span>Commandes</span>
             </button>
             <button
               onClick={() => setActiveTab('tickets')}
-              className={`px-6 py-3 rounded-full font-medium transition-all flex items-center space-x-2 whitespace-nowrap ${
+              className={`px-3 sm:px-4 md:px-6 py-2 sm:py-2.5 md:py-3 rounded-full text-xs sm:text-sm font-medium transition-all flex items-center space-x-1.5 sm:space-x-2 whitespace-nowrap ${
                 activeTab === 'tickets'
                   ? 'bg-gradient-to-r from-[#B8913D] to-[#D4AC5B] text-white'
                   : 'text-gray-300 hover:bg-gray-700/70'
               }`}
             >
-              <Ticket className="w-4 h-4" />
+              <Ticket className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               <span>Billets</span>
             </button>
           </div>
         </div>
 
         {loading ? (
-          <div className="text-center py-12">
-            <div className="inline-block w-8 h-8 border-4 border-[#B8913D] border-t-transparent rounded-full animate-spin"></div>
+          <div className="text-center py-16 sm:py-20">
+            <div className="inline-block w-10 h-10 sm:w-12 sm:h-12 border-4 border-[#B8913D] border-t-transparent rounded-full animate-spin"></div>
           </div>
         ) : activeTab === 'subscriptions' ? (
           <div className="space-y-4">
             {professorSubscriptions.length === 0 ? (
-              <div className="bg-gradient-to-br from-gray-800/60 to-gray-900/60 backdrop-blur-sm border border-gray-700/50 rounded-3xl p-12 text-center">
-                <User className="w-16 h-16 text-gray-600 mx-auto mb-4" />
-                <h3 className="text-xl font-medium text-white mb-2">Aucun abonnement professeur</h3>
-                <p className="text-gray-400 mb-6">Abonnez-vous à vos professeurs préférés pour accéder à leur contenu exclusif</p>
+              <div className="bg-gradient-to-br from-gray-800/60 to-gray-900/60 backdrop-blur-sm border border-gray-700/50 rounded-2xl sm:rounded-3xl p-8 sm:p-12 text-center">
+                <User className="w-12 h-12 sm:w-16 sm:h-16 text-gray-600 mx-auto mb-4" />
+                <h3 className="text-lg sm:text-xl font-medium text-white mb-2 px-2">Aucun abonnement professeur</h3>
+                <p className="text-sm sm:text-base text-gray-400 mb-6 px-4">Abonnez-vous à vos professeurs préférés pour accéder à leur contenu exclusif</p>
                 <button
                   onClick={() => onNavigate('professors')}
-                  className="px-6 py-3 bg-gradient-to-r from-[#B8913D] to-[#D4AC5B] text-white rounded-full hover:shadow-xl transition-all hover:scale-105"
+                  className="px-5 sm:px-6 py-2.5 sm:py-3 bg-gradient-to-r from-[#B8913D] to-[#D4AC5B] text-white text-sm sm:text-base rounded-full hover:shadow-xl transition-all hover:scale-105"
                 >
                   Découvrir les professeurs
                 </button>
@@ -486,10 +486,10 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
               professorSubscriptions.map((sub) => (
                 <div
                   key={sub.id}
-                  className="bg-gradient-to-br from-gray-800/60 to-gray-900/60 backdrop-blur-sm border border-gray-700/50 rounded-2xl p-6 hover:border-[#B8913D]/50 transition-all group"
+                  className="bg-gradient-to-br from-gray-800/60 to-gray-900/60 backdrop-blur-sm border border-gray-700/50 rounded-xl sm:rounded-2xl p-4 sm:p-6 hover:border-[#B8913D]/50 transition-all group"
                 >
-                  <div className="flex items-start space-x-4">
-                    <div className="w-16 h-16 bg-gray-700 rounded-xl overflow-hidden flex-shrink-0">
+                  <div className="flex flex-col sm:flex-row items-start gap-4">
+                    <div className="w-14 h-14 sm:w-16 sm:h-16 bg-gray-700 rounded-lg sm:rounded-xl overflow-hidden flex-shrink-0">
                       {sub.professors.profiles.avatar_url ? (
                         <img
                           src={sub.professors.profiles.avatar_url}
@@ -498,27 +498,27 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
                         />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center">
-                          <User className="w-8 h-8 text-gray-400" />
+                          <User className="w-6 h-6 sm:w-8 sm:h-8 text-gray-400" />
                         </div>
                       )}
                     </div>
-                    <div className="flex-1">
-                      <h3 className="text-lg font-medium text-white mb-2">
+                    <div className="flex-1 min-w-0 w-full">
+                      <h3 className="text-base sm:text-lg font-medium text-white mb-2">
                         {sub.professors.profiles.full_name}
                       </h3>
-                      <div className="flex flex-wrap items-center gap-3 text-sm">
-                        <span className={`px-3 py-1 rounded-full font-medium border ${getSubscriptionStatusColor(sub.status)}`}>
+                      <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-xs sm:text-sm">
+                        <span className={`px-2 sm:px-3 py-1 rounded-full font-medium border ${getSubscriptionStatusColor(sub.status)}`}>
                           {sub.status === 'active' ? 'Actif' :
                            sub.status === 'cancelled' ? 'Annulé' : 'Inactif'}
                         </span>
                         <span className="text-gray-400 flex items-center space-x-1">
-                          <Calendar className="w-4 h-4" />
-                          <span>Depuis le {new Date(sub.started_at).toLocaleDateString('fr-FR')}</span>
+                          <Calendar className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
+                          <span className="truncate">Depuis le {new Date(sub.started_at).toLocaleDateString('fr-FR')}</span>
                         </span>
                         {sub.expires_at && (
                           <span className="text-gray-400 flex items-center space-x-1">
-                            <Clock className="w-4 h-4" />
-                            <span>Expire le {new Date(sub.expires_at).toLocaleDateString('fr-FR')}</span>
+                            <Clock className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
+                            <span className="truncate">Expire le {new Date(sub.expires_at).toLocaleDateString('fr-FR')}</span>
                           </span>
                         )}
                         <span className="text-[#B8913D] font-medium">
@@ -526,15 +526,15 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
                         </span>
                       </div>
                       {sub.expires_at && isSubscriptionExpiringSoon(sub.expires_at) && sub.status === 'active' && (
-                        <div className="mt-2 flex items-center space-x-2 text-yellow-400 text-sm">
-                          <AlertCircle className="w-4 h-4" />
+                        <div className="mt-2 flex items-center space-x-2 text-yellow-400 text-xs sm:text-sm">
+                          <AlertCircle className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
                           <span>Expire bientôt</span>
                         </div>
                       )}
                     </div>
                     <button
                       onClick={() => onNavigate('professor-' + sub.professor_id)}
-                      className="px-4 py-2 border border-[#B8913D] text-[#B8913D] rounded-lg hover:bg-[#B8913D] hover:text-white transition-all opacity-0 group-hover:opacity-100"
+                      className="w-full sm:w-auto px-4 py-2 border border-[#B8913D] text-[#B8913D] rounded-lg hover:bg-[#B8913D] hover:text-white transition-all sm:opacity-0 sm:group-hover:opacity-100 text-sm"
                     >
                       Voir le profil
                     </button>
@@ -546,13 +546,13 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
         ) : activeTab === 'programs' ? (
           <div className="space-y-4">
             {programPurchases.length === 0 ? (
-              <div className="bg-gradient-to-br from-gray-800/60 to-gray-900/60 backdrop-blur-sm border border-gray-700/50 rounded-3xl p-12 text-center">
-                <Package className="w-16 h-16 text-gray-600 mx-auto mb-4" />
-                <h3 className="text-xl font-medium text-white mb-2">Aucun programme acheté</h3>
-                <p className="text-gray-400 mb-6">Achetez des programmes complets pour progresser efficacement</p>
+              <div className="bg-gradient-to-br from-gray-800/60 to-gray-900/60 backdrop-blur-sm border border-gray-700/50 rounded-2xl sm:rounded-3xl p-8 sm:p-12 text-center">
+                <Package className="w-12 h-12 sm:w-16 sm:h-16 text-gray-600 mx-auto mb-4" />
+                <h3 className="text-lg sm:text-xl font-medium text-white mb-2 px-2">Aucun programme acheté</h3>
+                <p className="text-sm sm:text-base text-gray-400 mb-6 px-4">Achetez des programmes complets pour progresser efficacement</p>
                 <button
                   onClick={() => onNavigate('academy')}
-                  className="px-6 py-3 bg-gradient-to-r from-[#B8913D] to-[#D4AC5B] text-white rounded-full hover:shadow-xl transition-all hover:scale-105"
+                  className="px-5 sm:px-6 py-2.5 sm:py-3 bg-gradient-to-r from-[#B8913D] to-[#D4AC5B] text-white text-sm sm:text-base rounded-full hover:shadow-xl transition-all hover:scale-105"
                 >
                   Explorer les programmes
                 </button>
@@ -561,10 +561,10 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
               programPurchases.map((purchase) => (
                 <div
                   key={purchase.id}
-                  className="bg-gradient-to-br from-gray-800/60 to-gray-900/60 backdrop-blur-sm border border-gray-700/50 rounded-2xl p-6 hover:border-[#B8913D]/50 transition-all group"
+                  className="bg-gradient-to-br from-gray-800/60 to-gray-900/60 backdrop-blur-sm border border-gray-700/50 rounded-xl sm:rounded-2xl p-4 sm:p-6 hover:border-[#B8913D]/50 transition-all group"
                 >
-                  <div className="flex items-start space-x-4">
-                    <div className="w-24 h-16 bg-gray-700 rounded-lg overflow-hidden flex-shrink-0">
+                  <div className="flex flex-col sm:flex-row items-start gap-4">
+                    <div className="w-full sm:w-24 h-20 sm:h-16 bg-gray-700 rounded-lg overflow-hidden flex-shrink-0">
                       {purchase.programs.thumbnail_url ? (
                         <img
                           src={purchase.programs.thumbnail_url}
@@ -573,17 +573,17 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
                         />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center">
-                          <Package className="w-8 h-8 text-gray-400" />
+                          <Package className="w-6 h-6 sm:w-8 sm:h-8 text-gray-400" />
                         </div>
                       )}
                     </div>
-                    <div className="flex-1">
-                      <h3 className="text-lg font-medium text-white mb-2">
+                    <div className="flex-1 min-w-0 w-full">
+                      <h3 className="text-base sm:text-lg font-medium text-white mb-2">
                         {purchase.programs.title}
                       </h3>
-                      <p className="text-gray-400 text-sm mb-2 line-clamp-2">{purchase.programs.description}</p>
-                      <div className="flex flex-wrap items-center gap-3 text-sm">
-                        <span className={`px-3 py-1 rounded-full font-medium border ${
+                      <p className="text-gray-400 text-xs sm:text-sm mb-2 line-clamp-2">{purchase.programs.description}</p>
+                      <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-xs sm:text-sm">
+                        <span className={`px-2 sm:px-3 py-1 rounded-full font-medium border ${
                           purchase.status === 'active' ? 'bg-green-500/20 text-green-300 border-green-500/30' :
                           purchase.status === 'refunded' ? 'bg-red-500/20 text-red-300 border-red-500/30' :
                           'bg-gray-500/20 text-gray-400 border-gray-500/30'
@@ -596,22 +596,22 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
                           {purchase.programs.level}
                         </span>
                         <span className="text-gray-400 flex items-center space-x-1">
-                          <Calendar className="w-4 h-4" />
-                          <span>Acheté le {new Date(purchase.purchased_at).toLocaleDateString('fr-FR')}</span>
+                          <Calendar className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
+                          <span className="truncate">Acheté le {new Date(purchase.purchased_at).toLocaleDateString('fr-FR')}</span>
                         </span>
                         <span className="text-[#B8913D] font-medium">
                           {purchase.price_paid}€
                         </span>
                       </div>
                       {purchase.expires_at && (
-                        <div className="mt-2 flex items-center space-x-2 text-gray-400 text-sm">
-                          <Clock className="w-4 h-4" />
+                        <div className="mt-2 flex items-center space-x-2 text-gray-400 text-xs sm:text-sm">
+                          <Clock className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
                           <span>Expire le {new Date(purchase.expires_at).toLocaleDateString('fr-FR')}</span>
                         </div>
                       )}
                       {purchase.expires_at && isSubscriptionExpiringSoon(purchase.expires_at) && purchase.status === 'active' && (
-                        <div className="mt-2 flex items-center space-x-2 text-yellow-400 text-sm">
-                          <AlertCircle className="w-4 h-4" />
+                        <div className="mt-2 flex items-center space-x-2 text-yellow-400 text-xs sm:text-sm">
+                          <AlertCircle className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
                           <span>Expire bientôt</span>
                         </div>
                       )}
@@ -619,7 +619,7 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
                     {purchase.status === 'active' && (
                       <button
                         onClick={() => onNavigate('program-' + purchase.program_id)}
-                        className="px-4 py-2 bg-gradient-to-r from-[#B8913D] to-[#D4AC5B] text-white rounded-lg hover:shadow-lg transition-all opacity-0 group-hover:opacity-100"
+                        className="w-full sm:w-auto px-4 py-2 bg-gradient-to-r from-[#B8913D] to-[#D4AC5B] text-white rounded-lg hover:shadow-lg transition-all sm:opacity-0 sm:group-hover:opacity-100 text-sm"
                       >
                         Accéder
                       </button>
@@ -632,13 +632,13 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
         ) : activeTab === 'videos' ? (
           <div className="space-y-4">
             {videoPurchases.length === 0 ? (
-              <div className="bg-gradient-to-br from-gray-800/60 to-gray-900/60 backdrop-blur-sm border border-gray-700/50 rounded-3xl p-12 text-center">
-                <Video className="w-16 h-16 text-gray-600 mx-auto mb-4" />
-                <h3 className="text-xl font-medium text-white mb-2">Aucune vidéo achetée</h3>
-                <p className="text-gray-400 mb-6">Achetez des vidéos individuelles pour enrichir votre apprentissage</p>
+              <div className="bg-gradient-to-br from-gray-800/60 to-gray-900/60 backdrop-blur-sm border border-gray-700/50 rounded-2xl sm:rounded-3xl p-8 sm:p-12 text-center">
+                <Video className="w-12 h-12 sm:w-16 sm:h-16 text-gray-600 mx-auto mb-4" />
+                <h3 className="text-lg sm:text-xl font-medium text-white mb-2 px-2">Aucune vidéo achetée</h3>
+                <p className="text-sm sm:text-base text-gray-400 mb-6 px-4">Achetez des vidéos individuelles pour enrichir votre apprentissage</p>
                 <button
                   onClick={() => onNavigate('academy')}
-                  className="px-6 py-3 bg-gradient-to-r from-[#B8913D] to-[#D4AC5B] text-white rounded-full hover:shadow-xl transition-all hover:scale-105"
+                  className="px-5 sm:px-6 py-2.5 sm:py-3 bg-gradient-to-r from-[#B8913D] to-[#D4AC5B] text-white text-sm sm:text-base rounded-full hover:shadow-xl transition-all hover:scale-105"
                 >
                   Explorer l'académie
                 </button>
@@ -647,10 +647,10 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
               videoPurchases.map((purchase) => (
                 <div
                   key={purchase.id}
-                  className="bg-gradient-to-br from-gray-800/60 to-gray-900/60 backdrop-blur-sm border border-gray-700/50 rounded-2xl p-6 hover:border-[#B8913D]/50 transition-all group"
+                  className="bg-gradient-to-br from-gray-800/60 to-gray-900/60 backdrop-blur-sm border border-gray-700/50 rounded-xl sm:rounded-2xl p-4 sm:p-6 hover:border-[#B8913D]/50 transition-all group"
                 >
-                  <div className="flex items-start space-x-4">
-                    <div className="w-24 h-16 bg-gray-700 rounded-lg overflow-hidden flex-shrink-0">
+                  <div className="flex flex-col sm:flex-row items-start gap-4">
+                    <div className="w-full sm:w-24 h-20 sm:h-16 bg-gray-700 rounded-lg overflow-hidden flex-shrink-0">
                       {purchase.videos.thumbnail_url ? (
                         <img
                           src={purchase.videos.thumbnail_url}
@@ -659,16 +659,16 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
                         />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center">
-                          <Video className="w-8 h-8 text-gray-400" />
+                          <Video className="w-6 h-6 sm:w-8 sm:h-8 text-gray-400" />
                         </div>
                       )}
                     </div>
-                    <div className="flex-1">
-                      <h3 className="text-lg font-medium text-white mb-2">
+                    <div className="flex-1 min-w-0 w-full">
+                      <h3 className="text-base sm:text-lg font-medium text-white mb-2">
                         {purchase.videos.title}
                       </h3>
-                      <div className="flex flex-wrap items-center gap-3 text-sm">
-                        <span className={`px-3 py-1 rounded-full font-medium border ${
+                      <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-xs sm:text-sm">
+                        <span className={`px-2 sm:px-3 py-1 rounded-full font-medium border ${
                           purchase.status === 'active' ? 'bg-green-500/20 text-green-300 border-green-500/30' :
                           purchase.status === 'refunded' ? 'bg-red-500/20 text-red-300 border-red-500/30' :
                           'bg-gray-500/20 text-gray-400 border-gray-500/30'
@@ -681,8 +681,8 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
                           {purchase.videos.level}
                         </span>
                         <span className="text-gray-400 flex items-center space-x-1">
-                          <Calendar className="w-4 h-4" />
-                          <span>Acheté le {new Date(purchase.purchased_at).toLocaleDateString('fr-FR')}</span>
+                          <Calendar className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
+                          <span className="truncate">Acheté le {new Date(purchase.purchased_at).toLocaleDateString('fr-FR')}</span>
                         </span>
                         <span className="text-[#B8913D] font-medium">
                           {purchase.amount_paid}€
@@ -692,7 +692,7 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
                     {purchase.status === 'active' && (
                       <button
                         onClick={() => onNavigate('video-' + purchase.video_id)}
-                        className="px-4 py-2 bg-gradient-to-r from-[#B8913D] to-[#D4AC5B] text-white rounded-lg hover:shadow-lg transition-all opacity-0 group-hover:opacity-100"
+                        className="w-full sm:w-auto px-4 py-2 bg-gradient-to-r from-[#B8913D] to-[#D4AC5B] text-white rounded-lg hover:shadow-lg transition-all sm:opacity-0 sm:group-hover:opacity-100 text-sm"
                       >
                         Regarder
                       </button>
@@ -705,13 +705,13 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
         ) : activeTab === 'orders' ? (
           <div className="space-y-4">
             {orders.length === 0 ? (
-              <div className="bg-gradient-to-br from-gray-800/60 to-gray-900/60 backdrop-blur-sm border border-gray-700/50 rounded-3xl p-12 text-center">
-                <Package className="w-16 h-16 text-gray-600 mx-auto mb-4" />
-                <h3 className="text-xl font-medium text-white mb-2">Aucune commande</h3>
-                <p className="text-gray-400 mb-6">Commandez des produits dans notre boutique</p>
+              <div className="bg-gradient-to-br from-gray-800/60 to-gray-900/60 backdrop-blur-sm border border-gray-700/50 rounded-2xl sm:rounded-3xl p-8 sm:p-12 text-center">
+                <Package className="w-12 h-12 sm:w-16 sm:h-16 text-gray-600 mx-auto mb-4" />
+                <h3 className="text-lg sm:text-xl font-medium text-white mb-2 px-2">Aucune commande</h3>
+                <p className="text-sm sm:text-base text-gray-400 mb-6 px-4">Commandez des produits dans notre boutique</p>
                 <button
                   onClick={() => onNavigate('shop')}
-                  className="px-6 py-3 bg-gradient-to-r from-[#B8913D] to-[#D4AC5B] text-white rounded-full hover:shadow-xl transition-all hover:scale-105"
+                  className="px-5 sm:px-6 py-2.5 sm:py-3 bg-gradient-to-r from-[#B8913D] to-[#D4AC5B] text-white text-sm sm:text-base rounded-full hover:shadow-xl transition-all hover:scale-105"
                 >
                   Visiter la boutique
                 </button>
@@ -720,15 +720,15 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
               orders.map((order) => (
                 <div
                   key={order.id}
-                  className="bg-gradient-to-br from-gray-800/60 to-gray-900/60 backdrop-blur-sm border border-gray-700/50 rounded-2xl p-6"
+                  className="bg-gradient-to-br from-gray-800/60 to-gray-900/60 backdrop-blur-sm border border-gray-700/50 rounded-xl sm:rounded-2xl p-4 sm:p-6"
                 >
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex-1">
-                      <div className="flex items-center space-x-3 mb-2">
-                        <h3 className="text-lg font-medium text-white">
+                  <div className="flex flex-col sm:flex-row items-start justify-between gap-4 mb-4">
+                    <div className="flex-1 w-full min-w-0">
+                      <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-2">
+                        <h3 className="text-base sm:text-lg font-medium text-white">
                           Commande #{order.id.substring(0, 8)}
                         </h3>
-                        <span className={`px-3 py-1 rounded-full text-sm font-medium border ${getOrderStatusColor(order.status)}`}>
+                        <span className={`px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm font-medium border ${getOrderStatusColor(order.status)}`}>
                           {order.status === 'completed' ? 'Livrée' :
                            order.status === 'shipped' ? 'Expédiée' :
                            order.status === 'processing' ? 'En traitement' :
@@ -736,40 +736,40 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
                            order.status === 'pending' ? 'En attente' : 'Annulée'}
                         </span>
                         {order.is_member_order && (
-                          <span className="px-3 py-1 bg-[#B8913D]/20 text-[#B8913D] rounded-full text-xs font-medium border border-[#B8913D]/30">
+                          <span className="px-2 sm:px-3 py-1 bg-[#B8913D]/20 text-[#B8913D] rounded-full text-xs font-medium border border-[#B8913D]/30">
                             Prix membre
                           </span>
                         )}
                       </div>
-                      <div className="flex items-center space-x-4 text-sm text-gray-400">
+                      <div className="flex flex-wrap items-center gap-3 sm:gap-4 text-xs sm:text-sm text-gray-400">
                         <span className="flex items-center space-x-1">
-                          <Calendar className="w-4 h-4" />
+                          <Calendar className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
                           <span>{new Date(order.created_at).toLocaleDateString('fr-FR')}</span>
                         </span>
                         {order.status === 'completed' && (
                           <span className="flex items-center space-x-1 text-green-400">
-                            <CheckCircle className="w-4 h-4" />
+                            <CheckCircle className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
                             <span>Livrée</span>
                           </span>
                         )}
                       </div>
                     </div>
-                    <div className="text-right">
-                      <div className="text-2xl font-bold text-[#B8913D]">
+                    <div className="text-left sm:text-right">
+                      <div className="text-xl sm:text-2xl font-bold text-[#B8913D]">
                         {order.total_amount.toFixed(2)}€
                       </div>
                     </div>
                   </div>
 
                   <div className="border-t border-gray-700/50 pt-4">
-                    <p className="text-sm text-gray-400 mb-2">Articles:</p>
+                    <p className="text-xs sm:text-sm text-gray-400 mb-2">Articles:</p>
                     <div className="space-y-2">
                       {order.order_items.map((item, idx) => (
-                        <div key={idx} className="flex justify-between items-center text-sm">
-                          <span className="text-white">
+                        <div key={idx} className="flex justify-between items-center text-xs sm:text-sm gap-2">
+                          <span className="text-white truncate">
                             {item.product_name} x{item.quantity}
                           </span>
-                          <span className="text-gray-400">
+                          <span className="text-gray-400 flex-shrink-0">
                             {(item.unit_price * item.quantity).toFixed(2)}€
                           </span>
                         </div>
@@ -781,15 +781,15 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
             )}
           </div>
         ) : (
-          <div className="space-y-8">
+          <div className="space-y-6 sm:space-y-8">
             {tickets.length === 0 ? (
-              <div className="bg-gradient-to-br from-gray-800/60 to-gray-900/60 backdrop-blur-sm border border-gray-700/50 rounded-3xl p-12 text-center">
-                <Ticket className="w-16 h-16 text-gray-600 mx-auto mb-4" />
-                <h3 className="text-xl font-medium text-white mb-2">Aucun billet</h3>
-                <p className="text-gray-400 mb-6">Vous n'avez pas encore de billets d'événements</p>
+              <div className="bg-gradient-to-br from-gray-800/60 to-gray-900/60 backdrop-blur-sm border border-gray-700/50 rounded-2xl sm:rounded-3xl p-8 sm:p-12 text-center">
+                <Ticket className="w-12 h-12 sm:w-16 sm:h-16 text-gray-600 mx-auto mb-4" />
+                <h3 className="text-lg sm:text-xl font-medium text-white mb-2 px-2">Aucun billet</h3>
+                <p className="text-sm sm:text-base text-gray-400 mb-6 px-4">Vous n'avez pas encore de billets d'événements</p>
                 <button
                   onClick={() => onNavigate('events')}
-                  className="px-6 py-3 bg-gradient-to-r from-[#B8913D] to-[#D4AC5B] text-white rounded-full hover:shadow-xl transition-all hover:scale-105"
+                  className="px-5 sm:px-6 py-2.5 sm:py-3 bg-gradient-to-r from-[#B8913D] to-[#D4AC5B] text-white text-sm sm:text-base rounded-full hover:shadow-xl transition-all hover:scale-105"
                 >
                   Découvrir les événements
                 </button>
@@ -815,16 +815,16 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
                   return (
                     <div
                       key={event.id}
-                      className="bg-gradient-to-br from-gray-800/60 to-gray-900/60 backdrop-blur-sm border border-gray-700/50 rounded-2xl overflow-hidden"
+                      className="bg-gradient-to-br from-gray-800/60 to-gray-900/60 backdrop-blur-sm border border-gray-700/50 rounded-xl sm:rounded-2xl overflow-hidden"
                     >
-                      <div className="p-6 border-b border-gray-700">
-                        <div className="flex items-start justify-between">
-                          <div>
-                            <h2 className="text-2xl font-medium text-white mb-3">{event.title}</h2>
-                            <div className="space-y-2">
+                      <div className="p-4 sm:p-6 border-b border-gray-700">
+                        <div className="flex flex-col sm:flex-row items-start justify-between gap-3 sm:gap-0">
+                          <div className="w-full">
+                            <h2 className="text-lg sm:text-xl md:text-2xl font-medium text-white mb-2 sm:mb-3">{event.title}</h2>
+                            <div className="space-y-1.5 sm:space-y-2">
                               <div className="flex items-center space-x-2 text-gray-300">
-                                <Calendar className="w-4 h-4 text-[#B8913D]" />
-                                <span className="text-sm">
+                                <Calendar className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#B8913D] flex-shrink-0" />
+                                <span className="text-xs sm:text-sm">
                                   {eventDate.toLocaleDateString('fr-FR', {
                                     weekday: 'long',
                                     year: 'numeric',
@@ -837,39 +837,39 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
                               </div>
                               {event.location && (
                                 <div className="flex items-center space-x-2 text-gray-300">
-                                  <MapPin className="w-4 h-4 text-[#B8913D]" />
-                                  <span className="text-sm">{event.location}</span>
+                                  <MapPin className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#B8913D] flex-shrink-0" />
+                                  <span className="text-xs sm:text-sm truncate">{event.location}</span>
                                 </div>
                               )}
                             </div>
                           </div>
                           {isPast && (
-                            <span className="px-3 py-1 bg-gray-800 text-gray-400 rounded-full text-sm">
+                            <span className="px-2.5 sm:px-3 py-1 bg-gray-800 text-gray-400 rounded-full text-xs sm:text-sm whitespace-nowrap">
                               Événement passé
                             </span>
                           )}
                         </div>
                       </div>
 
-                      <div className="p-6">
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      <div className="p-4 sm:p-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
                           {eventTickets.map((ticket) => (
                             <div
                               key={ticket.id}
-                              className="p-4 bg-gray-800 bg-opacity-50 rounded-xl border border-gray-700 hover:border-[#B8913D] transition-all cursor-pointer"
+                              className="p-3 sm:p-4 bg-gray-800 bg-opacity-50 rounded-lg sm:rounded-xl border border-gray-700 hover:border-[#B8913D] transition-all cursor-pointer active:scale-95"
                               onClick={() => setSelectedTicket(ticket)}
                             >
                               <div className="flex items-start justify-between mb-3">
-                                <div className="flex-1">
-                                  <p className="text-sm font-medium text-[#B8913D] mb-1">
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-xs sm:text-sm font-medium text-[#B8913D] mb-1 truncate">
                                     {ticket.event_ticket_type.ticket_type.name}
                                   </p>
-                                  <p className="text-white font-medium">
+                                  <p className="text-sm sm:text-base text-white font-medium truncate">
                                     {ticket.attendee_first_name} {ticket.attendee_last_name}
                                   </p>
-                                  <p className="text-xs text-gray-400 mt-1">{ticket.attendee_email}</p>
+                                  <p className="text-xs text-gray-400 mt-1 truncate">{ticket.attendee_email}</p>
                                 </div>
-                                <Ticket className="w-5 h-5 text-[#B8913D]" />
+                                <Ticket className="w-4 h-4 sm:w-5 sm:h-5 text-[#B8913D] flex-shrink-0 ml-2" />
                               </div>
 
                               <div className="mt-3 pt-3 border-t border-gray-700">
@@ -878,8 +878,8 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
 
                               {ticket.status === 'used' && ticket.checked_in_at && (
                                 <p className="text-xs text-gray-500 mt-2 flex items-center space-x-1">
-                                  <Clock className="w-3 h-3" />
-                                  <span>
+                                  <Clock className="w-3 h-3 flex-shrink-0" />
+                                  <span className="truncate">
                                     Scanné le {new Date(ticket.checked_in_at).toLocaleDateString('fr-FR', {
                                       day: 'numeric',
                                       month: 'short',
@@ -904,64 +904,64 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
 
       {selectedTicket && (
         <div className="fixed inset-0 bg-black bg-opacity-80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-gray-900 bg-opacity-95 backdrop-blur-sm rounded-2xl max-w-md w-full p-8 border border-[#B8913D] border-opacity-30 shadow-2xl relative">
+          <div className="bg-gray-900 bg-opacity-95 backdrop-blur-sm rounded-xl sm:rounded-2xl max-w-md w-full p-5 sm:p-8 border border-[#B8913D] border-opacity-30 shadow-2xl relative max-h-[90vh] overflow-y-auto">
             <button
               onClick={() => setSelectedTicket(null)}
-              className="absolute top-4 right-4 text-gray-400 hover:text-white transition-colors"
+              className="absolute top-3 right-3 sm:top-4 sm:right-4 text-gray-400 hover:text-white transition-colors z-10"
             >
-              <X className="w-6 h-6" />
+              <X className="w-5 h-5 sm:w-6 sm:h-6" />
             </button>
 
-            <h3 className="text-2xl font-medium text-white mb-6 text-center">Billet d'entrée</h3>
+            <h3 className="text-xl sm:text-2xl font-medium text-white mb-5 sm:mb-6 text-center pr-8">Billet d'entrée</h3>
 
-            <div className="space-y-4 mb-6">
+            <div className="space-y-3 sm:space-y-4 mb-5 sm:mb-6">
               <div>
-                <p className="text-sm text-gray-400">Événement</p>
-                <p className="text-white font-medium">{selectedTicket.event_ticket_type.event.title}</p>
+                <p className="text-xs sm:text-sm text-gray-400">Événement</p>
+                <p className="text-sm sm:text-base text-white font-medium">{selectedTicket.event_ticket_type.event.title}</p>
               </div>
 
               <div>
-                <p className="text-sm text-gray-400">Type de billet</p>
-                <p className="text-[#B8913D] font-medium">{selectedTicket.event_ticket_type.ticket_type.name}</p>
+                <p className="text-xs sm:text-sm text-gray-400">Type de billet</p>
+                <p className="text-sm sm:text-base text-[#B8913D] font-medium">{selectedTicket.event_ticket_type.ticket_type.name}</p>
               </div>
 
               <div>
-                <p className="text-sm text-gray-400">Participant</p>
-                <p className="text-white font-medium">
+                <p className="text-xs sm:text-sm text-gray-400">Participant</p>
+                <p className="text-sm sm:text-base text-white font-medium">
                   {selectedTicket.attendee_first_name} {selectedTicket.attendee_last_name}
                 </p>
-                <p className="text-sm text-gray-400">{selectedTicket.attendee_email}</p>
+                <p className="text-xs sm:text-sm text-gray-400">{selectedTicket.attendee_email}</p>
               </div>
 
               <div>
-                <p className="text-sm text-gray-400 mb-2">Statut</p>
+                <p className="text-xs sm:text-sm text-gray-400 mb-2">Statut</p>
                 {getStatusBadge(selectedTicket.status)}
               </div>
             </div>
 
             {selectedTicket.status === 'valid' && qrCodeUrl && (
               <>
-                <div className="bg-white p-4 rounded-xl mb-6">
+                <div className="bg-white p-3 sm:p-4 rounded-lg sm:rounded-xl mb-5 sm:mb-6">
                   <img src={qrCodeUrl} alt="QR Code" className="w-full" />
                 </div>
 
-                <div className="flex space-x-3">
+                <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3">
                   <button
                     onClick={downloadQRCode}
-                    className="flex-1 py-3 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition-colors flex items-center justify-center space-x-2"
+                    className="flex-1 py-2.5 sm:py-3 bg-gray-800 text-white text-sm sm:text-base rounded-lg hover:bg-gray-700 transition-colors flex items-center justify-center space-x-2"
                   >
                     <Download className="w-4 h-4" />
                     <span>Télécharger</span>
                   </button>
                   <button
                     onClick={() => cancelTicket(selectedTicket.id)}
-                    className="flex-1 py-3 border border-red-600 text-red-400 rounded-lg hover:bg-red-900 hover:bg-opacity-20 transition-colors"
+                    className="flex-1 py-2.5 sm:py-3 border border-red-600 text-red-400 text-sm sm:text-base rounded-lg hover:bg-red-900 hover:bg-opacity-20 transition-colors"
                   >
                     Annuler
                   </button>
                 </div>
 
-                <p className="text-xs text-gray-500 text-center mt-4">
+                <p className="text-xs text-gray-500 text-center mt-3 sm:mt-4">
                   Présentez ce QR code à l'entrée de l'événement
                 </p>
               </>
@@ -969,10 +969,10 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
 
             {selectedTicket.status === 'used' && (
               <div className="text-center">
-                <CheckCircle className="w-16 h-16 text-green-400 mx-auto mb-3" />
-                <p className="text-green-400 font-medium mb-2">Billet déjà utilisé</p>
+                <CheckCircle className="w-12 h-12 sm:w-16 sm:h-16 text-green-400 mx-auto mb-3" />
+                <p className="text-sm sm:text-base text-green-400 font-medium mb-2">Billet déjà utilisé</p>
                 {selectedTicket.checked_in_at && (
-                  <p className="text-sm text-gray-400">
+                  <p className="text-xs sm:text-sm text-gray-400">
                     Scanné le {new Date(selectedTicket.checked_in_at).toLocaleDateString('fr-FR', {
                       day: 'numeric',
                       month: 'long',
@@ -987,8 +987,8 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
 
             {selectedTicket.status === 'cancelled' && (
               <div className="text-center">
-                <XCircle className="w-16 h-16 text-red-400 mx-auto mb-3" />
-                <p className="text-red-400 font-medium">Billet annulé</p>
+                <XCircle className="w-12 h-12 sm:w-16 sm:h-16 text-red-400 mx-auto mb-3" />
+                <p className="text-sm sm:text-base text-red-400 font-medium">Billet annulé</p>
               </div>
             )}
           </div>
