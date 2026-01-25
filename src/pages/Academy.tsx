@@ -281,34 +281,34 @@ export function Academy({ onNavigate }: AcademyProps) {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-950 via-gray-900 to-gray-950 pt-20 pb-12 relative">
+    <div className="min-h-screen bg-gradient-to-b from-gray-950 via-gray-900 to-gray-950 pt-16 sm:pt-20 pb-8 sm:pb-12 relative">
       <BackgroundDecor />
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-        <div className="mb-8 relative">
-          <div className="absolute -top-20 right-0 w-96 h-96 bg-[#B8913D] opacity-5 rounded-full blur-3xl pointer-events-none"></div>
-          <h1 className="text-3xl sm:text-4xl font-light text-white mb-2 relative">
+        <div className="mb-6 sm:mb-8 relative">
+          <div className="absolute -top-20 right-0 w-64 h-64 sm:w-96 sm:h-96 bg-[#B8913D] opacity-5 rounded-full blur-3xl pointer-events-none"></div>
+          <h1 className="text-2xl sm:text-3xl md:text-4xl font-light text-white mb-2 relative">
             {t('academy.header.title')}
           </h1>
-          <p className="text-gray-400 relative">
+          <p className="text-sm sm:text-base text-gray-400 relative">
             {hasAccess ? t('academy.header.accessFull') : t('academy.header.accessLimited')}
           </p>
         </div>
 
         {!hasAccess && (
-          <div className="mb-8 p-6 bg-gradient-to-br from-[#B8913D] to-[#A07F35] rounded-2xl text-white relative overflow-hidden shadow-xl">
-            <div className="absolute top-0 right-0 w-40 h-40 bg-white opacity-5 rounded-full blur-2xl"></div>
-            <div className="absolute bottom-0 left-0 w-40 h-40 bg-white opacity-5 rounded-full blur-2xl"></div>
+          <div className="mb-6 sm:mb-8 p-5 sm:p-6 md:p-8 bg-gradient-to-br from-[#B8913D] to-[#A07F35] rounded-2xl sm:rounded-3xl text-white relative overflow-hidden shadow-xl">
+            <div className="absolute top-0 right-0 w-32 h-32 sm:w-40 sm:h-40 bg-white opacity-5 rounded-full blur-2xl"></div>
+            <div className="absolute bottom-0 left-0 w-32 h-32 sm:w-40 sm:h-40 bg-white opacity-5 rounded-full blur-2xl"></div>
             <div className="relative">
-              <h3 className="text-xl font-medium mb-2">{t('academy.banner.title')}</h3>
-              <p className="mb-2 opacity-90">
+              <h3 className="text-lg sm:text-xl md:text-2xl font-medium mb-2">{t('academy.banner.title')}</h3>
+              <p className="mb-2 opacity-90 text-sm sm:text-base leading-relaxed">
                 {t('academy.banner.description')}
               </p>
-              <p className="mb-4 text-lg font-light">
+              <p className="mb-4 sm:mb-5 text-base sm:text-lg md:text-xl font-light">
                 {t('academy.banner.pricing')}
               </p>
               <button
                 onClick={() => onNavigate('account')}
-                className="px-6 py-2 bg-white text-[#B8913D] font-medium rounded-full hover:bg-gray-100 transition-colors shadow-lg"
+                className="px-6 py-3 sm:px-7 sm:py-3.5 text-sm sm:text-base bg-white text-[#B8913D] font-medium rounded-xl sm:rounded-full hover:bg-gray-100 transition-all shadow-lg hover:shadow-xl transform hover:scale-105"
               >
                 {t('academy.banner.button')}
               </button>
@@ -316,41 +316,41 @@ export function Academy({ onNavigate }: AcademyProps) {
           </div>
         )}
 
-        <div className="mb-8">
-          <div className="bg-gradient-to-br from-gray-800/60 to-gray-900/60 backdrop-blur-sm border border-gray-700/50 rounded-3xl p-6 shadow-xl">
-            <div className="flex items-center mb-6">
-              <Filter className="w-5 h-5 text-gold-400 mr-2" />
-              <h3 className="text-lg font-medium text-white">{t('academy.filters.title')}</h3>
+        <div className="mb-6 sm:mb-8">
+          <div className="bg-gradient-to-br from-gray-800/60 to-gray-900/60 backdrop-blur-sm border border-gray-700/50 rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xl">
+            <div className="flex items-center mb-4 sm:mb-6">
+              <Filter className="w-4 h-4 sm:w-5 sm:h-5 text-gold-400 mr-2" />
+              <h3 className="text-base sm:text-lg font-medium text-white">{t('academy.filters.title')}</h3>
             </div>
 
-            <div className="space-y-4">
+            <div className="space-y-3 sm:space-y-4">
               <div className="relative group">
-                <Search className="absolute left-5 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within:text-gold-400 transition-colors" />
+                <Search className="absolute left-3 sm:left-5 top-1/2 transform -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 text-gray-400 group-focus-within:text-gold-400 transition-colors" />
                 <input
                   type="text"
                   placeholder={t('academy.filters.searchPlaceholder')}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-14 pr-12 py-4 bg-gray-900/50 border border-gray-700/50 rounded-2xl focus:border-gold-500 focus:ring-2 focus:ring-gold-500/20 outline-none shadow-sm text-white placeholder-gray-400 transition-all"
+                  className="w-full pl-10 sm:pl-14 pr-10 sm:pr-12 py-3 sm:py-4 text-sm sm:text-base bg-gray-900/50 border border-gray-700/50 rounded-xl sm:rounded-2xl focus:border-gold-500 focus:ring-2 focus:ring-gold-500/20 outline-none shadow-sm text-white placeholder-gray-400 transition-all"
                 />
                 {searchQuery && (
                   <button
                     onClick={() => setSearchQuery('')}
-                    className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-white transition-colors p-1 hover:bg-gray-700/50 rounded-full"
+                    className="absolute right-3 sm:right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-white transition-colors p-1 hover:bg-gray-700/50 rounded-full"
                   >
-                    <X className="w-5 h-5" />
+                    <X className="w-4 h-4 sm:w-5 sm:h-5" />
                   </button>
                 )}
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-3 sm:space-y-0 sm:grid sm:grid-cols-1 md:grid-cols-2 sm:gap-4">
                 {professors.length > 0 && (
                   <div className="relative group">
-                    <User className="absolute left-5 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within:text-gold-400 transition-colors pointer-events-none z-10" />
+                    <User className="absolute left-3 sm:left-5 top-1/2 transform -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 text-gray-400 group-focus-within:text-gold-400 transition-colors pointer-events-none z-10" />
                     <select
                       value={selectedProfessor}
                       onChange={(e) => setSelectedProfessor(e.target.value)}
-                      className="w-full pl-14 pr-4 py-4 bg-gray-900/50 border border-gray-700/50 rounded-2xl outline-none focus:border-gold-500 focus:ring-2 focus:ring-gold-500/20 text-white font-medium transition-all appearance-none cursor-pointer"
+                      className="w-full pl-10 sm:pl-14 pr-10 py-3 sm:py-4 text-sm sm:text-base bg-gray-900/50 border border-gray-700/50 rounded-xl sm:rounded-2xl outline-none focus:border-gold-500 focus:ring-2 focus:ring-gold-500/20 text-white font-medium transition-all appearance-none cursor-pointer"
                       style={{
                         backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%239ca3af' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`,
                         backgroundPosition: 'right 1rem center',
@@ -366,12 +366,12 @@ export function Academy({ onNavigate }: AcademyProps) {
                   </div>
                 )}
 
-                <div className="flex items-center space-x-2 bg-gray-900/50 border border-gray-700/50 rounded-2xl p-2">
+                <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center sm:space-x-2 bg-gray-900/50 border border-gray-700/50 rounded-xl sm:rounded-2xl p-2">
                   <button
                     onClick={() => setSelectedLevel('all')}
-                    className={`flex-1 px-3 py-2.5 rounded-xl font-medium transition-all text-sm ${
+                    className={`px-3 py-2.5 sm:flex-1 sm:px-3 sm:py-2.5 rounded-lg sm:rounded-xl font-medium transition-all text-xs sm:text-sm whitespace-nowrap ${
                       selectedLevel === 'all'
-                        ? 'bg-gradient-to-r from-[#B8913D] to-[#D4AC5B] text-white shadow-lg scale-105'
+                        ? 'bg-gradient-to-r from-[#B8913D] to-[#D4AC5B] text-white shadow-lg'
                         : 'text-gray-400 hover:text-white hover:bg-gray-800/50'
                     }`}
                   >
@@ -379,9 +379,9 @@ export function Academy({ onNavigate }: AcademyProps) {
                   </button>
                   <button
                     onClick={() => setSelectedLevel('beginner')}
-                    className={`flex-1 px-3 py-2.5 rounded-xl font-medium transition-all text-sm ${
+                    className={`px-3 py-2.5 sm:flex-1 sm:px-3 sm:py-2.5 rounded-lg sm:rounded-xl font-medium transition-all text-xs sm:text-sm whitespace-nowrap ${
                       selectedLevel === 'beginner'
-                        ? 'bg-gradient-to-r from-[#B8913D] to-[#D4AC5B] text-white shadow-lg scale-105'
+                        ? 'bg-gradient-to-r from-[#B8913D] to-[#D4AC5B] text-white shadow-lg'
                         : 'text-gray-400 hover:text-white hover:bg-gray-800/50'
                     }`}
                   >
@@ -389,9 +389,9 @@ export function Academy({ onNavigate }: AcademyProps) {
                   </button>
                   <button
                     onClick={() => setSelectedLevel('intermediate')}
-                    className={`flex-1 px-3 py-2.5 rounded-xl font-medium transition-all text-sm ${
+                    className={`px-3 py-2.5 sm:flex-1 sm:px-3 sm:py-2.5 rounded-lg sm:rounded-xl font-medium transition-all text-xs sm:text-sm whitespace-nowrap ${
                       selectedLevel === 'intermediate'
-                        ? 'bg-gradient-to-r from-[#B8913D] to-[#D4AC5B] text-white shadow-lg scale-105'
+                        ? 'bg-gradient-to-r from-[#B8913D] to-[#D4AC5B] text-white shadow-lg'
                         : 'text-gray-400 hover:text-white hover:bg-gray-800/50'
                     }`}
                   >
@@ -399,9 +399,9 @@ export function Academy({ onNavigate }: AcademyProps) {
                   </button>
                   <button
                     onClick={() => setSelectedLevel('advanced')}
-                    className={`flex-1 px-3 py-2.5 rounded-xl font-medium transition-all text-sm ${
+                    className={`px-3 py-2.5 sm:flex-1 sm:px-3 sm:py-2.5 rounded-lg sm:rounded-xl font-medium transition-all text-xs sm:text-sm whitespace-nowrap ${
                       selectedLevel === 'advanced'
-                        ? 'bg-gradient-to-r from-[#B8913D] to-[#D4AC5B] text-white shadow-lg scale-105'
+                        ? 'bg-gradient-to-r from-[#B8913D] to-[#D4AC5B] text-white shadow-lg'
                         : 'text-gray-400 hover:text-white hover:bg-gray-800/50'
                     }`}
                   >
@@ -411,39 +411,39 @@ export function Academy({ onNavigate }: AcademyProps) {
               </div>
 
               {(searchQuery || selectedProfessor !== 'all' || selectedLevel !== 'all') && (
-                <div className="flex flex-wrap gap-2 pt-2 border-t border-gray-700/50">
-                  <span className="text-sm text-gray-400 mr-2">{t('academy.filters.activeLabel')}</span>
+                <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-gray-700/50">
+                  <span className="text-xs sm:text-sm text-gray-400 font-medium">{t('academy.filters.activeLabel')}</span>
                   {searchQuery && (
-                    <span className="inline-flex items-center px-3 py-1 bg-gold-500/20 text-gold-300 rounded-full text-sm border border-gold-500/30">
-                      <Search className="w-3 h-3 mr-1.5" />
-                      {searchQuery}
+                    <span className="inline-flex items-center px-2.5 sm:px-3 py-1.5 bg-gold-500/20 text-gold-300 rounded-full text-xs sm:text-sm border border-gold-500/30">
+                      <Search className="w-3 h-3 mr-1.5 flex-shrink-0" />
+                      <span className="max-w-[120px] sm:max-w-none truncate">{searchQuery}</span>
                       <button
                         onClick={() => setSearchQuery('')}
-                        className="ml-2 hover:text-white"
+                        className="ml-1.5 sm:ml-2 hover:text-white flex-shrink-0"
                       >
                         <X className="w-3 h-3" />
                       </button>
                     </span>
                   )}
                   {selectedProfessor !== 'all' && (
-                    <span className="inline-flex items-center px-3 py-1 bg-gold-500/20 text-gold-300 rounded-full text-sm border border-gold-500/30">
-                      <User className="w-3 h-3 mr-1.5" />
-                      {professors.find(p => p.id === selectedProfessor)?.name}
+                    <span className="inline-flex items-center px-2.5 sm:px-3 py-1.5 bg-gold-500/20 text-gold-300 rounded-full text-xs sm:text-sm border border-gold-500/30">
+                      <User className="w-3 h-3 mr-1.5 flex-shrink-0" />
+                      <span className="max-w-[120px] sm:max-w-none truncate">{professors.find(p => p.id === selectedProfessor)?.name}</span>
                       <button
                         onClick={() => setSelectedProfessor('all')}
-                        className="ml-2 hover:text-white"
+                        className="ml-1.5 sm:ml-2 hover:text-white flex-shrink-0"
                       >
                         <X className="w-3 h-3" />
                       </button>
                     </span>
                   )}
                   {selectedLevel !== 'all' && (
-                    <span className="inline-flex items-center px-3 py-1 bg-gold-500/20 text-gold-300 rounded-full text-sm border border-gold-500/30">
-                      <Filter className="w-3 h-3 mr-1.5" />
-                      {getLevelLabel(selectedLevel)}
+                    <span className="inline-flex items-center px-2.5 sm:px-3 py-1.5 bg-gold-500/20 text-gold-300 rounded-full text-xs sm:text-sm border border-gold-500/30">
+                      <Filter className="w-3 h-3 mr-1.5 flex-shrink-0" />
+                      <span>{getLevelLabel(selectedLevel)}</span>
                       <button
                         onClick={() => setSelectedLevel('all')}
-                        className="ml-2 hover:text-white"
+                        className="ml-1.5 sm:ml-2 hover:text-white flex-shrink-0"
                       >
                         <X className="w-3 h-3" />
                       </button>
@@ -455,7 +455,7 @@ export function Academy({ onNavigate }: AcademyProps) {
                       setSelectedProfessor('all');
                       setSelectedLevel('all');
                     }}
-                    className="inline-flex items-center px-3 py-1 text-gray-400 hover:text-white text-sm transition-colors"
+                    className="inline-flex items-center px-2.5 sm:px-3 py-1.5 text-gray-400 hover:text-white text-xs sm:text-sm font-medium transition-colors"
                   >
                     {t('academy.filters.resetAll')}
                   </button>
@@ -465,13 +465,13 @@ export function Academy({ onNavigate }: AcademyProps) {
           </div>
         </div>
 
-        <div className="flex justify-center mb-8">
-          <div className="inline-flex space-x-2 p-2 bg-gray-800/50 border border-gray-700/50 rounded-full shadow-md">
+        <div className="flex justify-center mb-6 sm:mb-8">
+          <div className="inline-flex w-full max-w-md space-x-2 p-2 bg-gray-800/50 border border-gray-700/50 rounded-2xl sm:rounded-full shadow-md">
             <button
               onClick={() => setActiveTab('programs')}
-              className={`px-6 py-3 rounded-full font-medium transition-all flex items-center space-x-2 ${
+              className={`flex-1 px-4 py-3 sm:px-6 sm:py-3 rounded-xl sm:rounded-full font-medium transition-all flex items-center justify-center space-x-2 text-sm sm:text-base ${
                 activeTab === 'programs'
-                  ? 'bg-gradient-to-r from-[#B8913D] to-[#D4AC5B] text-white shadow-glow scale-105'
+                  ? 'bg-gradient-to-r from-[#B8913D] to-[#D4AC5B] text-white shadow-lg'
                   : 'text-white hover:bg-white/10'
               }`}
             >
@@ -480,9 +480,9 @@ export function Academy({ onNavigate }: AcademyProps) {
             </button>
             <button
               onClick={() => setActiveTab('videos')}
-              className={`px-6 py-3 rounded-full font-medium transition-all flex items-center space-x-2 ${
+              className={`flex-1 px-4 py-3 sm:px-6 sm:py-3 rounded-xl sm:rounded-full font-medium transition-all flex items-center justify-center space-x-2 text-sm sm:text-base ${
                 activeTab === 'videos'
-                  ? 'bg-gradient-to-r from-[#B8913D] to-[#D4AC5B] text-white shadow-glow scale-105'
+                  ? 'bg-gradient-to-r from-[#B8913D] to-[#D4AC5B] text-white shadow-lg'
                   : 'text-white hover:bg-white/10'
               }`}
             >
@@ -498,9 +498,9 @@ export function Academy({ onNavigate }: AcademyProps) {
               <div className="inline-block w-8 h-8 border-4 border-[#B8913D] border-t-transparent rounded-full animate-spin"></div>
             </div>
           ) : filteredPrograms.length === 0 ? (
-            <div className="text-center py-12 bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-700/50 rounded-2xl">
-              <Folder className="w-12 h-12 text-gray-600 mx-auto mb-3" />
-              <p className="text-gray-400">
+            <div className="text-center py-12 sm:py-16 px-4 bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-700/50 rounded-2xl">
+              <Folder className="w-10 h-10 sm:w-12 sm:h-12 text-gray-600 mx-auto mb-3" />
+              <p className="text-sm sm:text-base text-gray-400">
                 {searchQuery || selectedProfessor !== 'all' || selectedLevel !== 'all'
                   ? t('academy.empty.programsFiltered')
                   : t('academy.empty.programsNone')}
@@ -637,23 +637,23 @@ export function Academy({ onNavigate }: AcademyProps) {
               </div>
 
               {totalPages > 1 && (
-                <div className="flex items-center justify-center gap-4 mt-8">
+                <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 mt-8">
                   <button
                     onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                     disabled={currentPage === 1}
-                    className="px-6 py-3 rounded-full bg-gray-900 bg-opacity-60 backdrop-blur-sm border border-[#B8913D] border-opacity-30 text-white disabled:opacity-50 disabled:cursor-not-allowed hover:bg-opacity-80 transition-all"
+                    className="w-full sm:w-auto px-6 py-3 rounded-xl sm:rounded-full bg-gray-900 bg-opacity-60 backdrop-blur-sm border border-[#B8913D] border-opacity-30 text-white text-sm sm:text-base font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-opacity-80 transition-all"
                   >
                     Précédent
                   </button>
 
-                  <span className="text-white px-4">
+                  <span className="text-white text-sm sm:text-base font-medium px-4">
                     Page {currentPage} sur {totalPages}
                   </span>
 
                   <button
                     onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
                     disabled={currentPage === totalPages}
-                    className="px-6 py-3 rounded-full bg-gradient-to-r from-[#B8913D] to-[#A07F35] text-white disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-lg transition-all"
+                    className="w-full sm:w-auto px-6 py-3 rounded-xl sm:rounded-full bg-gradient-to-r from-[#B8913D] to-[#A07F35] text-white text-sm sm:text-base font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-lg transition-all"
                   >
                     Suivant
                   </button>
@@ -667,9 +667,9 @@ export function Academy({ onNavigate }: AcademyProps) {
               <div className="inline-block w-8 h-8 border-4 border-[#B8913D] border-t-transparent rounded-full animate-spin"></div>
             </div>
           ) : levelVideos.length === 0 ? (
-            <div className="text-center py-12 bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-700/50 rounded-2xl">
-              <VideoIcon className="w-12 h-12 text-gray-600 mx-auto mb-3" />
-              <p className="text-gray-400">
+            <div className="text-center py-12 sm:py-16 px-4 bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-700/50 rounded-2xl">
+              <VideoIcon className="w-10 h-10 sm:w-12 sm:h-12 text-gray-600 mx-auto mb-3" />
+              <p className="text-sm sm:text-base text-gray-400">
                 {searchQuery || selectedProfessor !== 'all' || selectedLevel !== 'all'
                   ? t('academy.empty.videosFiltered')
                   : t('academy.empty.videosNone')}
@@ -775,23 +775,23 @@ export function Academy({ onNavigate }: AcademyProps) {
               </div>
 
               {totalPages > 1 && (
-                <div className="flex items-center justify-center gap-4 mt-8">
+                <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 mt-8">
                   <button
                     onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                     disabled={currentPage === 1}
-                    className="px-6 py-3 rounded-full bg-gray-900 bg-opacity-60 backdrop-blur-sm border border-[#B8913D] border-opacity-30 text-white disabled:opacity-50 disabled:cursor-not-allowed hover:bg-opacity-80 transition-all"
+                    className="w-full sm:w-auto px-6 py-3 rounded-xl sm:rounded-full bg-gray-900 bg-opacity-60 backdrop-blur-sm border border-[#B8913D] border-opacity-30 text-white text-sm sm:text-base font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-opacity-80 transition-all"
                   >
                     Précédent
                   </button>
 
-                  <span className="text-white px-4">
+                  <span className="text-white text-sm sm:text-base font-medium px-4">
                     Page {currentPage} sur {totalPages}
                   </span>
 
                   <button
                     onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
                     disabled={currentPage === totalPages}
-                    className="px-6 py-3 rounded-full bg-gradient-to-r from-[#B8913D] to-[#A07F35] text-white disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-lg transition-all"
+                    className="w-full sm:w-auto px-6 py-3 rounded-xl sm:rounded-full bg-gradient-to-r from-[#B8913D] to-[#A07F35] text-white text-sm sm:text-base font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-lg transition-all"
                   >
                     Suivant
                   </button>
@@ -804,11 +804,11 @@ export function Academy({ onNavigate }: AcademyProps) {
 
       {lockedVideoModal && (
         <div
-          className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+          className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 sm:p-6"
           onClick={() => setLockedVideoModal(null)}
         >
           <div
-            className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-3xl max-w-2xl w-full border border-gray-700 shadow-2xl overflow-hidden"
+            className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl sm:rounded-3xl max-w-2xl w-full border border-gray-700 shadow-2xl overflow-hidden max-h-[90vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="relative aspect-video bg-gradient-to-br from-gray-100 to-gray-200 overflow-hidden">
@@ -833,14 +833,14 @@ export function Academy({ onNavigate }: AcademyProps) {
               </div>
               <button
                 onClick={() => setLockedVideoModal(null)}
-                className="absolute top-4 right-4 w-10 h-10 bg-black/50 hover:bg-black/70 rounded-full flex items-center justify-center text-white transition-colors backdrop-blur-sm"
+                className="absolute top-3 right-3 sm:top-4 sm:right-4 w-10 h-10 sm:w-12 sm:h-12 bg-black/60 hover:bg-black/80 rounded-full flex items-center justify-center text-white transition-colors backdrop-blur-sm z-10 shadow-lg"
               >
-                <X className="w-5 h-5" />
+                <X className="w-5 h-5 sm:w-6 sm:h-6" />
               </button>
             </div>
 
-            <div className="p-6">
-              <div className="flex items-center space-x-2 mb-3">
+            <div className="p-4 sm:p-6">
+              <div className="flex flex-wrap items-center gap-2 mb-3">
                 <span className={`px-3 py-1 rounded-full text-xs font-medium border ${
                   lockedVideoModal.level === 'beginner' ? 'bg-green-500/20 text-green-400 border-green-500/30' :
                   lockedVideoModal.level === 'intermediate' ? 'bg-blue-500/20 text-blue-400 border-blue-500/30' :
@@ -862,17 +862,17 @@ export function Academy({ onNavigate }: AcademyProps) {
                 </span>
               </div>
 
-              <h2 className="text-2xl font-medium text-white mb-3">
+              <h2 className="text-xl sm:text-2xl font-medium text-white mb-3">
                 {lockedVideoModal.title}
               </h2>
 
               {lockedVideoModal.description && (
-                <p className="text-gray-300 mb-4 leading-relaxed">
+                <p className="text-sm sm:text-base text-gray-300 mb-4 leading-relaxed">
                   {lockedVideoModal.description}
                 </p>
               )}
 
-              <div className="flex items-center space-x-4 text-sm text-gray-400 mb-6 pb-6 border-b border-gray-700">
+              <div className="flex flex-wrap items-center gap-3 sm:gap-4 text-sm text-gray-400 mb-6 pb-6 border-b border-gray-700">
                 <div className="flex items-center">
                   <Clock className="w-4 h-4 mr-1.5" />
                   <span>{lockedVideoModal.duration_minutes} {t('academy.card.minutes')}</span>
@@ -887,40 +887,40 @@ export function Academy({ onNavigate }: AcademyProps) {
                 )}
               </div>
 
-              <div className="space-y-3">
+              <div className="space-y-3 sm:space-y-4">
                 {!user ? (
                   <>
-                    <p className="text-gray-300 text-center mb-4">
+                    <p className="text-sm sm:text-base text-gray-300 text-center mb-4">
                       {t('academy.modal.loginMessage')}
                     </p>
                     <button
                       onClick={() => onNavigate('signin')}
-                      className="w-full py-3 bg-gradient-to-r from-[#B8913D] to-[#D4AC5B] text-white font-medium rounded-xl hover:shadow-glow transition-all"
+                      className="w-full py-3 sm:py-3.5 text-sm sm:text-base bg-gradient-to-r from-[#B8913D] to-[#D4AC5B] text-white font-medium rounded-xl hover:shadow-glow transition-all"
                     >
                       {t('academy.modal.login')}
                     </button>
                   </>
                 ) : lockedVideoModal.visibility === 'platform' ? (
                   <>
-                    <p className="text-gray-300 text-center mb-4">
+                    <p className="text-sm sm:text-base text-gray-300 text-center mb-4">
                       Cette vidéo est réservée aux abonnés NEXA Academy. Accédez à tous les contenus exclusifs de la plateforme.
                     </p>
                     <button
                       onClick={() => onNavigate('account')}
-                      className="w-full py-3 bg-gradient-to-r from-[#B8913D] to-[#D4AC5B] text-white font-medium rounded-xl hover:shadow-glow transition-all"
+                      className="w-full py-3 sm:py-3.5 text-sm sm:text-base bg-gradient-to-r from-[#B8913D] to-[#D4AC5B] text-white font-medium rounded-xl hover:shadow-glow transition-all"
                     >
                       S'abonner à NEXA Academy
                     </button>
                   </>
                 ) : lockedVideoModal.visibility === 'subscribers_only' ? (
                   <>
-                    <p className="text-gray-300 text-center mb-4">
+                    <p className="text-sm sm:text-base text-gray-300 text-center mb-4">
                       {t('academy.modal.subscribeProfessor')}
                     </p>
                     {lockedVideoModal.professor_id && (
                       <button
                         onClick={() => onNavigate(`professor-${lockedVideoModal.professor_id}`)}
-                        className="w-full py-3 bg-gradient-to-r from-[#B8913D] to-[#D4AC5B] text-white font-medium rounded-xl hover:shadow-glow transition-all"
+                        className="w-full py-3 sm:py-3.5 text-sm sm:text-base bg-gradient-to-r from-[#B8913D] to-[#D4AC5B] text-white font-medium rounded-xl hover:shadow-glow transition-all"
                       >
                         {t('academy.modal.viewProfessor')}
                       </button>
@@ -928,12 +928,12 @@ export function Academy({ onNavigate }: AcademyProps) {
                   </>
                 ) : (
                   <>
-                    <p className="text-gray-300 text-center mb-4">
+                    <p className="text-sm sm:text-base text-gray-300 text-center mb-4">
                       {t('academy.modal.subscribeNexa')}
                     </p>
                     <button
                       onClick={() => onNavigate('account')}
-                      className="w-full py-3 bg-gradient-to-r from-[#B8913D] to-[#D4AC5B] text-white font-medium rounded-xl hover:shadow-glow transition-all"
+                      className="w-full py-3 sm:py-3.5 text-sm sm:text-base bg-gradient-to-r from-[#B8913D] to-[#D4AC5B] text-white font-medium rounded-xl hover:shadow-glow transition-all"
                     >
                       {t('academy.modal.subscribeButton')}
                     </button>
@@ -942,7 +942,7 @@ export function Academy({ onNavigate }: AcademyProps) {
 
                 <button
                   onClick={() => setLockedVideoModal(null)}
-                  className="w-full py-3 bg-gray-700 hover:bg-gray-600 text-white font-medium rounded-xl transition-colors"
+                  className="w-full py-3 sm:py-3.5 text-sm sm:text-base bg-gray-700 hover:bg-gray-600 text-white font-medium rounded-xl transition-colors"
                 >
                   {t('academy.modal.close')}
                 </button>
