@@ -295,20 +295,20 @@ export function Academy({ onNavigate }: AcademyProps) {
         </div>
 
         {!hasAccess && (
-          <div className="mb-6 sm:mb-8 p-5 sm:p-6 md:p-8 bg-gradient-to-br from-[#B8913D] to-[#A07F35] rounded-2xl sm:rounded-3xl text-white relative overflow-hidden shadow-xl">
+          <div className="mb-6 sm:mb-8 p-4 sm:p-6 md:p-8 bg-gradient-to-br from-[#B8913D] to-[#A07F35] rounded-xl sm:rounded-3xl text-white relative overflow-hidden shadow-xl">
             <div className="absolute top-0 right-0 w-32 h-32 sm:w-40 sm:h-40 bg-white opacity-5 rounded-full blur-2xl"></div>
             <div className="absolute bottom-0 left-0 w-32 h-32 sm:w-40 sm:h-40 bg-white opacity-5 rounded-full blur-2xl"></div>
             <div className="relative">
-              <h3 className="text-lg sm:text-xl md:text-2xl font-medium mb-2">{t('academy.banner.title')}</h3>
-              <p className="mb-2 opacity-90 text-sm sm:text-base leading-relaxed">
+              <h3 className="text-base sm:text-xl md:text-2xl font-medium mb-1.5 sm:mb-2">{t('academy.banner.title')}</h3>
+              <p className="mb-2 sm:mb-2 opacity-90 text-xs sm:text-base leading-snug sm:leading-relaxed">
                 {t('academy.banner.description')}
               </p>
-              <p className="mb-4 sm:mb-5 text-base sm:text-lg md:text-xl font-light">
+              <p className="mb-3 sm:mb-5 text-sm sm:text-lg md:text-xl font-light">
                 {t('academy.banner.pricing')}
               </p>
               <button
                 onClick={() => onNavigate('account')}
-                className="px-6 py-3 sm:px-7 sm:py-3.5 text-sm sm:text-base bg-white text-[#B8913D] font-medium rounded-xl sm:rounded-full hover:bg-gray-100 transition-all shadow-lg hover:shadow-xl transform hover:scale-105"
+                className="px-5 py-2.5 sm:px-7 sm:py-3.5 text-xs sm:text-base bg-white text-[#B8913D] font-medium rounded-lg sm:rounded-full hover:bg-gray-100 transition-all shadow-lg hover:shadow-xl transform hover:scale-105"
               >
                 {t('academy.banner.button')}
               </button>
