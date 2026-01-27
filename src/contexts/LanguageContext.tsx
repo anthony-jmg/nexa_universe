@@ -46,7 +46,7 @@ const translations: Record<Language, Record<string, string>> = {
     'landing.cta.pricePrefix': 'À partir de',
     'landing.cta.priceSuffix': '/mois',
     'landing.cta.button': 'Commencer Maintenant',
-    'landing.footer.copyright': '© 2024 NEXA Academy. Tous droits réservés.',
+    'landing.footer.copyright': '© 2024 NEXA UNIVERSE. Tous droits réservés.',
 
     'academy.header.title': 'Academy',
     'academy.header.accessFull': 'Accès complet à tous les niveaux',
@@ -111,7 +111,7 @@ const translations: Record<Language, Record<string, string>> = {
     'professors.card.watchIntro': 'Regarder l\'Introduction',
     'professors.card.viewProfile': 'Voir le Profil & Cours',
 
-    'shop.header.brand': 'NEXA',
+    'shop.header.brand': 'NEXA UNIVERSE',
     'shop.header.title': 'Shop',
     'shop.header.subtitle': 'Marchandises exclusives et pass événements',
     'shop.header.memberActive': 'Prix membre actif',
@@ -266,7 +266,7 @@ const translations: Record<Language, Record<string, string>> = {
     'account.billing.noHistory': 'Aucun historique de facturation disponible',
 
     'signin.header.title': 'Bon Retour',
-    'signin.header.subtitle': 'Connectez-vous pour continuer votre parcours d\'apprentissage',
+    'signin.header.subtitle': 'Accédez à votre espace personnel',
     'signin.form.email': 'Email',
     'signin.form.emailPlaceholder': 'votre@email.com',
     'signin.form.password': 'Mot de passe',
@@ -277,7 +277,7 @@ const translations: Record<Language, Record<string, string>> = {
     'signin.footer.signUp': 'S\'inscrire',
 
     'signup.header.title': 'Commencez Votre Voyage',
-    'signup.header.subtitle': 'Créez votre compte et commencez à apprendre la kizomba',
+    'signup.header.subtitle': 'Rejoignez NEXA Universe dès aujourd\'hui',
     'signup.form.fullName': 'Nom Complet',
     'signup.form.fullNamePlaceholder': 'Votre nom',
     'signup.form.email': 'Email',
@@ -382,7 +382,7 @@ const translations: Record<Language, Record<string, string>> = {
     'landing.cta.pricePrefix': 'From just',
     'landing.cta.priceSuffix': '/month',
     'landing.cta.button': 'Get Started Now',
-    'landing.footer.copyright': '© 2024 NEXA Academy. All rights reserved.',
+    'landing.footer.copyright': '© 2024 NEXA UNIVERSE. All rights reserved.',
 
     'academy.header.title': 'Academy',
     'academy.header.accessFull': 'Full access to all levels',
@@ -447,7 +447,7 @@ const translations: Record<Language, Record<string, string>> = {
     'professors.card.watchIntro': 'Watch Introduction',
     'professors.card.viewProfile': 'View Profile & Courses',
 
-    'shop.header.brand': 'NEXA',
+    'shop.header.brand': 'NEXA UNIVERSE',
     'shop.header.title': 'Shop',
     'shop.header.subtitle': 'Exclusive merchandise and event passes',
     'shop.header.memberActive': 'Member pricing active',
@@ -586,7 +586,7 @@ const translations: Record<Language, Record<string, string>> = {
     'account.billing.noHistory': 'No billing history available',
 
     'signin.header.title': 'Welcome Back',
-    'signin.header.subtitle': 'Sign in to continue your learning journey',
+    'signin.header.subtitle': 'Access your personal space',
     'signin.form.email': 'Email',
     'signin.form.emailPlaceholder': 'your@email.com',
     'signin.form.password': 'Password',
@@ -597,7 +597,7 @@ const translations: Record<Language, Record<string, string>> = {
     'signin.footer.signUp': 'Sign up',
 
     'signup.header.title': 'Start Your Journey',
-    'signup.header.subtitle': 'Create your account and begin learning kizomba',
+    'signup.header.subtitle': 'Join NEXA Universe today',
     'signup.form.fullName': 'Full Name',
     'signup.form.fullNamePlaceholder': 'Your name',
     'signup.form.email': 'Email',
@@ -702,7 +702,7 @@ const translations: Record<Language, Record<string, string>> = {
     'landing.cta.pricePrefix': 'A partir de',
     'landing.cta.priceSuffix': '/mês',
     'landing.cta.button': 'Começar Agora',
-    'landing.footer.copyright': '© 2024 NEXA Academy. Todos os direitos reservados.',
+    'landing.footer.copyright': '© 2024 NEXA UNIVERSE. Todos os direitos reservados.',
 
     'academy.header.title': 'Academia',
     'academy.header.accessFull': 'Acesso completo a todos os níveis',
@@ -767,7 +767,7 @@ const translations: Record<Language, Record<string, string>> = {
     'professors.card.watchIntro': 'Assistir Introdução',
     'professors.card.viewProfile': 'Ver Perfil e Cursos',
 
-    'shop.header.brand': 'NEXA',
+    'shop.header.brand': 'NEXA UNIVERSE',
     'shop.header.title': 'Loja',
     'shop.header.subtitle': 'Produtos exclusivos e passes para eventos',
     'shop.header.memberActive': 'Preço de membro ativo',
@@ -906,7 +906,7 @@ const translations: Record<Language, Record<string, string>> = {
     'account.billing.noHistory': 'Nenhum histórico de faturamento disponível',
 
     'signin.header.title': 'Bem-Vindo de Volta',
-    'signin.header.subtitle': 'Faça login para continuar sua jornada de aprendizado',
+    'signin.header.subtitle': 'Acesse seu espaço pessoal',
     'signin.form.email': 'E-mail',
     'signin.form.emailPlaceholder': 'seu@email.com',
     'signin.form.password': 'Senha',
@@ -917,7 +917,7 @@ const translations: Record<Language, Record<string, string>> = {
     'signin.footer.signUp': 'Criar conta',
 
     'signup.header.title': 'Comece Sua Jornada',
-    'signup.header.subtitle': 'Crie sua conta e comece a aprender kizomba',
+    'signup.header.subtitle': 'Junte-se ao NEXA Universe hoje',
     'signup.form.fullName': 'Nome Completo',
     'signup.form.fullNamePlaceholder': 'Seu nome',
     'signup.form.email': 'E-mail',
@@ -1022,7 +1022,7 @@ const translations: Record<Language, Record<string, string>> = {
     'landing.cta.pricePrefix': 'Desde solo',
     'landing.cta.priceSuffix': '/mes',
     'landing.cta.button': 'Comenzar Ahora',
-    'landing.footer.copyright': '© 2024 NEXA Academy. Todos los derechos reservados.',
+    'landing.footer.copyright': '© 2024 NEXA UNIVERSE. Todos los derechos reservados.',
 
     'academy.header.title': 'Academia',
     'academy.header.accessFull': 'Acceso completo a todos los niveles',
@@ -1087,7 +1087,7 @@ const translations: Record<Language, Record<string, string>> = {
     'professors.card.watchIntro': 'Ver Introducción',
     'professors.card.viewProfile': 'Ver Perfil y Cursos',
 
-    'shop.header.brand': 'NEXA',
+    'shop.header.brand': 'NEXA UNIVERSE',
     'shop.header.title': 'Tienda',
     'shop.header.subtitle': 'Productos exclusivos y pases para eventos',
     'shop.header.memberActive': 'Precio de miembro activo',
@@ -1226,7 +1226,7 @@ const translations: Record<Language, Record<string, string>> = {
     'account.billing.noHistory': 'No hay historial de facturación disponible',
 
     'signin.header.title': 'Bienvenido de Nuevo',
-    'signin.header.subtitle': 'Inicia sesión para continuar tu viaje de aprendizaje',
+    'signin.header.subtitle': 'Accede a tu espacio personal',
     'signin.form.email': 'Correo Electrónico',
     'signin.form.emailPlaceholder': 'tu@email.com',
     'signin.form.password': 'Contraseña',
@@ -1237,7 +1237,7 @@ const translations: Record<Language, Record<string, string>> = {
     'signin.footer.signUp': 'Crear cuenta',
 
     'signup.header.title': 'Comienza Tu Viaje',
-    'signup.header.subtitle': 'Crea tu cuenta y comienza a aprender kizomba',
+    'signup.header.subtitle': 'Únete a NEXA Universe hoy',
     'signup.form.fullName': 'Nombre Completo',
     'signup.form.fullNamePlaceholder': 'Tu nombre',
     'signup.form.email': 'Correo Electrónico',

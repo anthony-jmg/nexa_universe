@@ -47,15 +47,15 @@ export function SignIn({ onNavigate }: SignInProps) {
           <span className="text-sm">Retour à l'accueil</span>
         </button>
 
-        <div className="text-center mb-8">
-          <div className="flex items-center justify-center mb-6">
-            <img src="/nexa-logo.png" alt="NEXA" className="h-16 w-auto" />
+        <div className="text-center mb-6 sm:mb-8">
+          <div className="flex items-center justify-center mb-4 sm:mb-6">
+            <img src="/nexa-logo.png" alt="NEXA" className="h-12 sm:h-14 md:h-16 w-auto drop-shadow-[0_0_10px_rgba(212,172,91,0.3)]" />
           </div>
-          <h2 className="text-3xl font-light text-white mb-2">{t('signin.header.title')}</h2>
-          <p className="text-gray-400">{t('signin.header.subtitle')}</p>
+          <h2 className="text-2xl sm:text-3xl font-light text-white mb-2">{t('signin.header.title')}</h2>
+          <p className="text-sm sm:text-base text-gray-400">{t('signin.header.subtitle')}</p>
         </div>
 
-        <div className="bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-700/50 rounded-2xl shadow-sm p-8">
+        <div className="bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-700/50 rounded-xl sm:rounded-2xl shadow-sm p-6 sm:p-8">
           <form onSubmit={handleSubmit} className="space-y-6">
             {error && (
               <div className="flex items-start space-x-3 p-4 bg-red-500/20 border border-red-500/30 rounded-lg">
