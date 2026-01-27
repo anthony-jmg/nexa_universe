@@ -380,17 +380,19 @@ export function Account({ onNavigate }: AccountProps) {
                     />
                   </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">
-                      {t('account.profile.role')}
-                    </label>
-                    <input
-                      type="text"
-                      value={profile?.role || 'student'}
-                      disabled
-                      className="w-full px-4 py-3 border border-gray-700 rounded-lg bg-gray-900 text-gray-400 capitalize"
-                    />
-                  </div>
+                  {profile?.role === 'professor' && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-300 mb-2">
+                        {t('account.profile.role')}
+                      </label>
+                      <input
+                        type="text"
+                        value={profile?.role || 'student'}
+                        disabled
+                        className="w-full px-4 py-3 border border-gray-700 rounded-lg bg-gray-900 text-gray-400 capitalize"
+                      />
+                    </div>
+                  )}
 
                   {message && (
                     <div className={`p-4 rounded-lg ${
