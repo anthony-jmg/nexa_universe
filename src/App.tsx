@@ -53,12 +53,27 @@ function AppContent() {
   const { user, loading } = useAuth();
 
   useEffect(() => {
-    const hashParams = new URLSearchParams(window.location.hash.substring(1));
-    const type = hashParams.get('type');
+    // Check both hash and query params for recovery tokens
+    const checkForRecoveryToken = () => {
+      const hash = window.location.hash;
 
-    if (type === 'recovery') {
-      setCurrentPage('reset-password');
-    }
+      // Check if URL contains #reset-password or recovery indicators
+      if (hash.includes('reset-password') || hash.includes('type=recovery') || hash.includes('access_token')) {
+        setCurrentPage('reset-password');
+        return true;
+      }
+
+      // Also check query params as fallback
+      const queryParams = new URLSearchParams(window.location.search);
+      if (queryParams.get('type') === 'recovery' || queryParams.get('access_token')) {
+        setCurrentPage('reset-password');
+        return true;
+      }
+
+      return false;
+    };
+
+    const hasRecoveryToken = checkForRecoveryToken();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'PASSWORD_RECOVERY') {
