@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Lock, Eye, EyeOff } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useToast } from '../contexts/ToastContext';
@@ -14,10 +14,51 @@ export const ResetPassword: React.FC<ResetPasswordProps> = ({ onNavigate }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [sessionReady, setSessionReady] = useState(false);
+  const [checkingSession, setCheckingSession] = useState(true);
   const { showToast } = useToast();
+
+  useEffect(() => {
+    // Wait for Supabase to process the recovery token and establish a session
+    const checkSession = async () => {
+      try {
+        // Give Supabase time to process the URL and establish session
+        await new Promise(resolve => setTimeout(resolve, 500));
+
+        const { data: { session }, error } = await supabase.auth.getSession();
+
+        if (error) {
+          console.error('Session error:', error);
+          showToast('Lien de réinitialisation invalide ou expiré', 'error');
+          setTimeout(() => onNavigate('forgot-password'), 2000);
+          return;
+        }
+
+        if (!session) {
+          showToast('Session non trouvée. Veuillez demander un nouveau lien.', 'error');
+          setTimeout(() => onNavigate('forgot-password'), 2000);
+          return;
+        }
+
+        setSessionReady(true);
+      } catch (error) {
+        console.error('Error checking session:', error);
+        showToast('Erreur lors de la vérification de la session', 'error');
+      } finally {
+        setCheckingSession(false);
+      }
+    };
+
+    checkSession();
+  }, [onNavigate, showToast]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!sessionReady) {
+      showToast('Session non prête. Veuillez patienter...', 'error');
+      return;
+    }
 
     if (!password || !confirmPassword) {
       showToast('Veuillez remplir tous les champs', 'error');
@@ -46,7 +87,7 @@ export const ResetPassword: React.FC<ResetPasswordProps> = ({ onNavigate }) => {
       showToast('Mot de passe mis à jour avec succès', 'success');
 
       setTimeout(() => {
-        onNavigate('academy');
+        onNavigate('signin');
       }, 1500);
     } catch (error: any) {
       console.error('Password update error:', error);
@@ -55,6 +96,21 @@ export const ResetPassword: React.FC<ResetPasswordProps> = ({ onNavigate }) => {
       setLoading(false);
     }
   };
+
+  if (checkingSession) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-gray-950 via-gray-900 to-gray-950 flex items-center justify-center px-4">
+        <BackgroundDecor />
+        <div className="text-center relative z-10">
+          <div className="flex items-center justify-center mb-6">
+            <img src="/nexa-logo.png" alt="NEXA" className="h-16 w-auto animate-pulse drop-shadow-[0_0_10px_rgba(212,172,91,0.3)]" />
+          </div>
+          <div className="inline-block w-8 h-8 border-4 border-gold-500 border-t-transparent rounded-full animate-spin"></div>
+          <p className="mt-4 text-gray-400">Vérification de votre lien...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-950 via-gray-900 to-gray-950 flex items-center justify-center px-4 sm:px-6 lg:px-8 py-12 relative">
@@ -131,7 +187,7 @@ export const ResetPassword: React.FC<ResetPasswordProps> = ({ onNavigate }) => {
 
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || !sessionReady}
               className="w-full bg-gradient-to-r from-gold-500 to-gold-600 text-white py-3 rounded-lg font-medium hover:from-gold-600 hover:to-gold-700 transition-all shadow-lg hover:shadow-gold-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? (
@@ -139,6 +195,8 @@ export const ResetPassword: React.FC<ResetPasswordProps> = ({ onNavigate }) => {
                   <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
                   Mise à jour...
                 </span>
+              ) : !sessionReady ? (
+                'Vérification en cours...'
               ) : (
                 'Réinitialiser le mot de passe'
               )}
