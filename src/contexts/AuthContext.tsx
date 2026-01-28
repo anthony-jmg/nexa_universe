@@ -35,16 +35,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        fetchProfile(session.user.id);
-      }
-      setLoading(false);
-    });
+    // Check if URL contains recovery token - if so, wait for Supabase to process it
+    const hash = window.location.hash;
+    const hasRecoveryToken = hash.includes('type=recovery') || hash.includes('access_token');
+
+    if (hasRecoveryToken) {
+      console.log('🔑 Recovery token detected - waiting for Supabase to process it...');
+      // Don't set loading to false immediately, wait for auth state change
+    } else {
+      // No recovery token, proceed normally
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        setUser(session?.user ?? null);
+        if (session?.user) {
+          fetchProfile(session.user.id);
+        }
+        setLoading(false);
+      });
+    }
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       (async () => {
+        console.log('🔐 AuthContext - Auth state changed:', _event);
         setUser(session?.user ?? null);
         if (session?.user) {
           await fetchProfile(session.user.id);

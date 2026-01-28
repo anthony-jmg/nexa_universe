@@ -46,11 +46,26 @@ type NavigationState = {
 function AppContent() {
   // Check for recovery token BEFORE initializing the page state
   const getInitialPage = (): Page => {
+    const url = window.location.href;
     const hash = window.location.hash;
-    if (hash.includes('type=recovery') || hash.includes('access_token')) {
-      console.log('Recovery token detected on initial load');
+
+    console.log('=== Initial page detection ===');
+    console.log('Full URL:', url);
+    console.log('Hash:', hash);
+
+    // Check for recovery token in various formats
+    const hasRecoveryToken =
+      hash.includes('type=recovery') ||
+      hash.includes('access_token') ||
+      url.includes('type=recovery') ||
+      url.includes('#access_token=');
+
+    if (hasRecoveryToken) {
+      console.log('✅ Recovery token detected on initial load - redirecting to reset-password');
       return 'reset-password';
     }
+
+    console.log('❌ No recovery token found - showing landing page');
     return 'landing';
   };
 
@@ -64,9 +79,9 @@ function AppContent() {
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log('Auth state changed:', event);
+      console.log('🔐 Auth state changed:', event, 'Session exists:', !!session);
       if (event === 'PASSWORD_RECOVERY') {
-        console.log('PASSWORD_RECOVERY event detected');
+        console.log('✅ PASSWORD_RECOVERY event detected - setting page to reset-password');
         setCurrentPage('reset-password');
       }
     });
