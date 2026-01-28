@@ -162,6 +162,9 @@ export function ProfessorDashboard({ onNavigate }: ProfessorDashboardProps) {
 
     setLoadingStats(true);
     try {
+      // Get video IDs for this professor
+      const professorVideoIds = videos.map(v => v.id);
+
       const [subscribersData, viewsData, revenueData, topVideosData, programPurchasesData] = await Promise.all([
         supabase
           .from('professor_subscriptions')
@@ -170,27 +173,33 @@ export function ProfessorDashboard({ onNavigate }: ProfessorDashboardProps) {
           .eq('status', 'active')
           .gt('expires_at', new Date().toISOString()),
 
-        supabase
-          .from('video_views')
-          .select('*', { count: 'exact', head: true })
-          .eq('professor_id', user.id),
+        professorVideoIds.length > 0
+          ? supabase
+              .from('video_views')
+              .select('*', { count: 'exact', head: true })
+              .in('video_id', professorVideoIds)
+          : { count: 0 },
 
         supabase
-          .from('stripe_payments')
+          .from('payments')
           .select('amount')
           .eq('status', 'succeeded')
           .or(`metadata->>professor_id.eq.${user.id}`),
 
-        supabase
-          .from('video_views')
-          .select('video_id, videos(title)')
-          .eq('professor_id', user.id),
+        professorVideoIds.length > 0
+          ? supabase
+              .from('video_views')
+              .select('video_id, videos(title)')
+              .in('video_id', professorVideoIds)
+          : { data: [] },
 
-        supabase
-          .from('program_purchases')
-          .select('program_id, price_paid, programs(title)')
-          .eq('status', 'active')
-          .in('program_id', programs.map(p => p.id))
+        programs.length > 0
+          ? supabase
+              .from('program_purchases')
+              .select('program_id, price_paid, programs(title)')
+              .eq('status', 'active')
+              .in('program_id', programs.map(p => p.id))
+          : { data: [] }
       ]);
 
       const totalSubscribers = subscribersData.count || 0;
