@@ -19,37 +19,63 @@ export const ResetPassword: React.FC<ResetPasswordProps> = ({ onNavigate }) => {
   const { showToast } = useToast();
 
   useEffect(() => {
-    // Wait for Supabase to process the recovery token and establish a session
+    let sessionCheckTimeout: NodeJS.Timeout;
+    let maxRetries = 5;
+    let retryCount = 0;
+
+    // Listen for PASSWORD_RECOVERY event from Supabase
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log('Auth event:', event, 'Session:', !!session);
+
+      if (event === 'PASSWORD_RECOVERY') {
+        if (session) {
+          setSessionReady(true);
+          setCheckingSession(false);
+        }
+      } else if (event === 'SIGNED_IN' && window.location.hash.includes('type=recovery')) {
+        // Sometimes the event comes as SIGNED_IN instead of PASSWORD_RECOVERY
+        if (session) {
+          setSessionReady(true);
+          setCheckingSession(false);
+        }
+      }
+    });
+
+    // Retry mechanism to check for session
     const checkSession = async () => {
       try {
-        // Give Supabase time to process the URL and establish session
-        await new Promise(resolve => setTimeout(resolve, 500));
-
         const { data: { session }, error } = await supabase.auth.getSession();
 
-        if (error) {
-          console.error('Session error:', error);
-          showToast('Lien de réinitialisation invalide ou expiré', 'error');
-          setTimeout(() => onNavigate('forgot-password'), 2000);
-          return;
+        if (session && !error) {
+          console.log('Session found via getSession');
+          setSessionReady(true);
+          setCheckingSession(false);
+        } else {
+          retryCount++;
+          if (retryCount < maxRetries) {
+            // Retry after 500ms
+            sessionCheckTimeout = setTimeout(checkSession, 500);
+          } else {
+            // Max retries reached
+            console.error('No session found after retries:', error);
+            showToast('Lien de réinitialisation invalide ou expiré', 'error');
+            setCheckingSession(false);
+            setTimeout(() => onNavigate('forgot-password'), 2000);
+          }
         }
-
-        if (!session) {
-          showToast('Session non trouvée. Veuillez demander un nouveau lien.', 'error');
-          setTimeout(() => onNavigate('forgot-password'), 2000);
-          return;
-        }
-
-        setSessionReady(true);
       } catch (error) {
         console.error('Error checking session:', error);
-        showToast('Erreur lors de la vérification de la session', 'error');
-      } finally {
         setCheckingSession(false);
       }
     };
 
-    checkSession();
+    // Start checking after a short initial delay
+    sessionCheckTimeout = setTimeout(checkSession, 1000);
+
+    return () => {
+      subscription.unsubscribe();
+      clearTimeout(sessionCheckTimeout);
+    };
   }, [onNavigate, showToast]);
 
   const handleSubmit = async (e: React.FormEvent) => {

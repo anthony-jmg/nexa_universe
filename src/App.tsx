@@ -56,16 +56,12 @@ function AppContent() {
     // Check both hash and query params for recovery tokens
     const checkForRecoveryToken = () => {
       const hash = window.location.hash;
+      console.log('Checking for recovery token in hash:', hash);
 
-      // Check if URL contains #reset-password or recovery indicators
-      if (hash.includes('reset-password') || hash.includes('type=recovery') || hash.includes('access_token')) {
-        setCurrentPage('reset-password');
-        return true;
-      }
-
-      // Also check query params as fallback
-      const queryParams = new URLSearchParams(window.location.search);
-      if (queryParams.get('type') === 'recovery' || queryParams.get('access_token')) {
+      // Check if URL contains recovery indicators
+      // Supabase adds parameters like: #access_token=xxx&type=recovery
+      if (hash.includes('type=recovery') || hash.includes('access_token')) {
+        console.log('Recovery token detected in URL');
         setCurrentPage('reset-password');
         return true;
       }
@@ -73,10 +69,12 @@ function AppContent() {
       return false;
     };
 
-    const hasRecoveryToken = checkForRecoveryToken();
+    checkForRecoveryToken();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log('Auth state changed:', event);
       if (event === 'PASSWORD_RECOVERY') {
+        console.log('PASSWORD_RECOVERY event detected');
         setCurrentPage('reset-password');
       }
     });
