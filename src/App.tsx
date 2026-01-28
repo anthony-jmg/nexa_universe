@@ -44,7 +44,17 @@ type NavigationState = {
 };
 
 function AppContent() {
-  const [currentPage, setCurrentPage] = useState<Page>('landing');
+  // Check for recovery token BEFORE initializing the page state
+  const getInitialPage = (): Page => {
+    const hash = window.location.hash;
+    if (hash.includes('type=recovery') || hash.includes('access_token')) {
+      console.log('Recovery token detected on initial load');
+      return 'reset-password';
+    }
+    return 'landing';
+  };
+
+  const [currentPage, setCurrentPage] = useState<Page>(getInitialPage());
   const [currentVideoId, setCurrentVideoId] = useState<string>('');
   const [currentProfessorId, setCurrentProfessorId] = useState<string>('');
   const [currentProgramId, setCurrentProgramId] = useState<string>('');
@@ -53,24 +63,6 @@ function AppContent() {
   const { user, loading } = useAuth();
 
   useEffect(() => {
-    // Check both hash and query params for recovery tokens
-    const checkForRecoveryToken = () => {
-      const hash = window.location.hash;
-      console.log('Checking for recovery token in hash:', hash);
-
-      // Check if URL contains recovery indicators
-      // Supabase adds parameters like: #access_token=xxx&type=recovery
-      if (hash.includes('type=recovery') || hash.includes('access_token')) {
-        console.log('Recovery token detected in URL');
-        setCurrentPage('reset-password');
-        return true;
-      }
-
-      return false;
-    };
-
-    checkForRecoveryToken();
-
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       console.log('Auth state changed:', event);
       if (event === 'PASSWORD_RECOVERY') {
