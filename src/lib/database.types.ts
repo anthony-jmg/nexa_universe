@@ -304,37 +304,40 @@ export interface Database {
           id: string
           user_id: string
           video_id: string
-          professor_id: string | null
-          watched_at: string
-          watch_duration_seconds: number
-          completed: boolean
           progress_percentage: number
-          last_position_seconds: number
+          completed: boolean
+          view_count: number
+          last_watched_at: string
           created_at: string
+          updated_at: string
+          last_position_seconds: number
+          watch_duration_seconds: number
         }
         Insert: {
           id?: string
           user_id: string
           video_id: string
-          professor_id?: string | null
-          watched_at?: string
-          watch_duration_seconds?: number
-          completed?: boolean
           progress_percentage?: number
-          last_position_seconds?: number
+          completed?: boolean
+          view_count?: number
+          last_watched_at?: string
           created_at?: string
+          updated_at?: string
+          last_position_seconds?: number
+          watch_duration_seconds?: number
         }
         Update: {
           id?: string
           user_id?: string
           video_id?: string
-          professor_id?: string | null
-          watched_at?: string
-          watch_duration_seconds?: number
-          completed?: boolean
           progress_percentage?: number
-          last_position_seconds?: number
+          completed?: boolean
+          view_count?: number
+          last_watched_at?: string
           created_at?: string
+          updated_at?: string
+          last_position_seconds?: number
+          watch_duration_seconds?: number
         }
       }
       events: {
@@ -555,104 +558,57 @@ export interface Database {
         Row: {
           id: string
           name: string
-          description: string
+          description: string | null
           price: number
-          member_price: number
-          image_url: string
-          category: 'merchandise' | 'event_pass'
-          type: string
-          stock: number
-          is_active: boolean
-          details: Json
-          order_index: number
           product_type_id: string | null
-          product_size_id: string | null
-          created_at: string
-          updated_at: string
+          image_url: string | null
+          stock_quantity: number | null
+          is_active: boolean | null
+          created_at: string | null
+          updated_at: string | null
         }
         Insert: {
           id?: string
           name: string
-          description?: string
+          description?: string | null
           price?: number
-          member_price?: number
-          image_url?: string
-          category: 'merchandise' | 'event_pass'
-          type?: string
-          stock?: number
-          is_active?: boolean
-          details?: Json
-          order_index?: number
           product_type_id?: string | null
-          product_size_id?: string | null
-          created_at?: string
-          updated_at?: string
+          image_url?: string | null
+          stock_quantity?: number | null
+          is_active?: boolean | null
+          created_at?: string | null
+          updated_at?: string | null
         }
         Update: {
           id?: string
           name?: string
-          description?: string
+          description?: string | null
           price?: number
-          member_price?: number
-          image_url?: string
-          category?: 'merchandise' | 'event_pass'
-          type?: string
-          stock?: number
-          is_active?: boolean
-          details?: Json
-          order_index?: number
           product_type_id?: string | null
-          product_size_id?: string | null
-          created_at?: string
-          updated_at?: string
+          image_url?: string | null
+          stock_quantity?: number | null
+          is_active?: boolean | null
+          created_at?: string | null
+          updated_at?: string | null
         }
       }
       product_types: {
         Row: {
           id: string
           name: string
-          has_sizes: boolean
-          is_active: boolean
-          order_index: number
+          sizes: string[] | null
           created_at: string
         }
         Insert: {
           id?: string
           name: string
-          has_sizes?: boolean
-          is_active?: boolean
-          order_index?: number
+          sizes?: string[] | null
           created_at?: string
         }
         Update: {
           id?: string
           name?: string
-          has_sizes?: boolean
-          is_active?: boolean
-          order_index?: number
-          created_at?: string
-        }
-      }
-      product_sizes: {
-        Row: {
-          id: string
-          product_type_id: string
-          name: string
-          order_index: number
-          created_at: string
-        }
-        Insert: {
-          id?: string
-          product_type_id: string
-          name: string
-          order_index?: number
-          created_at?: string
-        }
-        Update: {
-          id?: string
-          product_type_id?: string
-          name?: string
-          order_index?: number
+          sizes?: string[] | null
           created_at?: string
         }
       }
@@ -794,36 +750,33 @@ export interface Database {
         Row: {
           id: string
           user_id: string
-          item_type: 'video' | 'program'
-          item_id: string
+          reviewable_type: string
+          reviewable_id: string
           rating: number
           comment: string
           is_verified_purchase: boolean
-          helpful_count: number
           created_at: string
           updated_at: string
         }
         Insert: {
           id?: string
           user_id: string
-          item_type: 'video' | 'program'
-          item_id: string
+          reviewable_type: string
+          reviewable_id: string
           rating: number
           comment?: string
           is_verified_purchase?: boolean
-          helpful_count?: number
           created_at?: string
           updated_at?: string
         }
         Update: {
           id?: string
           user_id?: string
-          item_type?: 'video' | 'program'
-          item_id?: string
+          reviewable_type?: string
+          reviewable_id?: string
           rating?: number
           comment?: string
           is_verified_purchase?: boolean
-          helpful_count?: number
           created_at?: string
           updated_at?: string
         }

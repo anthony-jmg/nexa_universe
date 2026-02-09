@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Star, ThumbsUp, Edit2, Trash2 } from 'lucide-react';
+import { Star, Edit2, Trash2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
@@ -10,13 +10,11 @@ interface Review {
   user_id: string;
   rating: number;
   comment: string;
-  helpful_count: number;
   created_at: string;
   profiles: {
     full_name: string;
     avatar_url: string;
   };
-  user_voted_helpful?: boolean;
 }
 
 interface ReviewListProps {
@@ -44,30 +42,13 @@ export default function ReviewList({ itemType, itemId }: ReviewListProps) {
           *,
           profiles!reviews_user_id_fkey(full_name, avatar_url)
         `)
-        .eq('item_type', itemType)
-        .eq('item_id', itemId)
+        .eq('reviewable_type', itemType)
+        .eq('reviewable_id', itemId)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
 
-      if (user) {
-        const { data: votes } = await supabase
-          .from('review_helpful_votes')
-          .select('review_id')
-          .eq('user_id', user.id)
-          .in('review_id', data.map(r => r.id));
-
-        const votedReviewIds = new Set(votes?.map(v => v.review_id));
-
-        const reviewsWithVotes = data.map(review => ({
-          ...review,
-          user_voted_helpful: votedReviewIds.has(review.id)
-        }));
-
-        setReviews(reviewsWithVotes);
-      } else {
-        setReviews(data);
-      }
+      setReviews(data);
 
       const totalReviews = data.length;
       const averageRating = totalReviews > 0
@@ -94,35 +75,6 @@ export default function ReviewList({ itemType, itemId }: ReviewListProps) {
   useEffect(() => {
     fetchReviews();
   }, [itemType, itemId, user]);
-
-  const handleVoteHelpful = async (reviewId: string, currentlyVoted: boolean) => {
-    if (!user) {
-      showToast('Connectez-vous pour voter', 'error');
-      return;
-    }
-
-    try {
-      if (currentlyVoted) {
-        await supabase
-          .from('review_helpful_votes')
-          .delete()
-          .eq('review_id', reviewId)
-          .eq('user_id', user.id);
-      } else {
-        await supabase
-          .from('review_helpful_votes')
-          .insert({
-            review_id: reviewId,
-            user_id: user.id
-          });
-      }
-
-      fetchReviews();
-    } catch (error) {
-      console.error('Error voting helpful:', error);
-      showToast('Erreur lors du vote', 'error');
-    }
-  };
 
   const handleDelete = async (reviewId: string) => {
     if (!confirm('Êtes-vous sûr de vouloir supprimer cet avis ?')) {
@@ -290,18 +242,6 @@ export default function ReviewList({ itemType, itemId }: ReviewListProps) {
                 {review.comment && (
                   <p className="text-gray-300 mb-4 leading-relaxed">{review.comment}</p>
                 )}
-
-                <button
-                  onClick={() => handleVoteHelpful(review.id, review.user_voted_helpful || false)}
-                  className={`flex items-center gap-2 text-sm transition-colors ${
-                    review.user_voted_helpful
-                      ? 'text-[#B8913D]'
-                      : 'text-gray-400 hover:text-[#B8913D]'
-                  }`}
-                >
-                  <ThumbsUp className={`w-4 h-4 ${review.user_voted_helpful ? 'fill-current' : ''}`} />
-                  <span>Utile ({review.helpful_count})</span>
-                </button>
               </>
             )}
           </div>

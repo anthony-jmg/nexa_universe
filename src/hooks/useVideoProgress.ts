@@ -27,7 +27,7 @@ export function useVideoProgress(videoIds: string[] = []) {
           .select('video_id, progress_percentage, last_position_seconds, completed')
           .eq('user_id', user.id)
           .in('video_id', videoIds)
-          .order('watched_at', { ascending: false });
+          .order('last_watched_at', { ascending: false });
 
         if (data) {
           const progressMap: Record<string, VideoProgress> = {};

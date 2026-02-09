@@ -168,7 +168,7 @@ export function VideoPlayer({ videoId, onNavigate, onBack }: VideoPlayerProps) {
       .select('progress_percentage, last_position_seconds, completed')
       .eq('video_id', videoId)
       .eq('user_id', user.id)
-      .order('watched_at', { ascending: false })
+      .order('last_watched_at', { ascending: false })
       .limit(1)
       .maybeSingle();
 
@@ -187,7 +187,7 @@ export function VideoPlayer({ videoId, onNavigate, onBack }: VideoPlayerProps) {
         video_id: videoId,
         progress_percentage: 100,
         completed: true,
-        watched_at: new Date().toISOString()
+        last_watched_at: new Date().toISOString()
       }, {
         onConflict: 'user_id,video_id'
       });

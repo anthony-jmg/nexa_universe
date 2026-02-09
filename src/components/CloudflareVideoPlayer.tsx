@@ -76,7 +76,7 @@ export default function CloudflareVideoPlayer({
         .select('*')
         .eq('user_id', user.id)
         .eq('video_id', videoId)
-        .order('watched_at', { ascending: false })
+        .order('last_watched_at', { ascending: false })
         .limit(1)
         .maybeSingle();
 
@@ -122,20 +122,12 @@ export default function CloudflareVideoPlayer({
         const savedPosition = await loadSavedProgress();
 
         try {
-          const response = await fetch(
-            `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/get-cloudflare-video-token`,
-            {
-              method: 'POST',
-              headers: {
-                'Authorization': `Bearer ${session.access_token}`,
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({ videoId }),
-            }
+          const { data: responseData, error: fnError } = await supabase.functions.invoke(
+            'get-cloudflare-video-token',
+            { body: { videoId } }
           );
 
-          if (response.ok) {
-            const responseData = await response.json();
+          if (!fnError && responseData) {
             const { token, videoId: cfVid } = responseData;
             setStreamUrl(buildIframeUrl(cfVid, token, savedPosition));
             setLoading(false);
