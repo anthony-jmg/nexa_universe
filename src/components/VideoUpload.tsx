@@ -1,5 +1,5 @@
-import { useState, useRef } from 'react';
-import { Upload, X, Loader2, Video, Film, Check, AlertCircle } from 'lucide-react';
+import { useState, useRef, useCallback } from 'react';
+import { Upload, X, Loader2, Film, Check, AlertCircle } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 interface VideoUploadProps {
@@ -7,6 +7,19 @@ interface VideoUploadProps {
   onVideoIdChange: (videoId: string) => void;
   videoTitle?: string;
   label?: string;
+}
+
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+}
+
+function formatTime(seconds: number): string {
+  if (seconds < 60) return `${Math.ceil(seconds)}s`;
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}min ${Math.ceil(seconds % 60)}s`;
+  return `${Math.floor(seconds / 3600)}h ${Math.floor((seconds % 3600) / 60)}min`;
 }
 
 export function VideoUpload({
@@ -17,106 +30,163 @@ export function VideoUpload({
 }: VideoUploadProps) {
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadSpeed, setUploadSpeed] = useState('');
+  const [timeRemaining, setTimeRemaining] = useState('');
+  const [step, setStep] = useState<'idle' | 'requesting' | 'uploading' | 'done'>('idle');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
   const [uploadedVideoId, setUploadedVideoId] = useState('');
+  const [fileName, setFileName] = useState('');
+  const [fileSize, setFileSize] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const xhrRef = useRef<XMLHttpRequest | null>(null);
+  const uploadStartTimeRef = useRef(0);
+
+  const handleCancel = useCallback(() => {
+    if (xhrRef.current) {
+      xhrRef.current.abort();
+      xhrRef.current = null;
+    }
+    setUploading(false);
+    setUploadProgress(0);
+    setStep('idle');
+    setUploadSpeed('');
+    setTimeRemaining('');
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  }, []);
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     if (!file.type.startsWith('video/')) {
-      setError('Please select a video file');
+      setError('Veuillez selectionner un fichier video');
       return;
     }
 
     if (file.size > 500 * 1024 * 1024) {
-      setError('Video size should be less than 500MB');
+      setError('La taille de la video doit etre inferieure a 500MB');
       return;
     }
 
     setUploading(true);
     setUploadProgress(0);
+    setStep('requesting');
     setError('');
     setSuccess(false);
+    setFileName(file.name);
+    setFileSize(formatFileSize(file.size));
+    setUploadSpeed('');
+    setTimeRemaining('');
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
 
       if (!session?.access_token) {
-        throw new Error('You must be logged in to upload videos');
+        throw new Error('Vous devez etre connecte pour uploader des videos');
       }
 
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('title', videoTitle);
-
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-
       if (!supabaseUrl) {
-        throw new Error('Supabase configuration missing');
+        throw new Error('Configuration Supabase manquante');
       }
 
       const apiUrl = `${supabaseUrl}/functions/v1/upload-cloudflare-video`;
 
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 30000);
+
+      let tokenResponse: Response;
+      try {
+        tokenResponse = await fetch(apiUrl, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ title: videoTitle }),
+          signal: controller.signal,
+        });
+      } finally {
+        clearTimeout(timeout);
+      }
+
+      if (!tokenResponse.ok) {
+        const err = await tokenResponse.json().catch(() => ({}));
+        throw new Error(err.error || `Erreur serveur (${tokenResponse.status})`);
+      }
+
+      const { uploadURL, videoId } = await tokenResponse.json();
+
+      if (!uploadURL || !videoId) {
+        throw new Error('Reponse invalide du serveur');
+      }
+
+      setStep('uploading');
+      uploadStartTimeRef.current = Date.now();
+
+      const formData = new FormData();
+      formData.append('file', file);
+
       const xhr = new XMLHttpRequest();
+      xhrRef.current = xhr;
 
       xhr.upload.addEventListener('progress', (event) => {
         if (event.lengthComputable) {
           const percentComplete = Math.round((event.loaded / event.total) * 100);
           setUploadProgress(percentComplete);
+
+          const elapsed = (Date.now() - uploadStartTimeRef.current) / 1000;
+          if (elapsed > 0.5) {
+            const speed = event.loaded / elapsed;
+            setUploadSpeed(`${formatFileSize(Math.round(speed))}/s`);
+
+            const remaining = (event.total - event.loaded) / speed;
+            setTimeRemaining(formatTime(remaining));
+          }
         }
       });
 
-      const uploadPromise = new Promise<any>((resolve, reject) => {
+      const uploadPromise = new Promise<void>((resolve, reject) => {
         xhr.onload = () => {
           if (xhr.status >= 200 && xhr.status < 300) {
-            try {
-              const response = JSON.parse(xhr.responseText);
-              resolve(response);
-            } catch (e) {
-              reject(new Error('Invalid response from server'));
-            }
+            resolve();
           } else {
-            try {
-              const error = JSON.parse(xhr.responseText);
-              reject(new Error(error.error || 'Upload failed'));
-            } catch (e) {
-              reject(new Error(`Upload failed with status ${xhr.status}`));
-            }
+            reject(new Error(`Upload echoue (status ${xhr.status})`));
           }
         };
+        xhr.onerror = () => reject(new Error('Erreur reseau pendant l\'upload'));
+        xhr.onabort = () => reject(new Error('Upload annule'));
 
-        xhr.onerror = () => reject(new Error('Network error during upload'));
-        xhr.onabort = () => reject(new Error('Upload cancelled'));
-
-        xhr.open('POST', apiUrl);
-        xhr.setRequestHeader('Authorization', `Bearer ${session.access_token}`);
+        xhr.open('POST', uploadURL);
         xhr.send(formData);
       });
 
-      const result = await uploadPromise;
+      await uploadPromise;
 
-      if (result.success && result.videoId) {
-        onVideoIdChange(result.videoId);
-        setUploadedVideoId(result.videoId);
-        setSuccess(true);
-      } else {
-        throw new Error('No video ID received from server');
-      }
+      xhrRef.current = null;
+      onVideoIdChange(videoId);
+      setUploadedVideoId(videoId);
+      setSuccess(true);
+      setStep('done');
     } catch (err: any) {
-      console.error('Upload error:', err);
-      let errorMessage = err.message || 'Failed to upload video';
-
-      if (errorMessage.includes('Server configuration error') || errorMessage.includes('CLOUDFLARE')) {
-        errorMessage = 'Cloudflare n\'est pas configuré. Veuillez contacter l\'administrateur pour configurer CLOUDFLARE_API_TOKEN dans les variables d\'environnement.';
+      if (err.name === 'AbortError') {
+        setError('Timeout: le serveur n\'a pas repondu a temps. Reessayez.');
+      } else {
+        let errorMessage = err.message || 'Echec de l\'upload';
+        if (errorMessage.includes('Server configuration error') || errorMessage.includes('CLOUDFLARE')) {
+          errorMessage = 'Cloudflare n\'est pas configure. Contactez l\'administrateur.';
+        }
+        setError(errorMessage);
       }
-
-      setError(errorMessage);
     } finally {
       setUploading(false);
       setUploadProgress(0);
+      setStep('idle');
+      setUploadSpeed('');
+      setTimeRemaining('');
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
@@ -140,51 +210,90 @@ export function VideoUpload({
       </label>
 
       {currentVideoId ? (
-        <div className="relative group">
-          <div className="w-full p-4 bg-gray-800 rounded-lg border border-gray-700">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-3">
-                <div className="p-2 bg-green-500/20 rounded-lg">
-                  <Check className="w-6 h-6 text-green-400" />
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-white">Video Uploaded</p>
-                  <p className="text-xs text-gray-400 font-mono">{currentVideoId}</p>
-                </div>
+        <div className="w-full p-4 bg-gray-800 rounded-lg border border-gray-700">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <div className="p-2 bg-green-500/20 rounded-lg">
+                <Check className="w-6 h-6 text-green-400" />
               </div>
-              <button
-                type="button"
-                onClick={handleRemove}
-                className="p-2 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors"
-              >
-                <X className="w-4 h-4" />
-              </button>
+              <div>
+                <p className="text-sm font-medium text-white">Video Uploaded</p>
+                <p className="text-xs text-gray-400 font-mono">{currentVideoId}</p>
+              </div>
             </div>
+            <button
+              type="button"
+              onClick={handleRemove}
+              className="p-2 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors"
+            >
+              <X className="w-4 h-4" />
+            </button>
           </div>
         </div>
       ) : (
         <div className="w-full bg-gray-800 rounded-lg border-2 border-dashed border-gray-600 hover:border-[#B8913D] transition-colors">
           {uploading ? (
-            <div className="p-8 text-center">
-              <Loader2 className="w-12 h-12 text-[#B8913D] mx-auto mb-4 animate-spin" />
-              <p className="text-sm text-gray-400 mb-2">Uploading video...</p>
-              <div className="max-w-xs mx-auto">
-                <div className="w-full bg-gray-700 rounded-full h-2 mb-2">
-                  <div
-                    className="bg-[#B8913D] h-2 rounded-full transition-all duration-300"
-                    style={{ width: `${uploadProgress}%` }}
-                  ></div>
+            <div className="p-6">
+              {step === 'requesting' && (
+                <div className="text-center">
+                  <Loader2 className="w-10 h-10 text-[#B8913D] mx-auto mb-3 animate-spin" />
+                  <p className="text-sm text-white font-medium mb-1">Preparation de l'upload...</p>
+                  <p className="text-xs text-gray-400">Connexion a Cloudflare en cours</p>
+                  {fileName && (
+                    <p className="text-xs text-gray-500 mt-2">{fileName} ({fileSize})</p>
+                  )}
                 </div>
-                <p className="text-xs text-gray-500">{uploadProgress}%</p>
-              </div>
+              )}
+
+              {step === 'uploading' && (
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-sm text-white font-medium">Upload en cours...</p>
+                    <button
+                      type="button"
+                      onClick={handleCancel}
+                      className="text-xs text-red-400 hover:text-red-300 transition-colors"
+                    >
+                      Annuler
+                    </button>
+                  </div>
+
+                  {fileName && (
+                    <p className="text-xs text-gray-400 mb-3">{fileName} ({fileSize})</p>
+                  )}
+
+                  <div className="w-full bg-gray-700 rounded-full h-3 mb-2">
+                    <div
+                      className="bg-gradient-to-r from-[#B8913D] to-[#D4A84B] h-3 rounded-full transition-all duration-300 relative"
+                      style={{ width: `${uploadProgress}%` }}
+                    >
+                      {uploadProgress > 10 && (
+                        <span className="absolute inset-0 flex items-center justify-center text-[10px] font-bold text-white">
+                          {uploadProgress}%
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between text-xs text-gray-500">
+                    <span>{uploadProgress}%</span>
+                    <div className="flex items-center space-x-3">
+                      {uploadSpeed && <span>{uploadSpeed}</span>}
+                      {timeRemaining && uploadProgress < 100 && (
+                        <span>~ {timeRemaining} restant</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           ) : (
             <label className="cursor-pointer block p-8">
               <div className="text-center">
                 <Film className="w-12 h-12 text-gray-500 mx-auto mb-4" />
-                <p className="text-sm text-gray-400 mb-2">Click to upload video</p>
+                <p className="text-sm text-gray-400 mb-2">Cliquez pour uploader une video</p>
                 <p className="text-xs text-gray-500 mb-1">MP4, MOV, AVI, WebM</p>
-                <p className="text-xs text-gray-600">Maximum size: 500MB</p>
+                <p className="text-xs text-gray-600">Taille maximum : 500MB</p>
               </div>
               <input
                 ref={fileInputRef}
@@ -199,8 +308,8 @@ export function VideoUpload({
       )}
 
       {error && (
-        <div className="flex items-center space-x-2 p-3 bg-red-500/10 border border-red-500/30 rounded-lg">
-          <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0" />
+        <div className="flex items-start space-x-2 p-3 bg-red-500/10 border border-red-500/30 rounded-lg">
+          <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
           <p className="text-sm text-red-400">{error}</p>
         </div>
       )}
@@ -209,7 +318,7 @@ export function VideoUpload({
         <div className="p-4 bg-green-500/10 border border-green-500/30 rounded-lg space-y-2">
           <div className="flex items-center space-x-2">
             <Check className="w-5 h-5 text-green-400 flex-shrink-0" />
-            <p className="text-sm font-medium text-green-400">Vidéo téléchargée avec succès sur Cloudflare !</p>
+            <p className="text-sm font-medium text-green-400">Video uploadee avec succes !</p>
           </div>
           <div className="bg-green-500/5 rounded p-3 border border-green-500/20">
             <p className="text-xs text-green-300 mb-1 font-medium">ID Cloudflare :</p>
@@ -218,8 +327,8 @@ export function VideoUpload({
           <div className="flex items-start space-x-2 mt-3 p-3 bg-blue-500/10 border border-blue-400/30 rounded">
             <AlertCircle className="w-4 h-4 text-blue-400 flex-shrink-0 mt-0.5" />
             <div className="text-xs text-blue-300">
-              <p className="font-medium mb-1">Étape suivante importante :</p>
-              <p>Remplissez tous les champs requis (titre, niveau, durée, etc.) puis cliquez sur le bouton <span className="font-bold">"Ajouter la Vidéo"</span> en bas du formulaire pour finaliser la création de la vidéo.</p>
+              <p className="font-medium mb-1">Etape suivante :</p>
+              <p>Remplissez les champs requis puis cliquez sur <span className="font-bold">"Ajouter la Video"</span> pour finaliser.</p>
             </div>
           </div>
         </div>
@@ -227,7 +336,7 @@ export function VideoUpload({
 
       <div className="flex items-center space-x-2 text-xs text-gray-500">
         <Upload className="w-3 h-3" />
-        <span>Or enter a Cloudflare Video ID manually</span>
+        <span>Ou entrez un ID Cloudflare manuellement</span>
       </div>
 
       <input
