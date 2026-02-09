@@ -4,6 +4,7 @@ import { Loader2 } from 'lucide-react';
 
 interface CloudflareVideoPlayerProps {
   videoId: string;
+  cloudflareVideoId?: string;
   onProgress?: (percentage: number) => void;
   onComplete?: () => void;
   autoplay?: boolean;
@@ -11,6 +12,7 @@ interface CloudflareVideoPlayerProps {
 
 export default function CloudflareVideoPlayer({
   videoId,
+  cloudflareVideoId,
   onProgress,
   onComplete
 }: CloudflareVideoPlayerProps) {
@@ -91,6 +93,20 @@ export default function CloudflareVideoPlayer({
   useEffect(() => {
     let progressInterval: number;
 
+    const buildIframeUrl = (cfVideoId: string, token: string | null, startTime: number) => {
+      const params = new URLSearchParams();
+      if (token) {
+        params.append('token', token);
+      }
+      params.append('controls', 'true');
+      params.append('preload', 'auto');
+      params.append('loop', 'false');
+      if (startTime > 0) {
+        params.append('startTime', startTime.toString());
+      }
+      return `https://customer-${import.meta.env.VITE_CLOUDFLARE_ACCOUNT_HASH}.cloudflarestream.com/${cfVideoId}/iframe?${params.toString()}`;
+    };
+
     const fetchSignedUrl = async () => {
       try {
         setLoading(true);
@@ -105,58 +121,63 @@ export default function CloudflareVideoPlayer({
 
         const savedPosition = await loadSavedProgress();
 
-        console.log('[CLIENT] Calling edge function with videoId:', videoId);
-        console.log('[CLIENT] Session token present:', !!session.access_token);
+        try {
+          const response = await fetch(
+            `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/get-cloudflare-video-token`,
+            {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${session.access_token}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({ videoId }),
+            }
+          );
 
-        const response = await fetch(
-          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/get-cloudflare-video-token`,
-          {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${session.access_token}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ videoId }),
+          if (response.ok) {
+            const responseData = await response.json();
+            const { token, videoId: cfVid } = responseData;
+            setStreamUrl(buildIframeUrl(cfVid, token, savedPosition));
+            setLoading(false);
+
+            progressInterval = window.setInterval(() => {
+              if (iframeRef.current) {
+                iframeRef.current.contentWindow?.postMessage(
+                  JSON.stringify({ event: 'get-current-time' }),
+                  '*'
+                );
+              }
+            }, 1000);
+            return;
           }
-        );
-
-        console.log('[CLIENT] Response status:', response.status);
-        console.log('[CLIENT] Response ok:', response.ok);
-
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({ error: 'Failed to load video' }));
-          console.error('[CLIENT] Error response:', errorData);
-          throw new Error(errorData.error || 'Failed to load video');
+        } catch {
+          // Edge function failed, fall through to direct playback
         }
 
-        const responseData = await response.json();
-        console.log('[CLIENT] Response data:', responseData);
+        if (cloudflareVideoId) {
+          setStreamUrl(buildIframeUrl(cloudflareVideoId, null, savedPosition));
+          setLoading(false);
 
-        const { token, videoId: cloudflareVideoId } = responseData;
-
-        const params = new URLSearchParams();
-        params.append('token', token);
-        params.append('controls', 'true');
-        params.append('preload', 'auto');
-        params.append('loop', 'false');
-        if (savedPosition > 0) {
-          params.append('startTime', savedPosition.toString());
+          progressInterval = window.setInterval(() => {
+            if (iframeRef.current) {
+              iframeRef.current.contentWindow?.postMessage(
+                JSON.stringify({ event: 'get-current-time' }),
+                '*'
+              );
+            }
+          }, 1000);
+          return;
         }
-        const url = `https://customer-${import.meta.env.VITE_CLOUDFLARE_ACCOUNT_HASH}.cloudflarestream.com/${cloudflareVideoId}/iframe?${params.toString()}`;
 
-        setStreamUrl(url);
+        setError('Failed to load video');
         setLoading(false);
-
-        progressInterval = window.setInterval(() => {
-          if (iframeRef.current) {
-            iframeRef.current.contentWindow?.postMessage(
-              JSON.stringify({ event: 'get-current-time' }),
-              '*'
-            );
-          }
-        }, 1000);
       } catch (err) {
-        console.error('Error loading video:', err);
+        if (cloudflareVideoId) {
+          const savedPosition = await loadSavedProgress();
+          setStreamUrl(buildIframeUrl(cloudflareVideoId, null, savedPosition));
+          setLoading(false);
+          return;
+        }
         setError(err instanceof Error ? err.message : 'Failed to load video');
         setLoading(false);
       }

@@ -376,6 +376,7 @@ export function VideoPlayer({ videoId, onNavigate, onBack }: VideoPlayerProps) {
                 {video.cloudflare_video_id ? (
                   <CloudflareVideoPlayer
                     videoId={video.id}
+                    cloudflareVideoId={video.cloudflare_video_id}
                     onComplete={() => {
                       markAsComplete();
                       fetchProgress();
