@@ -95,16 +95,14 @@ export default function CloudflareVideoPlayer({
 
     const buildIframeUrl = (cfVideoId: string, token: string | null, startTime: number) => {
       const params = new URLSearchParams();
-      if (token) {
-        params.append('token', token);
-      }
       params.append('controls', 'true');
       params.append('preload', 'auto');
       params.append('loop', 'false');
       if (startTime > 0) {
         params.append('startTime', startTime.toString());
       }
-      return `https://customer-${import.meta.env.VITE_CLOUDFLARE_ACCOUNT_HASH}.cloudflarestream.com/${cfVideoId}/iframe?${params.toString()}`;
+      const pathId = token || cfVideoId;
+      return `https://customer-${import.meta.env.VITE_CLOUDFLARE_ACCOUNT_HASH}.cloudflarestream.com/${pathId}/iframe?${params.toString()}`;
     };
 
     const fetchSignedUrl = async () => {
