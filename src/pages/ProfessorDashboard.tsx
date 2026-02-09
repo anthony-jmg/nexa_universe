@@ -724,79 +724,81 @@ export function ProfessorDashboard({ onNavigate }: ProfessorDashboardProps) {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-950 via-gray-900 to-gray-950 pt-20 pb-12 relative overflow-hidden">
+    <div className="min-h-screen bg-gradient-to-b from-gray-950 via-gray-900 to-gray-950 pt-16 sm:pt-20 pb-8 sm:pb-12 relative overflow-hidden">
       <BackgroundDecor />
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-        <div className="mb-8 text-center">
-          <h1 className="text-3xl sm:text-4xl font-light text-white mb-2">
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 relative z-10">
+        <div className="mb-6 sm:mb-8 text-center">
+          <h1 className="text-2xl sm:text-3xl md:text-4xl font-light text-white mb-2">
             Tableau de <span className="text-[#B8913D]">Bord</span>
           </h1>
-          <div className="flex justify-center mb-3">
-            <div className="w-16 h-1 bg-gradient-to-r from-transparent via-[#B8913D] to-transparent rounded-full"></div>
+          <div className="flex justify-center mb-2 sm:mb-3">
+            <div className="w-12 sm:w-16 h-1 bg-gradient-to-r from-transparent via-[#B8913D] to-transparent rounded-full"></div>
           </div>
-          <p className="text-gray-400">Gérez vos programmes et vidéos</p>
+          <p className="text-sm sm:text-base text-gray-400">Gérez vos programmes et vidéos</p>
         </div>
 
         {error && (
-          <div className="mb-6 p-4 bg-red-50 border border-red-100 rounded-xl flex items-start space-x-3">
-            <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
-            <p className="text-sm text-red-800">{error}</p>
+          <div className="mb-4 sm:mb-6 p-3 sm:p-4 bg-red-50 border border-red-100 rounded-xl flex items-start space-x-2 sm:space-x-3">
+            <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5 text-red-600 flex-shrink-0 mt-0.5" />
+            <p className="text-xs sm:text-sm text-red-800">{error}</p>
           </div>
         )}
 
         {success && (
-          <div className="mb-6 p-4 bg-green-50 border border-green-100 rounded-xl flex items-start space-x-3">
-            <Check className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
-            <p className="text-sm text-green-800">{success}</p>
+          <div className="mb-4 sm:mb-6 p-3 sm:p-4 bg-green-50 border border-green-100 rounded-xl flex items-start space-x-2 sm:space-x-3">
+            <Check className="w-4 h-4 sm:w-5 sm:h-5 text-green-600 flex-shrink-0 mt-0.5" />
+            <p className="text-xs sm:text-sm text-green-800">{success}</p>
           </div>
         )}
 
-        <div className="flex justify-center mb-8">
-          <div className="inline-flex space-x-3 p-2 bg-gray-800/50 border border-gray-700/50 rounded-full shadow-md">
+        <div className="flex justify-center mb-6 sm:mb-8 overflow-x-auto">
+          <div className="inline-flex space-x-1.5 sm:space-x-3 p-1.5 sm:p-2 bg-gray-800/50 border border-gray-700/50 rounded-full shadow-md min-w-max">
             <button
               onClick={() => setActiveTab('stats')}
-              className={`px-6 py-3 rounded-full font-medium transition-all flex items-center space-x-2 ${
+              className={`px-3 sm:px-6 py-2 sm:py-3 rounded-full text-xs sm:text-base font-medium transition-all flex items-center space-x-1.5 sm:space-x-2 ${
                 activeTab === 'stats'
                   ? 'bg-gradient-to-r from-[#B8913D] to-[#D4AC5B] text-white border-transparent'
                   : 'text-gray-300 hover:bg-gray-700/70'
               }`}
             >
-              <BarChart3 className="w-4 h-4" />
-              <span>Statistiques</span>
+              <BarChart3 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              <span className="hidden xs:inline">Statistiques</span>
+              <span className="xs:hidden">Stats</span>
             </button>
             <button
               onClick={() => setActiveTab('programs')}
-              className={`px-6 py-3 rounded-full font-medium transition-all flex items-center space-x-2 ${
+              className={`px-3 sm:px-6 py-2 sm:py-3 rounded-full text-xs sm:text-base font-medium transition-all flex items-center space-x-1.5 sm:space-x-2 ${
                 activeTab === 'programs'
                   ? 'bg-gradient-to-r from-[#B8913D] to-[#D4AC5B] text-white border-transparent'
                   : 'text-gray-300 hover:bg-gray-700/70'
               }`}
             >
-              <Folder className="w-4 h-4" />
+              <Folder className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               <span>Programmes</span>
             </button>
             <button
               onClick={() => setActiveTab('videos')}
-              className={`px-6 py-3 rounded-full font-medium transition-all flex items-center space-x-2 ${
+              className={`px-3 sm:px-6 py-2 sm:py-3 rounded-full text-xs sm:text-base font-medium transition-all flex items-center space-x-1.5 sm:space-x-2 ${
                 activeTab === 'videos'
                   ? 'bg-gradient-to-r from-[#B8913D] to-[#D4AC5B] text-white border-transparent'
                   : 'text-gray-300 hover:bg-gray-700/70'
               }`}
             >
-              <Video className="w-4 h-4" />
+              <Video className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               <span>Vidéos</span>
             </button>
             <button
               onClick={() => setActiveTab('settings')}
-              className={`px-6 py-3 rounded-full font-medium transition-all flex items-center space-x-2 ${
+              className={`px-3 sm:px-6 py-2 sm:py-3 rounded-full text-xs sm:text-base font-medium transition-all flex items-center space-x-1.5 sm:space-x-2 ${
                 activeTab === 'settings'
                   ? 'bg-gradient-to-r from-[#B8913D] to-[#D4AC5B] text-white border-transparent'
                   : 'text-gray-300 hover:bg-gray-700/70'
               }`}
             >
-              <Settings className="w-4 h-4" />
-              <span>Paramètres</span>
+              <Settings className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              <span className="hidden xs:inline">Paramètres</span>
+              <span className="xs:hidden">Config</span>
             </button>
           </div>
         </div>
@@ -814,81 +816,81 @@ export function ProfessorDashboard({ onNavigate }: ProfessorDashboardProps) {
               </div>
             ) : (
               <>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
-                  <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl p-6 text-white shadow-lg">
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="w-12 h-12 bg-white bg-opacity-20 rounded-xl flex items-center justify-center">
-                        <Users className="w-6 h-6" />
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 md:gap-6">
+                  <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl sm:rounded-2xl p-4 sm:p-6 text-white shadow-lg">
+                    <div className="flex items-center justify-between mb-2 sm:mb-4">
+                      <div className="w-9 h-9 sm:w-12 sm:h-12 bg-white bg-opacity-20 rounded-lg sm:rounded-xl flex items-center justify-center">
+                        <Users className="w-5 h-5 sm:w-6 sm:h-6" />
                       </div>
-                      <TrendingUp className="w-5 h-5 opacity-70" />
+                      <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5 opacity-70" />
                     </div>
-                    <h3 className="text-sm font-medium text-white text-opacity-90 mb-1">Abonnés Actifs</h3>
-                    <p className="text-3xl font-bold">{stats.totalSubscribers}</p>
+                    <h3 className="text-xs sm:text-sm font-medium text-white text-opacity-90 mb-0.5 sm:mb-1">Abonnés Actifs</h3>
+                    <p className="text-xl sm:text-2xl md:text-3xl font-bold">{stats.totalSubscribers}</p>
                   </div>
 
-                  <div className="bg-gradient-to-br from-[#B8913D] to-[#A07F35] rounded-2xl p-6 text-white shadow-lg">
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="w-12 h-12 bg-white bg-opacity-20 rounded-xl flex items-center justify-center">
-                        <Play className="w-6 h-6" />
+                  <div className="bg-gradient-to-br from-[#B8913D] to-[#A07F35] rounded-xl sm:rounded-2xl p-4 sm:p-6 text-white shadow-lg">
+                    <div className="flex items-center justify-between mb-2 sm:mb-4">
+                      <div className="w-9 h-9 sm:w-12 sm:h-12 bg-white bg-opacity-20 rounded-lg sm:rounded-xl flex items-center justify-center">
+                        <Play className="w-5 h-5 sm:w-6 sm:h-6" />
                       </div>
-                      <TrendingUp className="w-5 h-5 opacity-70" />
+                      <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5 opacity-70" />
                     </div>
-                    <h3 className="text-sm font-medium text-white text-opacity-90 mb-1">Total de Vues</h3>
-                    <p className="text-3xl font-bold">{stats.totalViews.toLocaleString()}</p>
+                    <h3 className="text-xs sm:text-sm font-medium text-white text-opacity-90 mb-0.5 sm:mb-1">Total de Vues</h3>
+                    <p className="text-xl sm:text-2xl md:text-3xl font-bold">{stats.totalViews.toLocaleString()}</p>
                   </div>
 
-                  <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-2xl p-6 text-white shadow-lg">
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="w-12 h-12 bg-white bg-opacity-20 rounded-xl flex items-center justify-center">
-                        <DollarSign className="w-6 h-6" />
+                  <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-xl sm:rounded-2xl p-4 sm:p-6 text-white shadow-lg col-span-2 md:col-span-1">
+                    <div className="flex items-center justify-between mb-2 sm:mb-4">
+                      <div className="w-9 h-9 sm:w-12 sm:h-12 bg-white bg-opacity-20 rounded-lg sm:rounded-xl flex items-center justify-center">
+                        <DollarSign className="w-5 h-5 sm:w-6 sm:h-6" />
                       </div>
-                      <TrendingUp className="w-5 h-5 opacity-70" />
+                      <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5 opacity-70" />
                     </div>
-                    <h3 className="text-sm font-medium text-white text-opacity-90 mb-1">Revenus Totaux</h3>
-                    <p className="text-3xl font-bold">{stats.totalRevenue.toFixed(2)}€</p>
+                    <h3 className="text-xs sm:text-sm font-medium text-white text-opacity-90 mb-0.5 sm:mb-1">Revenus Totaux</h3>
+                    <p className="text-xl sm:text-2xl md:text-3xl font-bold">{stats.totalRevenue.toFixed(2)}€</p>
                   </div>
 
-                  <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-2xl p-6 text-white shadow-lg">
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="w-12 h-12 bg-white bg-opacity-20 rounded-xl flex items-center justify-center">
-                        <Video className="w-6 h-6" />
+                  <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl sm:rounded-2xl p-4 sm:p-6 text-white shadow-lg">
+                    <div className="flex items-center justify-between mb-2 sm:mb-4">
+                      <div className="w-9 h-9 sm:w-12 sm:h-12 bg-white bg-opacity-20 rounded-lg sm:rounded-xl flex items-center justify-center">
+                        <Video className="w-5 h-5 sm:w-6 sm:h-6" />
                       </div>
                     </div>
-                    <h3 className="text-sm font-medium text-white text-opacity-90 mb-1">Vidéos Totales</h3>
-                    <p className="text-3xl font-bold">{videos.length}</p>
+                    <h3 className="text-xs sm:text-sm font-medium text-white text-opacity-90 mb-0.5 sm:mb-1">Vidéos Totales</h3>
+                    <p className="text-xl sm:text-2xl md:text-3xl font-bold">{videos.length}</p>
                   </div>
 
-                  <div className="bg-gradient-to-br from-orange-500 to-orange-600 rounded-2xl p-6 text-white shadow-lg">
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="w-12 h-12 bg-white bg-opacity-20 rounded-xl flex items-center justify-center">
-                        <Folder className="w-6 h-6" />
+                  <div className="bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl sm:rounded-2xl p-4 sm:p-6 text-white shadow-lg">
+                    <div className="flex items-center justify-between mb-2 sm:mb-4">
+                      <div className="w-9 h-9 sm:w-12 sm:h-12 bg-white bg-opacity-20 rounded-lg sm:rounded-xl flex items-center justify-center">
+                        <Folder className="w-5 h-5 sm:w-6 sm:h-6" />
                       </div>
                     </div>
-                    <h3 className="text-sm font-medium text-white text-opacity-90 mb-1">Programmes Totaux</h3>
-                    <p className="text-3xl font-bold">{programs.length}</p>
+                    <h3 className="text-xs sm:text-sm font-medium text-white text-opacity-90 mb-0.5 sm:mb-1">Programmes Totaux</h3>
+                    <p className="text-xl sm:text-2xl md:text-3xl font-bold">{programs.length}</p>
                   </div>
                 </div>
 
                 {stats.topVideos.length > 0 && (
-                  <div className="bg-gray-800/80 backdrop-blur-sm rounded-2xl shadow-lg p-8 border border-gray-700/50">
-                    <div className="flex items-center space-x-3 mb-6">
-                      <div className="w-12 h-12 bg-gradient-to-br from-[#B8913D] to-[#A07F35] rounded-xl flex items-center justify-center">
-                        <BarChart3 className="w-6 h-6 text-white" />
+                  <div className="bg-gray-800/80 backdrop-blur-sm rounded-xl sm:rounded-2xl shadow-lg p-4 sm:p-6 md:p-8 border border-gray-700/50">
+                    <div className="flex items-center space-x-2.5 sm:space-x-3 mb-4 sm:mb-6">
+                      <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-[#B8913D] to-[#A07F35] rounded-lg sm:rounded-xl flex items-center justify-center flex-shrink-0">
+                        <BarChart3 className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
                       </div>
-                      <div>
-                        <h2 className="text-2xl font-light text-white">Top 5 Vidéos</h2>
-                        <p className="text-sm text-gray-400">Les vidéos les plus regardées</p>
+                      <div className="flex-1 min-w-0">
+                        <h2 className="text-lg sm:text-xl md:text-2xl font-light text-white">Top 5 Vidéos</h2>
+                        <p className="text-xs sm:text-sm text-gray-400">Les vidéos les plus regardées</p>
                       </div>
                     </div>
-                    <div className="space-y-4">
+                    <div className="space-y-3 sm:space-y-4">
                       {stats.topVideos.map((video, index) => {
                         const maxViews = stats.topVideos[0]?.views || 1;
                         const percentage = (video.views / maxViews) * 100;
                         return (
                           <div key={video.video_id} className="group">
-                            <div className="flex items-center justify-between mb-2">
-                              <div className="flex items-center space-x-3 flex-1">
-                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-sm ${
+                            <div className="flex items-center justify-between mb-2 gap-2">
+                              <div className="flex items-center space-x-2 sm:space-x-3 flex-1 min-w-0">
+                                <div className={`w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center font-bold text-xs sm:text-sm flex-shrink-0 ${
                                   index === 0 ? 'bg-gradient-to-br from-yellow-400 to-yellow-500 text-white' :
                                   index === 1 ? 'bg-gradient-to-br from-gray-300 to-gray-400 text-white' :
                                   index === 2 ? 'bg-gradient-to-br from-orange-400 to-orange-500 text-white' :
@@ -896,15 +898,15 @@ export function ProfessorDashboard({ onNavigate }: ProfessorDashboardProps) {
                                 }`}>
                                   {index + 1}
                                 </div>
-                                <span className="text-white font-medium group-hover:text-[#B8913D] transition-colors cursor-pointer">
+                                <span className="text-white text-sm sm:text-base font-medium group-hover:text-[#B8913D] transition-colors cursor-pointer truncate">
                                   {video.title}
                                 </span>
                               </div>
-                              <span className="text-[#B8913D] font-bold text-sm ml-4">
+                              <span className="text-[#B8913D] font-bold text-xs sm:text-sm whitespace-nowrap">
                                 {video.views} vues
                               </span>
                             </div>
-                            <div className="w-full bg-gray-100 rounded-full h-2 overflow-hidden">
+                            <div className="w-full bg-gray-100 rounded-full h-1.5 sm:h-2 overflow-hidden">
                               <div
                                 className="bg-gradient-to-r from-[#B8913D] to-[#D4AC5B] h-full rounded-full transition-all duration-500"
                                 style={{ width: `${percentage}%` }}
@@ -928,25 +930,25 @@ export function ProfessorDashboard({ onNavigate }: ProfessorDashboardProps) {
                 )}
 
                 {stats.topPrograms.length > 0 && (
-                  <div className="bg-gray-800/80 backdrop-blur-sm rounded-2xl shadow-lg p-8 border border-gray-700/50">
-                    <div className="flex items-center space-x-3 mb-6">
-                      <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center">
-                        <Folder className="w-6 h-6 text-white" />
+                  <div className="bg-gray-800/80 backdrop-blur-sm rounded-xl sm:rounded-2xl shadow-lg p-4 sm:p-6 md:p-8 border border-gray-700/50">
+                    <div className="flex items-center space-x-2.5 sm:space-x-3 mb-4 sm:mb-6">
+                      <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg sm:rounded-xl flex items-center justify-center flex-shrink-0">
+                        <Folder className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
                       </div>
-                      <div>
-                        <h2 className="text-2xl font-light text-white">Top 5 Programmes</h2>
-                        <p className="text-sm text-gray-400">Les programmes les plus achetés</p>
+                      <div className="flex-1 min-w-0">
+                        <h2 className="text-lg sm:text-xl md:text-2xl font-light text-white">Top 5 Programmes</h2>
+                        <p className="text-xs sm:text-sm text-gray-400">Les programmes les plus achetés</p>
                       </div>
                     </div>
-                    <div className="space-y-4">
+                    <div className="space-y-3 sm:space-y-4">
                       {stats.topPrograms.map((program, index) => {
                         const maxPurchases = stats.topPrograms[0]?.purchases || 1;
                         const percentage = (program.purchases / maxPurchases) * 100;
                         return (
                           <div key={program.program_id} className="group">
-                            <div className="flex items-center justify-between mb-2">
-                              <div className="flex items-center space-x-3 flex-1">
-                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-sm ${
+                            <div className="flex items-start sm:items-center justify-between mb-2 gap-2">
+                              <div className="flex items-center space-x-2 sm:space-x-3 flex-1 min-w-0">
+                                <div className={`w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center font-bold text-xs sm:text-sm flex-shrink-0 ${
                                   index === 0 ? 'bg-gradient-to-br from-yellow-400 to-yellow-500 text-white' :
                                   index === 1 ? 'bg-gradient-to-br from-gray-300 to-gray-400 text-white' :
                                   index === 2 ? 'bg-gradient-to-br from-orange-400 to-orange-500 text-white' :
@@ -954,20 +956,20 @@ export function ProfessorDashboard({ onNavigate }: ProfessorDashboardProps) {
                                 }`}>
                                   {index + 1}
                                 </div>
-                                <span className="text-white font-medium group-hover:text-blue-600 transition-colors cursor-pointer">
+                                <span className="text-white text-sm sm:text-base font-medium group-hover:text-blue-600 transition-colors cursor-pointer truncate">
                                   {program.title}
                                 </span>
                               </div>
-                              <div className="flex items-center space-x-4 ml-4">
-                                <span className="text-blue-600 font-bold text-sm">
+                              <div className="flex flex-col sm:flex-row items-end sm:items-center space-y-0.5 sm:space-y-0 sm:space-x-3 flex-shrink-0">
+                                <span className="text-blue-600 font-bold text-xs sm:text-sm whitespace-nowrap">
                                   {program.purchases} achats
                                 </span>
-                                <span className="text-green-600 font-bold text-sm">
+                                <span className="text-green-600 font-bold text-xs sm:text-sm whitespace-nowrap">
                                   {program.revenue.toFixed(2)}€
                                 </span>
                               </div>
                             </div>
-                            <div className="w-full bg-gray-100 rounded-full h-2 overflow-hidden">
+                            <div className="w-full bg-gray-100 rounded-full h-1.5 sm:h-2 overflow-hidden">
                               <div
                                 className="bg-gradient-to-r from-blue-500 to-blue-600 h-full rounded-full transition-all duration-500"
                                 style={{ width: `${percentage}%` }}
@@ -1182,12 +1184,12 @@ export function ProfessorDashboard({ onNavigate }: ProfessorDashboardProps) {
             </div>
           </div>
         ) : activeTab === 'programs' ? (
-          <div className="space-y-6">
-            <div className="flex justify-between items-center">
-              <h2 className="text-2xl font-light text-white">Mes Programmes</h2>
+          <div className="space-y-4 sm:space-y-6">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-0">
+              <h2 className="text-xl sm:text-2xl font-light text-white">Mes Programmes</h2>
               <button
                 onClick={() => setShowProgramForm(!showProgramForm)}
-                className="flex items-center space-x-2 px-6 py-3 bg-gradient-to-r from-[#B8913D] to-[#A07F35] text-white rounded-full hover:shadow-xl transition-all hover:scale-105"
+                className="w-full sm:w-auto flex items-center justify-center space-x-2 px-4 sm:px-6 py-2.5 sm:py-3 bg-gradient-to-r from-[#B8913D] to-[#A07F35] text-white text-sm sm:text-base rounded-full hover:shadow-xl transition-all hover:scale-105"
               >
                 {showProgramForm ? <X className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
                 <span>{showProgramForm ? 'Annuler' : 'Nouveau Programme'}</span>
@@ -1314,21 +1316,21 @@ export function ProfessorDashboard({ onNavigate }: ProfessorDashboardProps) {
             )}
 
             {managingProgramId ? (
-              <div className="space-y-6">
-                <div className="bg-gradient-to-r from-[#B8913D] to-[#A07F35] rounded-2xl p-6 text-white">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-3">
-                      <div className="w-12 h-12 bg-white bg-opacity-20 rounded-xl flex items-center justify-center">
-                        <List className="w-6 h-6" />
+              <div className="space-y-4 sm:space-y-6">
+                <div className="bg-gradient-to-r from-[#B8913D] to-[#A07F35] rounded-xl sm:rounded-2xl p-4 sm:p-6 text-white">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0">
+                    <div className="flex items-center space-x-2.5 sm:space-x-3">
+                      <div className="w-10 h-10 sm:w-12 sm:h-12 bg-white bg-opacity-20 rounded-lg sm:rounded-xl flex items-center justify-center flex-shrink-0">
+                        <List className="w-5 h-5 sm:w-6 sm:h-6" />
                       </div>
-                      <div>
-                        <p className="text-sm text-white text-opacity-90">Gestion des vidéos</p>
-                        <h3 className="text-xl font-medium">{programs.find(p => p.id === managingProgramId)?.title || 'Programme'}</h3>
+                      <div className="min-w-0">
+                        <p className="text-xs sm:text-sm text-white text-opacity-90">Gestion des vidéos</p>
+                        <h3 className="text-base sm:text-xl font-medium truncate">{programs.find(p => p.id === managingProgramId)?.title || 'Programme'}</h3>
                       </div>
                     </div>
                     <button
                       onClick={() => setManagingProgramId(null)}
-                      className="px-4 py-2 bg-white bg-opacity-20 hover:bg-opacity-30 rounded-lg transition-colors"
+                      className="w-full sm:w-auto px-3 sm:px-4 py-2 bg-white bg-opacity-20 hover:bg-opacity-30 rounded-lg transition-colors text-sm sm:text-base"
                     >
                       Retour aux programmes
                     </button>
@@ -1431,13 +1433,13 @@ export function ProfessorDashboard({ onNavigate }: ProfessorDashboardProps) {
                     <div key={program.id}>
                       <div
                         onClick={() => !editingProgram && onNavigate(`program-${program.id}`)}
-                        className={`bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl p-6 border border-gray-700/50 group ${!editingProgram ? 'cursor-pointer' : ''}`}
+                        className={`bg-gradient-to-br from-gray-800 to-gray-900 rounded-lg sm:rounded-xl p-4 sm:p-6 border border-gray-700/50 group ${!editingProgram ? 'cursor-pointer' : ''}`}
                       >
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <div className="flex items-center space-x-3 mb-2">
-                              <h3 className="text-lg font-medium text-white">{program.title}</h3>
-                              <span className={`px-3 py-1 rounded-full text-xs font-medium border ${
+                        <div className="flex flex-col sm:flex-row items-start justify-between gap-3 sm:gap-0">
+                          <div className="flex-1 w-full sm:w-auto">
+                            <div className="flex flex-wrap items-center gap-2 mb-2">
+                              <h3 className="text-base sm:text-lg font-medium text-white">{program.title}</h3>
+                              <span className={`px-2 sm:px-3 py-0.5 sm:py-1 rounded-full text-xs font-medium border ${
                                 program.level === 'beginner' ? 'bg-green-900/30 text-green-400 border-green-700/50' :
                                 program.level === 'intermediate' ? 'bg-blue-900/30 text-blue-400 border-blue-700/50' :
                                 program.level === 'advanced' ? 'bg-purple-900/30 text-purple-400 border-purple-700/50' :
@@ -1445,69 +1447,69 @@ export function ProfessorDashboard({ onNavigate }: ProfessorDashboardProps) {
                               }`}>
                                 {program.level === 'all_levels' ? 'Tous niveaux' : program.level}
                               </span>
-                              <span className="flex items-center space-x-1 px-3 py-1 bg-[#B8913D] bg-opacity-10 text-[#B8913D] rounded-full text-xs font-medium">
+                              <span className="flex items-center space-x-1 px-2 sm:px-3 py-0.5 sm:py-1 bg-[#B8913D] bg-opacity-10 text-[#B8913D] rounded-full text-xs font-medium">
                                 {getVisibilityIcon(program.visibility)}
                                 <span>{getVisibilityLabel(program.visibility)}</span>
                               </span>
                             </div>
-                            <p className="text-gray-400 text-sm mb-2">{program.description}</p>
-                            <div className="flex items-center space-x-4 text-sm">
+                            <p className="text-gray-400 text-xs sm:text-sm mb-2 line-clamp-2">{program.description}</p>
+                            <div className="flex flex-wrap items-center gap-x-2 sm:gap-x-4 gap-y-1 text-xs sm:text-sm">
                               {program.visibility === 'paid' ? (
                                 <>
                                   <span className="font-medium text-[#B8913D]">{Number(program.price).toFixed(2)}€</span>
-                                  <span className="text-gray-400">•</span>
+                                  <span className="text-gray-400 hidden sm:inline">•</span>
                                 </>
                               ) : program.visibility === 'public' ? (
                                 <>
                                   <span className="font-medium text-green-400">Gratuit</span>
-                                  <span className="text-gray-400">•</span>
+                                  <span className="text-gray-400 hidden sm:inline">•</span>
                                 </>
                               ) : program.visibility === 'subscribers_only' ? (
                                 <>
                                   <span className="font-medium text-blue-400">Abonnés</span>
-                                  <span className="text-gray-400">•</span>
+                                  <span className="text-gray-400 hidden sm:inline">•</span>
                                 </>
                               ) : program.visibility === 'platform' ? (
                                 <>
                                   <span className="font-medium text-blue-400">NEXA Academy</span>
-                                  <span className="text-gray-400">•</span>
+                                  <span className="text-gray-400 hidden sm:inline">•</span>
                                 </>
                               ) : null}
                               <span className="text-gray-400">{program.video_count || 0} vidéos</span>
-                              <span className="text-gray-400">•</span>
+                              <span className="text-gray-400 hidden sm:inline">•</span>
                               <span className="text-gray-400">{program.duration_total_minutes || 0} min</span>
                             </div>
                           </div>
-                          <div className="flex items-center space-x-2 ml-4">
+                          <div className="flex items-center space-x-1.5 sm:space-x-2 sm:ml-4 w-full sm:w-auto justify-end">
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
                                 handleManageVideos(program.id);
                               }}
-                              className="p-2.5 text-blue-400 hover:text-blue-300 bg-blue-900/30 hover:bg-blue-900/50 rounded-lg transition-all border border-blue-700/50 hover:border-blue-600"
+                              className="p-2 sm:p-2.5 text-blue-400 hover:text-blue-300 bg-blue-900/30 hover:bg-blue-900/50 rounded-lg transition-all border border-blue-700/50 hover:border-blue-600"
                               title="Gérer les vidéos"
                             >
-                              <List className="w-4 h-4" />
+                              <List className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                             </button>
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
                                 handleEditProgram(program);
                               }}
-                              className="p-2.5 text-[#B8913D] hover:text-[#A07F35] bg-[#B8913D]/20 hover:bg-[#B8913D]/30 rounded-lg transition-all border border-[#B8913D]/50 hover:border-[#B8913D]"
+                              className="p-2 sm:p-2.5 text-[#B8913D] hover:text-[#A07F35] bg-[#B8913D]/20 hover:bg-[#B8913D]/30 rounded-lg transition-all border border-[#B8913D]/50 hover:border-[#B8913D]"
                               title="Modifier"
                             >
-                              <Edit2 className="w-4 h-4" />
+                              <Edit2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                             </button>
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
                                 handleDeleteProgram(program.id);
                               }}
-                              className="p-2.5 text-red-400 hover:text-red-300 bg-red-900/30 hover:bg-red-900/50 rounded-lg transition-all border border-red-700/50 hover:border-red-600"
+                              className="p-2 sm:p-2.5 text-red-400 hover:text-red-300 bg-red-900/30 hover:bg-red-900/50 rounded-lg transition-all border border-red-700/50 hover:border-red-600"
                               title="Supprimer"
                             >
-                              <Trash2 className="w-4 h-4" />
+                              <Trash2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                             </button>
                           </div>
                         </div>
@@ -1526,12 +1528,12 @@ export function ProfessorDashboard({ onNavigate }: ProfessorDashboardProps) {
             )}
           </div>
         ) : (
-          <div className="space-y-6">
-            <div className="flex justify-between items-center">
-              <h2 className="text-2xl font-light text-white">Mes Vidéos</h2>
+          <div className="space-y-4 sm:space-y-6">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-0">
+              <h2 className="text-xl sm:text-2xl font-light text-white">Mes Vidéos</h2>
               <button
                 onClick={() => setShowVideoForm(!showVideoForm)}
-                className="flex items-center space-x-2 px-6 py-3 bg-gradient-to-r from-[#B8913D] to-[#A07F35] text-white rounded-full hover:shadow-xl transition-all hover:scale-105"
+                className="w-full sm:w-auto flex items-center justify-center space-x-2 px-4 sm:px-6 py-2.5 sm:py-3 bg-gradient-to-r from-[#B8913D] to-[#A07F35] text-white text-sm sm:text-base rounded-full hover:shadow-xl transition-all hover:scale-105"
               >
                 {showVideoForm ? <X className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
                 <span>{showVideoForm ? 'Annuler' : 'Nouvelle Vidéo'}</span>
@@ -1699,55 +1701,55 @@ export function ProfessorDashboard({ onNavigate }: ProfessorDashboardProps) {
                   <div key={video.id}>
                     <div
                       onClick={() => !editingVideo && onNavigate('video', video.id)}
-                      className={`bg-gray-800/80 backdrop-blur-sm rounded-xl shadow-sm hover:shadow-md transition-all p-6 border border-gray-700/50 group ${!editingVideo ? 'cursor-pointer hover:border-[#B8913D]/50' : ''}`}
+                      className={`bg-gray-800/80 backdrop-blur-sm rounded-lg sm:rounded-xl shadow-sm hover:shadow-md transition-all p-4 sm:p-6 border border-gray-700/50 group ${!editingVideo ? 'cursor-pointer hover:border-[#B8913D]/50' : ''}`}
                     >
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center space-x-3 mb-2">
-                            <h3 className="text-lg font-medium text-white">{video.title}</h3>
-                            <span className={`px-3 py-1 rounded-full text-xs font-medium border ${
+                      <div className="flex flex-col sm:flex-row items-start justify-between gap-3 sm:gap-0">
+                        <div className="flex-1 w-full sm:w-auto">
+                          <div className="flex flex-wrap items-center gap-2 mb-2">
+                            <h3 className="text-base sm:text-lg font-medium text-white">{video.title}</h3>
+                            <span className={`px-2 sm:px-3 py-0.5 sm:py-1 rounded-full text-xs font-medium border ${
                               video.level === 'beginner' ? 'bg-green-900/30 text-green-400 border-green-700/50' :
                               video.level === 'intermediate' ? 'bg-blue-900/30 text-blue-400 border-blue-700/50' :
                               'bg-purple-900/30 text-purple-400 border-purple-700/50'
                             }`}>
                               {video.level}
                             </span>
-                            <span className="flex items-center space-x-1 px-3 py-1 bg-[#B8913D] bg-opacity-10 text-[#B8913D] rounded-full text-xs font-medium">
+                            <span className="flex items-center space-x-1 px-2 sm:px-3 py-0.5 sm:py-1 bg-[#B8913D] bg-opacity-10 text-[#B8913D] rounded-full text-xs font-medium">
                               {getVisibilityIcon(video.visibility)}
                               <span>{getVisibilityLabel(video.visibility)}</span>
                             </span>
                             {video.program_id && (
-                              <span className="px-3 py-1 bg-gray-700/50 text-gray-300 border border-gray-600 rounded-full text-xs font-medium flex items-center space-x-1">
+                              <span className="px-2 sm:px-3 py-0.5 sm:py-1 bg-gray-700/50 text-gray-300 border border-gray-600 rounded-full text-xs font-medium flex items-center space-x-1">
                                 <Folder className="w-3 h-3" />
                                 <span>Programme</span>
                               </span>
                             )}
                           </div>
-                          <p className="text-gray-400 text-sm mb-2">{video.description}</p>
-                          <div className="flex items-center space-x-4 text-sm text-gray-400">
+                          <p className="text-gray-400 text-xs sm:text-sm mb-2 line-clamp-2">{video.description}</p>
+                          <div className="flex items-center space-x-2 sm:space-x-4 text-xs sm:text-sm text-gray-400">
                             <span>{video.duration_minutes} min</span>
                           </div>
                         </div>
-                        <div className="flex items-center space-x-2 ml-4">
+                        <div className="flex items-center space-x-1.5 sm:space-x-2 sm:ml-4 w-full sm:w-auto justify-end">
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
                               handleEditVideo(video);
                             }}
-                            className="p-2.5 text-[#B8913D] hover:text-[#A07F35] bg-[#B8913D]/20 hover:bg-[#B8913D]/30 rounded-lg transition-all border border-[#B8913D]/50 hover:border-[#B8913D]"
+                            className="p-2 sm:p-2.5 text-[#B8913D] hover:text-[#A07F35] bg-[#B8913D]/20 hover:bg-[#B8913D]/30 rounded-lg transition-all border border-[#B8913D]/50 hover:border-[#B8913D]"
                             title="Modifier"
                           >
-                            <Edit2 className="w-4 h-4" />
+                            <Edit2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                           </button>
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
                               handleDeleteVideo(video.id);
                             }}
-                            className="p-2.5 text-red-400 hover:text-red-300 bg-red-900/30 hover:bg-red-900/50 rounded-lg transition-all border border-red-700/50 hover:border-red-600"
+                            className="p-2 sm:p-2.5 text-red-400 hover:text-red-300 bg-red-900/30 hover:bg-red-900/50 rounded-lg transition-all border border-red-700/50 hover:border-red-600"
                             title="Supprimer"
                           >
-                            <Trash2 className="w-4 h-4" />
+                            <Trash2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                           </button>
                         </div>
                       </div>
