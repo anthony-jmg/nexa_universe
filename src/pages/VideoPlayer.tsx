@@ -275,46 +275,46 @@ export function VideoPlayer({ videoId, onNavigate, onBack }: VideoPlayerProps) {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-950 via-gray-900 to-gray-950 pt-20 pb-12 relative">
+    <div className="min-h-screen bg-gradient-to-b from-gray-950 via-gray-900 to-gray-950 pt-16 sm:pt-20 pb-8 sm:pb-12 relative">
       <BackgroundDecor />
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+      <div className="max-w-5xl mx-auto px-3 sm:px-4 lg:px-8 relative z-10">
         <button
           onClick={() => onBack ? onBack() : onNavigate('academy')}
-          className="flex items-center text-gray-400 hover:text-[#B8913D] mb-6 transition-colors group"
+          className="flex items-center text-gray-400 hover:text-[#B8913D] mb-4 sm:mb-6 transition-colors group text-sm sm:text-base"
         >
-          <ArrowLeft className="w-5 h-5 mr-2 group-hover:-translate-x-1 transition-transform" />
+          <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5 mr-1.5 sm:mr-2 group-hover:-translate-x-1 transition-transform" />
           Retour
         </button>
 
         {error && (
-          <div className="mb-6 p-4 bg-red-50 border border-red-100 rounded-xl">
-            <p className="text-sm text-red-800">{error}</p>
+          <div className="mb-4 sm:mb-6 p-3 sm:p-4 bg-red-50 border border-red-100 rounded-lg sm:rounded-xl">
+            <p className="text-xs sm:text-sm text-red-800">{error}</p>
           </div>
         )}
 
         {success && (
-          <div className="mb-6 p-4 bg-green-50 border border-green-100 rounded-xl">
-            <p className="text-sm text-green-800">{success}</p>
+          <div className="mb-4 sm:mb-6 p-3 sm:p-4 bg-green-50 border border-green-100 rounded-lg sm:rounded-xl">
+            <p className="text-xs sm:text-sm text-green-800">{success}</p>
           </div>
         )}
 
-        <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl overflow-hidden border border-gray-700/50 mb-8">
+        <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl sm:rounded-2xl overflow-hidden border border-gray-700/50 mb-4 sm:mb-8">
           {!canAccess ? (
             <div className="relative aspect-video bg-gradient-to-br from-gray-900 to-black flex items-center justify-center">
               <div className="absolute inset-0 bg-[#B8913D] opacity-10"></div>
-              <div className="relative text-center p-8">
-                <Lock className="w-20 h-20 text-[#B8913D] mx-auto mb-4" />
-                <h3 className="text-xl font-medium text-white mb-2">
+              <div className="relative text-center p-4 sm:p-8">
+                <Lock className="w-12 h-12 sm:w-16 md:w-20 text-[#B8913D] mx-auto mb-3 sm:mb-4" />
+                <h3 className="text-lg sm:text-xl font-medium text-white mb-2 px-2">
                   Contenu verrouillé
                 </h3>
-                <p className="text-gray-300 mb-6 leading-relaxed max-w-md mx-auto">
+                <p className="text-sm sm:text-base text-gray-300 mb-4 sm:mb-6 leading-relaxed max-w-md mx-auto px-2">
                   {getAccessMessage()}
                 </p>
 
                 {video?.visibility === 'public' && !user && (
                   <button
                     onClick={() => onNavigate('signin')}
-                    className="px-8 py-3 bg-gradient-to-r from-[#B8913D] to-[#A07F35] text-white rounded-full hover:shadow-xl transition-all font-medium"
+                    className="px-6 sm:px-8 py-2.5 sm:py-3 bg-gradient-to-r from-[#B8913D] to-[#A07F35] text-white rounded-full hover:shadow-xl transition-all font-medium text-sm sm:text-base"
                   >
                     Se connecter
                   </button>
@@ -323,7 +323,7 @@ export function VideoPlayer({ videoId, onNavigate, onBack }: VideoPlayerProps) {
                 {video?.visibility === 'subscribers_only' && video?.professor_id && (
                   <button
                     onClick={() => onNavigate(`professor-${video.professor_id}`)}
-                    className="px-8 py-3 bg-gradient-to-r from-[#B8913D] to-[#A07F35] text-white rounded-full hover:shadow-xl transition-all font-medium"
+                    className="px-6 sm:px-8 py-2.5 sm:py-3 bg-gradient-to-r from-[#B8913D] to-[#A07F35] text-white rounded-full hover:shadow-xl transition-all font-medium text-sm sm:text-base"
                   >
                     S'abonner au professeur
                   </button>
@@ -332,7 +332,7 @@ export function VideoPlayer({ videoId, onNavigate, onBack }: VideoPlayerProps) {
                 {video?.visibility === 'paid' && video?.program_id && (
                   <button
                     onClick={() => onNavigate(`program-${video.program_id}`)}
-                    className="px-8 py-3 bg-gradient-to-r from-[#B8913D] to-[#A07F35] text-white rounded-full hover:shadow-xl transition-all font-medium"
+                    className="px-6 sm:px-8 py-2.5 sm:py-3 bg-gradient-to-r from-[#B8913D] to-[#A07F35] text-white rounded-full hover:shadow-xl transition-all font-medium text-sm sm:text-base"
                   >
                     Voir le programme
                   </button>
@@ -341,25 +341,25 @@ export function VideoPlayer({ videoId, onNavigate, onBack }: VideoPlayerProps) {
                 {video?.visibility === 'paid' && !video?.program_id && !showPrice && (
                   <button
                     onClick={() => setShowPrice(true)}
-                    className="px-8 py-3 bg-gradient-to-r from-[#B8913D] to-[#A07F35] text-white rounded-full hover:shadow-xl transition-all font-medium"
+                    className="px-6 sm:px-8 py-2.5 sm:py-3 bg-gradient-to-r from-[#B8913D] to-[#A07F35] text-white rounded-full hover:shadow-xl transition-all font-medium text-sm sm:text-base"
                   >
                     Acheter cette vidéo
                   </button>
                 )}
 
                 {video?.visibility === 'paid' && !video?.program_id && showPrice && (
-                  <div>
-                    <div className="text-4xl font-bold text-[#B8913D] mb-6">
+                  <div className="px-2">
+                    <div className="text-3xl sm:text-4xl font-bold text-[#B8913D] mb-4 sm:mb-6">
                       {Number(video.price).toFixed(2)}€
                     </div>
                     <button
                       onClick={handlePurchase}
                       disabled={purchasing}
-                      className="px-8 py-3 bg-gradient-to-r from-[#B8913D] to-[#A07F35] text-white rounded-full hover:shadow-xl transition-all font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="px-6 sm:px-8 py-2.5 sm:py-3 bg-gradient-to-r from-[#B8913D] to-[#A07F35] text-white rounded-full hover:shadow-xl transition-all font-medium disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base w-full sm:w-auto"
                     >
                       {purchasing ? (
                         <span className="flex items-center justify-center space-x-2">
-                          <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                          <div className="w-4 h-4 sm:w-5 sm:h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                           <span>Achat en cours...</span>
                         </span>
                       ) : (
@@ -400,7 +400,7 @@ export function VideoPlayer({ videoId, onNavigate, onBack }: VideoPlayerProps) {
               </div>
 
               {progress && !progress.completed && progress.progress_percentage > 0 && (
-                <div className="h-2 bg-gray-200">
+                <div className="h-1.5 sm:h-2 bg-gray-200">
                   <div
                     className="h-full bg-[#B8913D] transition-all"
                     style={{ width: `${progress.progress_percentage}%` }}
@@ -411,16 +411,16 @@ export function VideoPlayer({ videoId, onNavigate, onBack }: VideoPlayerProps) {
           )}
         </div>
 
-        <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl p-6 sm:p-8 border border-gray-700/50 mb-8">
-          <div className="flex items-start justify-between mb-6">
+        <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl sm:rounded-2xl p-4 sm:p-6 lg:p-8 border border-gray-700/50 mb-4 sm:mb-8">
+          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between mb-4 sm:mb-6 space-y-4 sm:space-y-0">
             <div className="flex-1">
-              <h1 className="text-2xl sm:text-3xl font-light text-white mb-2">
+              <h1 className="text-xl sm:text-2xl lg:text-3xl font-light text-white mb-2 sm:mb-3">
                 {video.title}
               </h1>
-              <div className="flex items-center space-x-4 text-sm text-gray-400">
-                <span className="px-3 py-1 bg-[#B8913D] bg-opacity-10 text-[#B8913D] rounded-full font-medium capitalize">{video.level}</span>
+              <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-xs sm:text-sm text-gray-400">
+                <span className="px-2.5 sm:px-3 py-1 bg-[#B8913D] bg-opacity-10 text-[#B8913D] rounded-full font-medium capitalize text-xs sm:text-sm">{video.level}</span>
                 <span className="flex items-center">
-                  <span className="w-1 h-1 bg-gray-400 rounded-full mr-2"></span>
+                  <span className="w-1 h-1 bg-gray-400 rounded-full mr-1.5 sm:mr-2"></span>
                   {video.duration_minutes} minutes
                 </span>
               </div>
@@ -429,14 +429,14 @@ export function VideoPlayer({ videoId, onNavigate, onBack }: VideoPlayerProps) {
             {canAccess && (
               <>
                 {progress?.completed ? (
-                  <div className="flex items-center space-x-2 text-green-600 bg-green-50 px-4 py-2 rounded-full">
-                    <CheckCircle className="w-5 h-5" />
-                    <span className="font-medium text-sm">Completed</span>
+                  <div className="flex items-center space-x-1.5 sm:space-x-2 text-green-600 bg-green-50 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full self-start">
+                    <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5" />
+                    <span className="font-medium text-xs sm:text-sm">Completed</span>
                   </div>
                 ) : (
                   <button
                     onClick={markAsComplete}
-                    className="px-6 py-2 bg-[#B8913D] text-white font-medium rounded-full hover:bg-[#A07F35] transition-colors whitespace-nowrap"
+                    className="px-4 sm:px-6 py-2 bg-[#B8913D] text-white font-medium rounded-full hover:bg-[#A07F35] transition-colors whitespace-nowrap text-xs sm:text-sm self-start"
                   >
                     Mark Complete
                   </button>
@@ -446,7 +446,7 @@ export function VideoPlayer({ videoId, onNavigate, onBack }: VideoPlayerProps) {
           </div>
 
           <div className="prose prose-gray max-w-none">
-            <p className="text-gray-300 leading-relaxed">
+            <p className="text-sm sm:text-base text-gray-300 leading-relaxed">
               {video.description || 'No description available.'}
             </p>
           </div>
