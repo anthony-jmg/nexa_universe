@@ -462,7 +462,7 @@ export function VideoPlayer({ videoId, onNavigate, onBack }: VideoPlayerProps) {
               )}
             </div>
 
-            {canAccess && (
+            {canAccess && video.program_id && (
               <>
                 {progress?.completed ? (
                   <div className="flex items-center space-x-1.5 sm:space-x-2 text-green-600 bg-green-50 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full self-start">
