@@ -6,6 +6,7 @@ import { ImageUpload } from '../components/ImageUpload';
 import { VideoUpload } from '../components/VideoUpload';
 import { ProgramEditForm } from '../components/ProgramEditForm';
 import { VideoEditForm } from '../components/VideoEditForm';
+import LazyImage from '../components/LazyImage';
 import { Database } from '../lib/database.types';
 import { Video, Folder, Plus, Edit2, Trash2, X, Check, AlertCircle, Eye, EyeOff, Lock, Settings, Percent, ChevronUp, ChevronDown, List, BarChart3, Users, Play, DollarSign, TrendingUp } from 'lucide-react';
 
@@ -1434,9 +1435,18 @@ export function ProfessorDashboard({ onNavigate }: ProfessorDashboardProps) {
                     <div key={program.id}>
                       <div
                         onClick={() => !editingProgram && onNavigate(`program-${program.id}`)}
-                        className={`bg-gradient-to-br from-gray-800 to-gray-900 rounded-lg sm:rounded-xl p-4 sm:p-6 border border-gray-700/50 group ${!editingProgram ? 'cursor-pointer' : ''}`}
+                        className={`bg-gradient-to-br from-gray-800 to-gray-900 rounded-lg sm:rounded-xl p-4 sm:p-6 border border-gray-700/50 group ${!editingProgram ? 'cursor-pointer hover:border-[#B8913D]/50' : ''}`}
                       >
-                        <div className="flex flex-col sm:flex-row items-start justify-between gap-3 sm:gap-0">
+                        <div className="flex flex-col sm:flex-row items-start gap-4">
+                          {program.thumbnail_url && (
+                            <div className="w-full sm:w-48 h-32 sm:h-28 flex-shrink-0 rounded-lg overflow-hidden bg-gray-900">
+                              <LazyImage
+                                src={program.thumbnail_url}
+                                alt={program.title}
+                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                              />
+                            </div>
+                          )}
                           <div className="flex-1 w-full sm:w-auto">
                             <div className="flex flex-wrap items-center gap-2 mb-2">
                               <h3 className="text-base sm:text-lg font-medium text-white">{program.title}</h3>
@@ -1480,38 +1490,38 @@ export function ProfessorDashboard({ onNavigate }: ProfessorDashboardProps) {
                               <span className="text-gray-400 hidden sm:inline">•</span>
                               <span className="text-gray-400">{program.duration_total_minutes || 0} min</span>
                             </div>
-                          </div>
-                          <div className="flex items-center space-x-1.5 sm:space-x-2 sm:ml-4 w-full sm:w-auto justify-end">
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleManageVideos(program.id);
-                              }}
-                              className="p-2 sm:p-2.5 text-blue-400 hover:text-blue-300 bg-blue-900/30 hover:bg-blue-900/50 rounded-lg transition-all border border-blue-700/50 hover:border-blue-600"
-                              title="Gérer les vidéos"
-                            >
-                              <List className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                            </button>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleEditProgram(program);
-                              }}
-                              className="p-2 sm:p-2.5 text-[#B8913D] hover:text-[#A07F35] bg-[#B8913D]/20 hover:bg-[#B8913D]/30 rounded-lg transition-all border border-[#B8913D]/50 hover:border-[#B8913D]"
-                              title="Modifier"
-                            >
-                              <Edit2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                            </button>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleDeleteProgram(program.id);
-                              }}
-                              className="p-2 sm:p-2.5 text-red-400 hover:text-red-300 bg-red-900/30 hover:bg-red-900/50 rounded-lg transition-all border border-red-700/50 hover:border-red-600"
-                              title="Supprimer"
-                            >
-                              <Trash2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                            </button>
+                            <div className="flex items-center space-x-1.5 sm:space-x-2 mt-3 sm:mt-0 w-full sm:w-auto justify-end sm:justify-start">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleManageVideos(program.id);
+                                }}
+                                className="p-2 sm:p-2.5 text-blue-400 hover:text-blue-300 bg-blue-900/30 hover:bg-blue-900/50 rounded-lg transition-all border border-blue-700/50 hover:border-blue-600"
+                                title="Gérer les vidéos"
+                              >
+                                <List className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleEditProgram(program);
+                                }}
+                                className="p-2 sm:p-2.5 text-[#B8913D] hover:text-[#A07F35] bg-[#B8913D]/20 hover:bg-[#B8913D]/30 rounded-lg transition-all border border-[#B8913D]/50 hover:border-[#B8913D]"
+                                title="Modifier"
+                              >
+                                <Edit2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDeleteProgram(program.id);
+                                }}
+                                className="p-2 sm:p-2.5 text-red-400 hover:text-red-300 bg-red-900/30 hover:bg-red-900/50 rounded-lg transition-all border border-red-700/50 hover:border-red-600"
+                                title="Supprimer"
+                              >
+                                <Trash2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                              </button>
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -1705,7 +1715,16 @@ export function ProfessorDashboard({ onNavigate }: ProfessorDashboardProps) {
                       onClick={() => !editingVideo && onNavigate('video', video.id)}
                       className={`bg-gray-800/80 backdrop-blur-sm rounded-lg sm:rounded-xl shadow-sm hover:shadow-md transition-all p-4 sm:p-6 border border-gray-700/50 group ${!editingVideo ? 'cursor-pointer hover:border-[#B8913D]/50' : ''}`}
                     >
-                      <div className="flex flex-col sm:flex-row items-start justify-between gap-3 sm:gap-0">
+                      <div className="flex flex-col sm:flex-row items-start gap-4">
+                        {video.thumbnail_url && (
+                          <div className="w-full sm:w-48 h-32 sm:h-28 flex-shrink-0 rounded-lg overflow-hidden bg-gray-900">
+                            <LazyImage
+                              src={video.thumbnail_url}
+                              alt={video.title}
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                            />
+                          </div>
+                        )}
                         <div className="flex-1 w-full sm:w-auto">
                           <div className="flex flex-wrap items-center gap-2 mb-2">
                             <h3 className="text-base sm:text-lg font-medium text-white">{video.title}</h3>
@@ -1731,28 +1750,28 @@ export function ProfessorDashboard({ onNavigate }: ProfessorDashboardProps) {
                           <div className="flex items-center space-x-2 sm:space-x-4 text-xs sm:text-sm text-gray-400">
                             <span>{video.duration_minutes} min</span>
                           </div>
-                        </div>
-                        <div className="flex items-center space-x-1.5 sm:space-x-2 sm:ml-4 w-full sm:w-auto justify-end">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleEditVideo(video);
-                            }}
-                            className="p-2 sm:p-2.5 text-[#B8913D] hover:text-[#A07F35] bg-[#B8913D]/20 hover:bg-[#B8913D]/30 rounded-lg transition-all border border-[#B8913D]/50 hover:border-[#B8913D]"
-                            title="Modifier"
-                          >
-                            <Edit2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                          </button>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleDeleteVideo(video.id);
-                            }}
-                            className="p-2 sm:p-2.5 text-red-400 hover:text-red-300 bg-red-900/30 hover:bg-red-900/50 rounded-lg transition-all border border-red-700/50 hover:border-red-600"
-                            title="Supprimer"
-                          >
-                            <Trash2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                          </button>
+                          <div className="flex items-center space-x-1.5 sm:space-x-2 mt-3 sm:mt-0 w-full sm:w-auto justify-end sm:justify-start">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleEditVideo(video);
+                              }}
+                              className="p-2 sm:p-2.5 text-[#B8913D] hover:text-[#A07F35] bg-[#B8913D]/20 hover:bg-[#B8913D]/30 rounded-lg transition-all border border-[#B8913D]/50 hover:border-[#B8913D]"
+                              title="Modifier"
+                            >
+                              <Edit2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteVideo(video.id);
+                              }}
+                              className="p-2 sm:p-2.5 text-red-400 hover:text-red-300 bg-red-900/30 hover:bg-red-900/50 rounded-lg transition-all border border-red-700/50 hover:border-red-600"
+                              title="Supprimer"
+                            >
+                              <Trash2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                            </button>
+                          </div>
                         </div>
                       </div>
                     </div>
