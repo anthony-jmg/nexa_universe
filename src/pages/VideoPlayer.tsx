@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ArrowLeft, CheckCircle, PlayCircle, Lock } from 'lucide-react';
+import { ArrowLeft, CheckCircle, PlayCircle, Lock, User } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { BackgroundDecor } from '../components/BackgroundDecor';
@@ -9,6 +9,13 @@ import type { Database } from '../lib/database.types';
 
 type Video = Database['public']['Tables']['videos']['Row'] & {
   cloudflare_video_id?: string;
+};
+
+type Professor = {
+  id: string;
+  profiles: {
+    full_name: string;
+  } | null;
 };
 
 interface VideoProgress {
@@ -26,6 +33,7 @@ interface VideoPlayerProps {
 export function VideoPlayer({ videoId, onNavigate, onBack }: VideoPlayerProps) {
   const { user } = useAuth();
   const [video, setVideo] = useState<Video | null>(null);
+  const [professor, setProfessor] = useState<Professor | null>(null);
   const [progress, setProgress] = useState<VideoProgress | null>(null);
   const [loading, setLoading] = useState(true);
   const [canAccess, setCanAccess] = useState(false);
@@ -50,6 +58,23 @@ export function VideoPlayer({ videoId, onNavigate, onBack }: VideoPlayerProps) {
     if (!error && data) {
       setVideo(data);
       await checkAccess(data);
+
+      if (data.professor_id) {
+        const { data: profData } = await supabase
+          .from('professors')
+          .select(`
+            id,
+            profiles (
+              full_name
+            )
+          `)
+          .eq('id', data.professor_id)
+          .maybeSingle();
+
+        if (profData) {
+          setProfessor(profData as Professor);
+        }
+      }
     }
     setLoading(false);
   };
@@ -417,13 +442,24 @@ export function VideoPlayer({ videoId, onNavigate, onBack }: VideoPlayerProps) {
               <h1 className="text-xl sm:text-2xl lg:text-3xl font-light text-white mb-2 sm:mb-3">
                 {video.title}
               </h1>
-              <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-xs sm:text-sm text-gray-400">
+              <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-xs sm:text-sm text-gray-400 mb-3">
                 <span className="px-2.5 sm:px-3 py-1 bg-[#B8913D] bg-opacity-10 text-[#B8913D] rounded-full font-medium capitalize text-xs sm:text-sm">{video.level}</span>
                 <span className="flex items-center">
                   <span className="w-1 h-1 bg-gray-400 rounded-full mr-1.5 sm:mr-2"></span>
                   {video.duration_minutes} minutes
                 </span>
               </div>
+              {professor && (
+                <button
+                  onClick={() => onNavigate(`professor-${professor.id}`)}
+                  className="flex items-center space-x-2 text-sm sm:text-base text-[#B8913D] hover:text-[#A07F35] transition-colors group"
+                >
+                  <User className="w-4 h-4 sm:w-5 sm:h-5" />
+                  <span className="font-medium group-hover:underline">
+                    {professor.profiles?.full_name || 'Voir le professeur'}
+                  </span>
+                </button>
+              )}
             </div>
 
             {canAccess && (
