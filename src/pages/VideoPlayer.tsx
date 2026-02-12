@@ -411,7 +411,11 @@ export function VideoPlayer({ videoId, onNavigate, onBack }: VideoPlayerProps) {
                   <video
                     src={video.video_url}
                     controls
+                    playsInline
+                    preload="auto"
+                    controlsList="nodownload"
                     className="w-full h-full"
+                    style={{ maxHeight: '100%', objectFit: 'contain' }}
                   />
                 ) : (
                   <div className="text-center text-white">
