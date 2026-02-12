@@ -449,14 +449,14 @@ export function VideoPlayer({ videoId, onNavigate, onBack }: VideoPlayerProps) {
                   {video.duration_minutes} minutes
                 </span>
               </div>
-              {professor && (
+              {video.professor_id && (
                 <button
-                  onClick={() => onNavigate(`professor-${professor.id}`)}
+                  onClick={() => onNavigate(`professor-${video.professor_id}`)}
                   className="flex items-center space-x-2 text-sm sm:text-base text-[#B8913D] hover:text-[#A07F35] transition-colors group"
                 >
                   <User className="w-4 h-4 sm:w-5 sm:h-5" />
                   <span className="font-medium group-hover:underline">
-                    {professor.profiles?.full_name || 'Voir le professeur'}
+                    {professor?.profiles?.full_name || 'Voir le professeur'}
                   </span>
                 </button>
               )}
