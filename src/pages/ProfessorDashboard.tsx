@@ -1438,12 +1438,12 @@ export function ProfessorDashboard({ onNavigate }: ProfessorDashboardProps) {
                         className={`bg-gradient-to-br from-gray-800 to-gray-900 rounded-lg sm:rounded-xl p-4 sm:p-6 border border-gray-700/50 group ${!editingProgram ? 'cursor-pointer hover:border-[#B8913D]/50' : ''}`}
                       >
                         <div className="flex flex-col sm:flex-row items-start gap-4">
-                          {program.thumbnail_url && (
-                            <div className="w-full sm:w-48 h-32 sm:h-28 flex-shrink-0 rounded-lg overflow-hidden bg-gray-900">
+                          {program.thumbnail_url && program.thumbnail_url.trim() !== '' && (
+                            <div className="w-full sm:w-48 h-32 sm:h-28 flex-shrink-0 rounded-lg overflow-hidden bg-gray-900 group-hover:scale-105 transition-transform duration-300">
                               <LazyImage
                                 src={program.thumbnail_url}
                                 alt={program.title}
-                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                                className="w-full h-full object-cover"
                               />
                             </div>
                           )}
@@ -1716,12 +1716,12 @@ export function ProfessorDashboard({ onNavigate }: ProfessorDashboardProps) {
                       className={`bg-gray-800/80 backdrop-blur-sm rounded-lg sm:rounded-xl shadow-sm hover:shadow-md transition-all p-4 sm:p-6 border border-gray-700/50 group ${!editingVideo ? 'cursor-pointer hover:border-[#B8913D]/50' : ''}`}
                     >
                       <div className="flex flex-col sm:flex-row items-start gap-4">
-                        {video.thumbnail_url && (
-                          <div className="w-full sm:w-48 h-32 sm:h-28 flex-shrink-0 rounded-lg overflow-hidden bg-gray-900">
+                        {video.thumbnail_url && video.thumbnail_url.trim() !== '' && (
+                          <div className="w-full sm:w-48 h-32 sm:h-28 flex-shrink-0 rounded-lg overflow-hidden bg-gray-900 group-hover:scale-105 transition-transform duration-300">
                             <LazyImage
                               src={video.thumbnail_url}
                               alt={video.title}
-                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                              className="w-full h-full object-cover"
                             />
                           </div>
                         )}

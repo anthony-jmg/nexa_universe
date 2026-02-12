@@ -6,6 +6,7 @@ import { BackgroundDecor } from '../components/BackgroundDecor';
 import { FavoriteButton } from '../components/FavoriteButton';
 import { getAvatarUrl } from '../components/AvatarUpload';
 import { handleProfessorSubscriptionCheckout } from '../lib/stripe';
+import LazyImage from '../components/LazyImage';
 import type { Database } from '../lib/database.types';
 
 type Professor = Database['public']['Tables']['professors']['Row'] & {
@@ -521,11 +522,26 @@ function VideoCard({ video, hasAccess, subscribed, onClick, showPrice, onToggleP
       onClick={onClick}
     >
       <div className="relative aspect-video bg-gradient-to-br from-[#B8913D] to-[#A07F35]">
-        <div className="absolute inset-0 flex items-center justify-center">
+        {video.thumbnail_url && video.thumbnail_url.trim() !== '' ? (
+          <LazyImage
+            src={video.thumbnail_url}
+            alt={video.title}
+            className="w-full h-full object-cover"
+          />
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center">
+            {hasAccess ? (
+              <PlayCircle className="w-12 h-12 sm:w-16 sm:h-16 text-white opacity-75 group-hover:opacity-100 transition-opacity" />
+            ) : (
+              <Lock className="w-12 h-12 sm:w-16 sm:h-16 text-white opacity-75" />
+            )}
+          </div>
+        )}
+        <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
           {hasAccess ? (
-            <PlayCircle className="w-12 h-12 sm:w-16 sm:h-16 text-white opacity-75 group-hover:opacity-100 transition-opacity" />
+            <PlayCircle className="w-12 h-12 sm:w-16 sm:h-16 text-white" />
           ) : (
-            <Lock className="w-12 h-12 sm:w-16 sm:h-16 text-white opacity-75" />
+            <Lock className="w-12 h-12 sm:w-16 sm:h-16 text-white" />
           )}
         </div>
         {getCategoryBadge()}
@@ -577,11 +593,26 @@ function ProgramCard({ program, hasAccess, subscribed, onClick, showPrice, onTog
       onClick={onClick}
     >
       <div className="relative aspect-video bg-gradient-to-br from-[#B8913D] to-[#A07F35]">
-        <div className="absolute inset-0 flex items-center justify-center">
+        {program.thumbnail_url && program.thumbnail_url.trim() !== '' ? (
+          <LazyImage
+            src={program.thumbnail_url}
+            alt={program.title}
+            className="w-full h-full object-cover"
+          />
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center">
+            {hasAccess ? (
+              <BookOpen className="w-12 h-12 sm:w-16 sm:h-16 text-white opacity-75 group-hover:opacity-100 transition-opacity" />
+            ) : (
+              <Lock className="w-12 h-12 sm:w-16 sm:h-16 text-white opacity-75" />
+            )}
+          </div>
+        )}
+        <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
           {hasAccess ? (
-            <BookOpen className="w-12 h-12 sm:w-16 sm:h-16 text-white opacity-75 group-hover:opacity-100 transition-opacity" />
+            <BookOpen className="w-12 h-12 sm:w-16 sm:h-16 text-white" />
           ) : (
-            <Lock className="w-12 h-12 sm:w-16 sm:h-16 text-white opacity-75" />
+            <Lock className="w-12 h-12 sm:w-16 sm:h-16 text-white" />
           )}
         </div>
         {hasAccess && subscribed && (
