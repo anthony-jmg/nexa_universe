@@ -57,6 +57,19 @@ export function VideoUpload({
     }
   }, []);
 
+  const getVideoDuration = (file: File): Promise<number> => {
+    return new Promise((resolve, reject) => {
+      const video = document.createElement('video');
+      video.preload = 'metadata';
+      video.onloadedmetadata = () => {
+        window.URL.revokeObjectURL(video.src);
+        resolve(video.duration);
+      };
+      video.onerror = () => reject(new Error('Impossible de lire les métadonnées de la vidéo'));
+      video.src = URL.createObjectURL(file);
+    });
+  };
+
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -66,9 +79,21 @@ export function VideoUpload({
       return;
     }
 
-    if (file.size > 500 * 1024 * 1024) {
-      setError('La taille de la video doit etre inferieure a 500MB');
+    // Limite à 200MB pour encourager des vidéos optimisées
+    if (file.size > 200 * 1024 * 1024) {
+      setError('La taille de la video doit etre inferieure a 200MB. Compressez votre video avec Handbrake (gratuit) ou un service en ligne avant l\'upload.');
       return;
+    }
+
+    // Vérification de la durée
+    try {
+      const duration = await getVideoDuration(file);
+      if (duration > 7200) { // 2 heures max
+        setError('La duree de la video ne doit pas depasser 2 heures');
+        return;
+      }
+    } catch (err) {
+      console.warn('Could not read video metadata:', err);
     }
 
     setUploading(true);
@@ -275,7 +300,7 @@ export function VideoUpload({
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between text-xs text-gray-500">
+                  <div className="flex items-center justify-between text-xs text-gray-500 mb-3">
                     <span>{uploadProgress}%</span>
                     <div className="flex items-center space-x-3">
                       {uploadSpeed && <span>{uploadSpeed}</span>}
@@ -284,6 +309,12 @@ export function VideoUpload({
                       )}
                     </div>
                   </div>
+
+                  {uploadProgress > 50 && (
+                    <div className="p-2 bg-blue-500/10 border border-blue-500/30 rounded text-xs text-blue-300 text-center">
+                      Apres l'upload, Cloudflare optimisera automatiquement votre video
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -293,7 +324,11 @@ export function VideoUpload({
                 <Film className="w-12 h-12 text-gray-500 mx-auto mb-4" />
                 <p className="text-sm text-gray-400 mb-2">Cliquez pour uploader une video</p>
                 <p className="text-xs text-gray-500 mb-1">MP4, MOV, AVI, WebM</p>
-                <p className="text-xs text-gray-600">Taille maximum : 500MB</p>
+                <p className="text-xs text-gray-600 mb-2">Taille maximum : 200MB, durée max : 2h</p>
+                <div className="mt-3 pt-3 border-t border-gray-700">
+                  <p className="text-xs text-blue-400 mb-1">✓ Optimisation automatique par Cloudflare Stream</p>
+                  <p className="text-xs text-gray-500">Streaming adaptatif multi-résolutions</p>
+                </div>
               </div>
               <input
                 ref={fileInputRef}
@@ -324,6 +359,13 @@ export function VideoUpload({
             <p className="text-xs text-green-300 mb-1 font-medium">ID Cloudflare :</p>
             <p className="text-xs text-green-200 font-mono break-all">{uploadedVideoId}</p>
           </div>
+          <div className="flex items-start space-x-2 mt-3 p-3 bg-purple-500/10 border border-purple-400/30 rounded">
+            <Loader2 className="w-4 h-4 text-purple-400 flex-shrink-0 mt-0.5 animate-spin" />
+            <div className="text-xs text-purple-300">
+              <p className="font-medium mb-1">Traitement en cours :</p>
+              <p>Cloudflare Stream optimise et compresse votre video. Elle sera disponible dans quelques minutes avec streaming adaptatif multi-resolutions.</p>
+            </div>
+          </div>
           <div className="flex items-start space-x-2 mt-3 p-3 bg-blue-500/10 border border-blue-400/30 rounded">
             <AlertCircle className="w-4 h-4 text-blue-400 flex-shrink-0 mt-0.5" />
             <div className="text-xs text-blue-300">
@@ -331,6 +373,28 @@ export function VideoUpload({
               <p>Remplissez les champs requis puis cliquez sur <span className="font-bold">"Ajouter la Video"</span> pour finaliser.</p>
             </div>
           </div>
+        </div>
+      )}
+
+      {!currentVideoId && !success && (
+        <div className="p-3 bg-gray-800/50 border border-gray-700 rounded-lg space-y-2">
+          <p className="text-xs text-gray-400 font-medium">💡 Conseils pour optimiser vos videos :</p>
+          <ul className="text-xs text-gray-500 space-y-1 ml-4">
+            <li>• Resolution recommandee : 1080p (1920x1080) ou 720p (1280x720)</li>
+            <li>• Format : MP4 avec codec H.264 ou H.265</li>
+            <li>• Si votre video depasse 200MB, utilisez :</li>
+            <li className="ml-4">- <span className="text-gray-400 font-medium">Handbrake</span> (gratuit, Windows/Mac/Linux)</li>
+            <li className="ml-4">- <span className="text-gray-400 font-medium">Clipchamp</span> (en ligne, gratuit)</li>
+            <li className="ml-4">- <span className="text-gray-400 font-medium">FFmpeg</span> (ligne de commande)</li>
+          </ul>
+          <a
+            href="https://github.com/your-repo/blob/main/VIDEO_OPTIMIZATION_GUIDE.md"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center text-xs text-[#B8913D] hover:text-[#D4A84B] transition-colors mt-2"
+          >
+            📖 Guide complet d'optimisation video
+          </a>
         </div>
       )}
 

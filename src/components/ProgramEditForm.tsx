@@ -138,6 +138,7 @@ export function ProgramEditForm({ program, onSave, onCancel }: ProgramEditFormPr
             currentImageUrl={formData.thumbnail_url}
             onImageUrlChange={(url) => setFormData({ ...formData, thumbnail_url: url })}
             label="Program Thumbnail"
+            aspectRatio="video"
           />
         </div>
 

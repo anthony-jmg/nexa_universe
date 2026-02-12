@@ -181,7 +181,7 @@ export function ProfessorDashboard({ onNavigate }: ProfessorDashboardProps) {
           : { count: 0 },
 
         supabase
-          .from('payments')
+          .from('stripe_payments')
           .select('amount')
           .eq('status', 'succeeded')
           .or(`metadata->>professor_id.eq.${user.id}`),
@@ -1293,6 +1293,7 @@ export function ProfessorDashboard({ onNavigate }: ProfessorDashboardProps) {
                       currentImageUrl={programForm.thumbnail_url}
                       onImageUrlChange={(url) => setProgramForm({ ...programForm, thumbnail_url: url })}
                       label="Program Thumbnail"
+                      aspectRatio="video"
                     />
                   </div>
 
@@ -1667,6 +1668,7 @@ export function ProfessorDashboard({ onNavigate }: ProfessorDashboardProps) {
                       currentImageUrl={videoForm.thumbnail_url}
                       onImageUrlChange={(url) => setVideoForm({ ...videoForm, thumbnail_url: url })}
                       label="Video Thumbnail"
+                      aspectRatio="video"
                     />
                   </div>
 

@@ -17,7 +17,6 @@ type Professor = Database['public']['Tables']['professors']['Row'] & {
 };
 type Product = Database['public']['Tables']['products']['Row'];
 type ProductType = Database['public']['Tables']['product_types']['Row'];
-type ProductSize = Database['public']['Tables']['product_sizes']['Row'];
 type Order = Database['public']['Tables']['orders']['Row'] & {
   profiles?: Pick<Profile, 'full_name' | 'email'>;
 };
@@ -37,16 +36,11 @@ interface VideoFormData {
 interface ProductFormData {
   name: string;
   description: string;
-  category: 'merchandise' | 'event_pass';
-  type: string;
   product_type_id: string;
-  product_size_id: string;
   price: number;
-  member_price: number;
   image_url: string;
-  stock: number;
+  stock_quantity: number;
   is_active: boolean;
-  order_index: number;
 }
 
 interface TicketCategory {
@@ -67,7 +61,6 @@ export function Admin({ onNavigate }: AdminProps) {
   const [professors, setProfessors] = useState<Professor[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [productTypes, setProductTypes] = useState<ProductType[]>([]);
-  const [productSizes, setProductSizes] = useState<ProductSize[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [showVideoForm, setShowVideoForm] = useState(false);
@@ -101,16 +94,11 @@ export function Admin({ onNavigate }: AdminProps) {
   const [productForm, setProductForm] = useState<ProductFormData>({
     name: '',
     description: '',
-    category: 'merchandise',
-    type: '',
     product_type_id: '',
-    product_size_id: '',
     price: 0,
-    member_price: 0,
     image_url: '',
-    stock: 0,
+    stock_quantity: 0,
     is_active: true,
-    order_index: 0,
   });
 
 
@@ -136,7 +124,7 @@ export function Admin({ onNavigate }: AdminProps) {
 
   const loadData = async () => {
     setLoading(true);
-    await Promise.all([loadVideos(), loadUsers(), loadProfessors(), loadProducts(), loadProductTypes(), loadProductSizes(), loadOrders()]);
+    await Promise.all([loadVideos(), loadUsers(), loadProfessors(), loadProducts(), loadProductTypes(), loadOrders()]);
     setLoading(false);
   };
 
@@ -177,7 +165,6 @@ export function Admin({ onNavigate }: AdminProps) {
     const { data, error } = await supabase
       .from('products')
       .select('*')
-      .order('order_index')
       .order('created_at', { ascending: false });
 
     if (!error && data) {
@@ -189,22 +176,10 @@ export function Admin({ onNavigate }: AdminProps) {
     const { data, error } = await supabase
       .from('product_types')
       .select('*')
-      .order('order_index');
+      .order('created_at', { ascending: false });
 
     if (!error && data) {
       setProductTypes(data);
-    }
-  };
-
-  const loadProductSizes = async () => {
-    const { data, error } = await supabase
-      .from('product_sizes')
-      .select('*')
-      .order('product_type_id')
-      .order('order_index');
-
-    if (!error && data) {
-      setProductSizes(data);
     }
   };
 
@@ -883,6 +858,7 @@ export function Admin({ onNavigate }: AdminProps) {
                     currentImageUrl={videoForm.thumbnail_url}
                     onImageUrlChange={(url) => setVideoForm({ ...videoForm, thumbnail_url: url })}
                     label="Video Thumbnail"
+                    aspectRatio="video"
                   />
 
                   <div className="flex justify-end space-x-3">
@@ -1865,11 +1841,7 @@ export function Admin({ onNavigate }: AdminProps) {
         ) : activeTab === 'product-types' ? (
           <ProductTypesManagement
             productTypes={productTypes}
-            productSizes={productSizes}
-            onRefresh={() => {
-              loadProductTypes();
-              loadProductSizes();
-            }}
+            onRefresh={loadProductTypes}
             setError={setError}
             setSuccess={setSuccess}
           />

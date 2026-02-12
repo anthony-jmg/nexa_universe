@@ -164,6 +164,7 @@ export function VideoEditForm({ video, programs, onSave, onCancel }: VideoEditFo
             currentImageUrl={formData.thumbnail_url}
             onImageUrlChange={(url) => setFormData({ ...formData, thumbnail_url: url })}
             label="Video Thumbnail"
+            aspectRatio="video"
           />
         </div>
 
