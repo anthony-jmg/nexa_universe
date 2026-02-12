@@ -74,8 +74,34 @@ function AppContent() {
   const [currentProfessorId, setCurrentProfessorId] = useState<string>('');
   const [currentProgramId, setCurrentProgramId] = useState<string>('');
   const [currentEventId, setCurrentEventId] = useState<string>('');
-  const [navigationHistory, setNavigationHistory] = useState<NavigationState[]>([]);
   const { user, loading } = useAuth();
+
+  // Build URL path from current state
+  const buildPath = (page: Page, videoId?: string, professorId?: string, programId?: string, eventId?: string): string => {
+    if (page === 'video' && videoId) return `/video/${videoId}`;
+    if (page === 'professor-detail' && professorId) return `/professor/${professorId}`;
+    if (page === 'program-detail' && programId) return `/program/${programId}`;
+    if (page === 'event-detail' && eventId) return `/event/${eventId}`;
+    if (page === 'landing') return '/';
+    return `/${page}`;
+  };
+
+  // Parse URL path to state
+  const parsePathToState = (path: string): NavigationState | null => {
+    if (path === '/' || path === '') return { page: 'landing' };
+
+    const parts = path.split('/').filter(Boolean);
+    if (parts.length === 0) return { page: 'landing' };
+
+    const [first, second] = parts;
+
+    if (first === 'video' && second) return { page: 'video', videoId: second };
+    if (first === 'professor' && second) return { page: 'professor-detail', professorId: second };
+    if (first === 'program' && second) return { page: 'program-detail', programId: second };
+    if (first === 'event' && second) return { page: 'event-detail', eventId: second };
+
+    return { page: first as Page };
+  };
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
@@ -89,56 +115,140 @@ function AppContent() {
     return () => subscription.unsubscribe();
   }, []);
 
+  // Initialize state from URL on mount
+  useEffect(() => {
+    // Check for recovery token first (takes priority)
+    const hash = window.location.hash;
+    const hasRecoveryToken = hash.includes('type=recovery') || hash.includes('access_token');
+
+    if (hasRecoveryToken) {
+      // Don't modify URL for recovery flow
+      return;
+    }
+
+    const currentPath = window.location.pathname;
+    const stateFromPath = parsePathToState(currentPath);
+
+    if (stateFromPath && stateFromPath.page !== 'landing') {
+      setCurrentPage(stateFromPath.page);
+      if (stateFromPath.videoId) setCurrentVideoId(stateFromPath.videoId);
+      if (stateFromPath.professorId) setCurrentProfessorId(stateFromPath.professorId);
+      if (stateFromPath.programId) setCurrentProgramId(stateFromPath.programId);
+      if (stateFromPath.eventId) setCurrentEventId(stateFromPath.eventId);
+
+      // Initialize browser history state
+      window.history.replaceState(
+        {
+          page: stateFromPath.page,
+          videoId: stateFromPath.videoId,
+          professorId: stateFromPath.professorId,
+          programId: stateFromPath.programId,
+          eventId: stateFromPath.eventId
+        },
+        '',
+        currentPath
+      );
+    } else if (currentPage !== 'reset-password') {
+      // Initialize browser history with current state only if not on password reset page
+      const initialPath = buildPath(currentPage, currentVideoId, currentProfessorId, currentProgramId, currentEventId);
+      window.history.replaceState(
+        {
+          page: currentPage,
+          videoId: currentVideoId,
+          professorId: currentProfessorId,
+          programId: currentProgramId,
+          eventId: currentEventId
+        },
+        '',
+        initialPath
+      );
+    }
+  }, []);
+
+  // Handle browser back/forward buttons
+  useEffect(() => {
+    const handlePopState = (event: PopStateEvent) => {
+      if (event.state) {
+        setCurrentPage(event.state.page || 'landing');
+        setCurrentVideoId(event.state.videoId || '');
+        setCurrentProfessorId(event.state.professorId || '');
+        setCurrentProgramId(event.state.programId || '');
+        setCurrentEventId(event.state.eventId || '');
+      } else {
+        // Fallback: parse from URL
+        const stateFromPath = parsePathToState(window.location.pathname);
+        if (stateFromPath) {
+          setCurrentPage(stateFromPath.page);
+          setCurrentVideoId(stateFromPath.videoId || '');
+          setCurrentProfessorId(stateFromPath.professorId || '');
+          setCurrentProgramId(stateFromPath.programId || '');
+          setCurrentEventId(stateFromPath.eventId || '');
+        }
+      }
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
   const handleNavigate = (page: string, videoId?: string) => {
-    setNavigationHistory(prev => [...prev, {
-      page: currentPage,
-      videoId: currentVideoId,
-      professorId: currentProfessorId,
-      programId: currentProgramId,
-      eventId: currentEventId
-    }]);
+    let newPage: Page = page as Page;
+    let newVideoId = currentVideoId;
+    let newProfessorId = currentProfessorId;
+    let newProgramId = currentProgramId;
+    let newEventId = currentEventId;
 
     if (page === 'video' && videoId) {
-      setCurrentVideoId(videoId);
-      setCurrentPage('video');
+      newVideoId = videoId;
+      newPage = 'video';
     } else if (page.startsWith('video-')) {
-      setCurrentVideoId(page.replace('video-', ''));
-      setCurrentPage('video');
+      newVideoId = page.replace('video-', '');
+      newPage = 'video';
     } else if (page === 'professor-dashboard') {
-      setCurrentPage('professor-dashboard');
+      newPage = 'professor-dashboard';
     } else if (page.startsWith('professor-')) {
-      setCurrentProfessorId(page.replace('professor-', ''));
-      setCurrentPage('professor-detail');
+      newProfessorId = page.replace('professor-', '');
+      newPage = 'professor-detail';
     } else if (page.startsWith('program-')) {
-      setCurrentProgramId(page.replace('program-', ''));
-      setCurrentPage('program-detail');
+      newProgramId = page.replace('program-', '');
+      newPage = 'program-detail';
     } else if (page === 'event-detail' && videoId) {
-      setCurrentEventId(videoId);
-      setCurrentPage('event-detail');
+      newEventId = videoId;
+      newPage = 'event-detail';
     } else {
-      setCurrentPage(page as Page);
+      newPage = page as Page;
       if (videoId) {
-        setCurrentVideoId(videoId);
+        newVideoId = videoId;
       }
     }
+
+    // Update browser history
+    const newPath = buildPath(newPage, newVideoId, newProfessorId, newProgramId, newEventId);
+    window.history.pushState(
+      {
+        page: newPage,
+        videoId: newVideoId,
+        professorId: newProfessorId,
+        programId: newProgramId,
+        eventId: newEventId
+      },
+      '',
+      newPath
+    );
+
+    // Update internal state
+    setCurrentPage(newPage);
+    setCurrentVideoId(newVideoId);
+    setCurrentProfessorId(newProfessorId);
+    setCurrentProgramId(newProgramId);
+    setCurrentEventId(newEventId);
+
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleBack = () => {
-    if (navigationHistory.length > 0) {
-      const previousState = navigationHistory[navigationHistory.length - 1];
-      setNavigationHistory(prev => prev.slice(0, -1));
-
-      setCurrentPage(previousState.page);
-      setCurrentVideoId(previousState.videoId || '');
-      setCurrentProfessorId(previousState.professorId || '');
-      setCurrentProgramId(previousState.programId || '');
-      setCurrentEventId(previousState.eventId || '');
-
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    } else {
-      handleNavigate('landing');
-    }
+    window.history.back();
   };
 
   if (loading) {
