@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { Loader2 } from 'lucide-react';
-import type HlsType from 'hls.js';
 
 interface CloudflareVideoPlayerProps {
   videoId: string;
@@ -21,7 +20,7 @@ export default function CloudflareVideoPlayer({
 }: CloudflareVideoPlayerProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
-  const hlsRef = useRef<HlsType | null>(null);
+  const hlsRef = useRef<any>(null);
   const [streamUrl, setStreamUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
