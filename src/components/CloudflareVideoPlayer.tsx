@@ -47,7 +47,7 @@ export default function CloudflareVideoPlayer({
   const [error, setError] = useState<string | null>(null);
   const [videoViewId, setVideoViewId] = useState<string | null>(null);
   const [playerMode, setPlayerMode] = useState<PlayerMode>('iframe');
-  const [loadedPosition, setSavedPosition] = useState<number>(0);
+  const [savedPosition, setSavedPosition] = useState<number>(0);
   const progressSaveTimer = useRef<number>();
 
   // Detect Android devices
