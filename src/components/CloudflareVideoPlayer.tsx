@@ -287,7 +287,7 @@ export default function CloudflareVideoPlayer({
     if (video.canPlayType('application/vnd.apple.mpegurl')) {
       video.src = streamUrl;
     } else {
-      import('hls.js').then(({ default: Hls }) => {
+      import(/* @vite-ignore */ 'hls.js').then(({ default: Hls }) => {
         if (cancelled || !videoRef.current) return;
 
         if (Hls.isSupported()) {
