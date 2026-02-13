@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import Hls from 'hls.js';
 import { supabase } from '../lib/supabase';
 import { Loader2 } from 'lucide-react';
 
@@ -287,40 +288,36 @@ export default function CloudflareVideoPlayer({
     if (video.canPlayType('application/vnd.apple.mpegurl')) {
       video.src = streamUrl;
     } else {
-      import(/* @vite-ignore */ 'hls.js').then(({ default: Hls }) => {
-        if (cancelled || !videoRef.current) return;
+      if (Hls.isSupported()) {
+        const hls = new Hls({
+          enableWorker: true,
+          lowLatencyMode: false,
+          backBufferLength: 90
+        });
 
-        if (Hls.isSupported()) {
-          const hls = new Hls({
-            enableWorker: true,
-            lowLatencyMode: false,
-            backBufferLength: 90
-          });
+        hlsRef.current = hls;
+        hls.loadSource(streamUrl);
+        hls.attachMedia(videoRef.current);
 
-          hlsRef.current = hls;
-          hls.loadSource(streamUrl);
-          hls.attachMedia(videoRef.current);
-
-          hls.on(Hls.Events.ERROR, (_event, data) => {
-            if (data.fatal) {
-              switch (data.type) {
-                case Hls.ErrorTypes.NETWORK_ERROR:
-                  hls.startLoad();
-                  break;
-                case Hls.ErrorTypes.MEDIA_ERROR:
-                  hls.recoverMediaError();
-                  break;
-                default:
-                  setError('Failed to load video');
-                  hls.destroy();
-                  break;
-              }
+        hls.on(Hls.Events.ERROR, (_event, data) => {
+          if (data.fatal) {
+            switch (data.type) {
+              case Hls.ErrorTypes.NETWORK_ERROR:
+                hls.startLoad();
+                break;
+              case Hls.ErrorTypes.MEDIA_ERROR:
+                hls.recoverMediaError();
+                break;
+              default:
+                setError('Failed to load video');
+                hls.destroy();
+                break;
             }
-          });
-        } else {
-          setError('Your browser does not support video playback');
-        }
-      });
+          }
+        });
+      } else {
+        setError('Your browser does not support video playback');
+      }
     }
 
     return () => {
