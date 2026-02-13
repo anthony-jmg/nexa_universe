@@ -11,7 +11,6 @@ export default defineConfig({
   },
   optimizeDeps: {
     exclude: ['lucide-react'],
-    include: ['hls.js'],
   },
   build: {
     sourcemap: false,
@@ -30,9 +29,6 @@ export default defineConfig({
             }
             if (id.includes('qrcode')) {
               return 'qrcode-vendor';
-            }
-            if (id.includes('hls.js')) {
-              return 'hls-vendor';
             }
             return 'vendor';
           }

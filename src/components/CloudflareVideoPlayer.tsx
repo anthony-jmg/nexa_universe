@@ -1,5 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
-import Hls from 'hls.js';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { Loader2 } from 'lucide-react';
 
@@ -12,6 +11,27 @@ interface CloudflareVideoPlayerProps {
 }
 
 type PlayerMode = 'iframe' | 'native';
+
+let hlsPromise: Promise<any> | null = null;
+
+function loadHls(): Promise<any> {
+  if (hlsPromise) return hlsPromise;
+  hlsPromise = new Promise((resolve, reject) => {
+    if ((window as any).Hls) {
+      resolve((window as any).Hls);
+      return;
+    }
+    const script = document.createElement('script');
+    script.src = 'https://cdn.jsdelivr.net/npm/hls.js@1.5.17/dist/hls.min.js';
+    script.onload = () => resolve((window as any).Hls);
+    script.onerror = () => {
+      hlsPromise = null;
+      reject(new Error('Failed to load HLS library'));
+    };
+    document.head.appendChild(script);
+  });
+  return hlsPromise;
+}
 
 export default function CloudflareVideoPlayer({
   videoId,
@@ -288,36 +308,42 @@ export default function CloudflareVideoPlayer({
     if (video.canPlayType('application/vnd.apple.mpegurl')) {
       video.src = streamUrl;
     } else {
-      if (Hls.isSupported()) {
-        const hls = new Hls({
-          enableWorker: true,
-          lowLatencyMode: false,
-          backBufferLength: 90
-        });
+      loadHls().then((HlsLib) => {
+        if (cancelled || !videoRef.current) return;
 
-        hlsRef.current = hls;
-        hls.loadSource(streamUrl);
-        hls.attachMedia(videoRef.current);
+        if (HlsLib.isSupported()) {
+          const hls = new HlsLib({
+            enableWorker: true,
+            lowLatencyMode: false,
+            backBufferLength: 90
+          });
 
-        hls.on(Hls.Events.ERROR, (_event, data) => {
-          if (data.fatal) {
-            switch (data.type) {
-              case Hls.ErrorTypes.NETWORK_ERROR:
-                hls.startLoad();
-                break;
-              case Hls.ErrorTypes.MEDIA_ERROR:
-                hls.recoverMediaError();
-                break;
-              default:
-                setError('Failed to load video');
-                hls.destroy();
-                break;
+          hlsRef.current = hls;
+          hls.loadSource(streamUrl);
+          hls.attachMedia(videoRef.current);
+
+          hls.on(HlsLib.Events.ERROR, (_event: any, data: any) => {
+            if (data.fatal) {
+              switch (data.type) {
+                case HlsLib.ErrorTypes.NETWORK_ERROR:
+                  hls.startLoad();
+                  break;
+                case HlsLib.ErrorTypes.MEDIA_ERROR:
+                  hls.recoverMediaError();
+                  break;
+                default:
+                  setError('Failed to load video');
+                  hls.destroy();
+                  break;
+              }
             }
-          }
-        });
-      } else {
-        setError('Your browser does not support video playback');
-      }
+          });
+        } else {
+          setError('Your browser does not support video playback');
+        }
+      }).catch(() => {
+        setError('Failed to load video player');
+      });
     }
 
     return () => {
