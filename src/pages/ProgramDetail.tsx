@@ -129,50 +129,39 @@ export function ProgramDetail({ programId, onNavigate, onBack }: ProgramDetailPr
         ? Number(program.price) * (1 - discountPercentage / 100)
         : Number(program.price);
 
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-      if (sessionError || !session) {
-        throw new Error('Session non valide');
-      }
-
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-stripe-checkout`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${session.access_token}`,
-          },
-          body: JSON.stringify({
-            payment_type: 'program',
-            items: [
-              {
-                id: program.id,
-                name: program.title,
-                price: finalPrice,
-                quantity: 1,
-                metadata: {
-                  professor_id: program.professor_id,
-                  program_id: program.id,
-                },
+      const { data, error } = await supabase.functions.invoke('create-stripe-checkout', {
+        body: {
+          payment_type: 'program',
+          items: [
+            {
+              id: program.id,
+              name: program.title,
+              price: finalPrice,
+              quantity: 1,
+              metadata: {
+                professor_id: program.professor_id,
+                program_id: program.id,
               },
-            ],
-            metadata: {
-              target_id: program.id,
-              professor_id: program.professor_id,
             },
-            success_url: `${window.location.origin}?page=program-${program.id}&payment=success`,
-            cancel_url: `${window.location.origin}?page=program-${program.id}&payment=cancelled`,
-          }),
-        }
-      );
+          ],
+          metadata: {
+            target_id: program.id,
+            professor_id: program.professor_id,
+          },
+          success_url: `${window.location.origin}?page=program-${program.id}&payment=success`,
+          cancel_url: `${window.location.origin}?page=program-${program.id}&payment=cancelled`,
+        },
+      });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Erreur lors de la création de la session de paiement');
+      if (error) {
+        throw new Error(error.message || 'Erreur lors de la création de la session de paiement');
       }
 
-      const { url } = await response.json();
-      window.location.href = url;
+      if (!data?.url) {
+        throw new Error('URL de paiement non reçue');
+      }
+
+      window.location.href = data.url;
     } catch (err: any) {
       setError(err.message);
       setPurchasing(false);

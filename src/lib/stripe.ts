@@ -16,39 +16,27 @@ export interface CreateCheckoutParams {
 }
 
 export async function createStripeCheckout(params: CreateCheckoutParams): Promise<string> {
-  const { data: { session } } = await supabase.auth.getSession();
-
-  if (!session?.access_token) {
-    throw new Error('Not authenticated');
-  }
-
   const origin = window.location.origin;
   const success_url = `${origin}/my-purchases?payment=success`;
   const cancel_url = `${origin}/my-purchases?payment=cancelled`;
 
-  const response = await fetch(
-    `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-stripe-checkout`,
-    {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${session.access_token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        ...params,
-        success_url,
-        cancel_url,
-      }),
-    }
-  );
+  const { data, error } = await supabase.functions.invoke('create-stripe-checkout', {
+    body: {
+      ...params,
+      success_url,
+      cancel_url,
+    },
+  });
 
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || 'Failed to create checkout session');
+  if (error) {
+    throw new Error(error.message || 'Failed to create checkout session');
   }
 
-  const { url } = await response.json();
-  return url;
+  if (!data?.url) {
+    throw new Error('No checkout URL received');
+  }
+
+  return data.url;
 }
 
 export async function handleOrderCheckout(orderId: string, items: CheckoutItem[]): Promise<void> {

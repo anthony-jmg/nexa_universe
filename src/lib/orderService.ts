@@ -37,28 +37,17 @@ export interface ValidatedOrderResponse {
 export async function validateAndCreateOrder(
   params: ValidateAndCreateOrderParams
 ): Promise<ValidatedOrderResponse> {
-  const { data: { session } } = await supabase.auth.getSession();
+  const { data, error } = await supabase.functions.invoke('validate-and-create-order', {
+    body: params,
+  });
 
-  if (!session?.access_token) {
-    throw new Error('Not authenticated');
+  if (error) {
+    throw new Error(error.message || 'Failed to create order');
   }
 
-  const response = await fetch(
-    `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/validate-and-create-order`,
-    {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${session.access_token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(params),
-    }
-  );
-
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || 'Failed to create order');
+  if (!data) {
+    throw new Error('No response received from order validation');
   }
 
-  return await response.json();
+  return data;
 }
