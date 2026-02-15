@@ -20,7 +20,7 @@ interface EventFormData {
   start_date: string;
   end_date: string;
   location: string;
-  image_url: string;
+  thumbnail_url: string;
   event_status: 'draft' | 'published';
   is_active: boolean;
 }
@@ -50,7 +50,7 @@ export function EventsManagement() {
     start_date: '',
     end_date: '',
     location: '',
-    image_url: '',
+    thumbnail_url: '',
     event_status: 'draft',
     is_active: true,
   });
@@ -60,7 +60,36 @@ export function EventsManagement() {
   useEffect(() => {
     loadEvents();
     loadTicketTypes();
+
+    const savedDraft = localStorage.getItem('eventFormDraft');
+    if (savedDraft) {
+      try {
+        const { eventForm: savedEventForm, eventTicketTypes: savedTickets, timestamp } = JSON.parse(savedDraft);
+        const dayInMs = 24 * 60 * 60 * 1000;
+        if (Date.now() - timestamp < dayInMs) {
+          setEventForm(savedEventForm);
+          setEventTicketTypes(savedTickets);
+          setShowEventForm(true);
+        } else {
+          localStorage.removeItem('eventFormDraft');
+        }
+      } catch (err) {
+        console.error('Error restoring draft:', err);
+        localStorage.removeItem('eventFormDraft');
+      }
+    }
   }, []);
+
+  useEffect(() => {
+    if (showEventForm && !editingEvent) {
+      const draftData = {
+        eventForm,
+        eventTicketTypes,
+        timestamp: Date.now()
+      };
+      localStorage.setItem('eventFormDraft', JSON.stringify(draftData));
+    }
+  }, [eventForm, eventTicketTypes, showEventForm, editingEvent]);
 
   const loadEvents = async () => {
     try {
@@ -99,6 +128,7 @@ export function EventsManagement() {
   };
 
   const handleAddEvent = () => {
+    localStorage.removeItem('eventFormDraft');
     setEditingEvent(null);
     setEventForm({
       title: '',
@@ -106,7 +136,7 @@ export function EventsManagement() {
       start_date: '',
       end_date: '',
       location: '',
-      image_url: '',
+      thumbnail_url: '',
       event_status: 'draft',
       is_active: true,
     });
@@ -115,6 +145,7 @@ export function EventsManagement() {
   };
 
   const handleEditEvent = (event: EventWithTickets) => {
+    localStorage.removeItem('eventFormDraft');
     setEditingEvent(event);
     setEventForm({
       title: event.title,
@@ -122,7 +153,7 @@ export function EventsManagement() {
       start_date: event.start_date,
       end_date: event.end_date || '',
       location: event.location || '',
-      image_url: event.image_url || '',
+      thumbnail_url: event.thumbnail_url || '',
       event_status: event.event_status as 'draft' | 'published',
       is_active: event.is_active,
     });
@@ -219,6 +250,7 @@ export function EventsManagement() {
         setSuccess('Événement créé avec succès');
       }
 
+      localStorage.removeItem('eventFormDraft');
       setShowEventForm(false);
       loadEvents();
       setTimeout(() => setSuccess(''), 3000);
@@ -290,11 +322,22 @@ export function EventsManagement() {
       {showEventForm && (
         <div className="bg-gray-900 bg-opacity-60 backdrop-blur-sm rounded-2xl border border-[#B8913D] border-opacity-30 p-6">
           <div className="flex justify-between items-center mb-6">
-            <h3 className="text-xl font-medium text-white">
-              {editingEvent ? 'Modifier l\'événement' : 'Nouvel événement'}
-            </h3>
+            <div>
+              <h3 className="text-xl font-medium text-white">
+                {editingEvent ? 'Modifier l\'événement' : 'Nouvel événement'}
+              </h3>
+              {!editingEvent && (
+                <p className="text-sm text-gray-400 mt-1">
+                  Brouillon sauvegardé automatiquement
+                </p>
+              )}
+            </div>
             <button
-              onClick={() => setShowEventForm(false)}
+              onClick={() => {
+                if (confirm('Voulez-vous fermer le formulaire ? Vos modifications seront sauvegardées automatiquement.')) {
+                  setShowEventForm(false);
+                }
+              }}
               className="text-gray-400 hover:text-white transition-colors"
             >
               <X className="w-6 h-6" />
@@ -371,8 +414,8 @@ export function EventsManagement() {
                   Image
                 </label>
                 <ImageUpload
-                  onImageUploaded={(url) => setEventForm({ ...eventForm, image_url: url })}
-                  currentImageUrl={eventForm.image_url}
+                  onImageUploaded={(url) => setEventForm({ ...eventForm, thumbnail_url: url })}
+                  currentImageUrl={eventForm.thumbnail_url}
                 />
               </div>
 
