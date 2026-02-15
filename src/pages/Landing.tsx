@@ -1,4 +1,4 @@
-import { Play, Layers, Ticket, ShoppingBag, Sparkles, ArrowRight } from 'lucide-react';
+import { Play, BookOpen, Ticket, ShoppingBag, Sparkles, ArrowRight } from 'lucide-react';
 import { BackgroundDecor } from '../components/BackgroundDecor';
 import { useLanguage } from '../contexts/LanguageContext';
 
@@ -12,35 +12,35 @@ export function Landing({ onNavigate }: LandingProps) {
     <div className="min-h-screen bg-gradient-to-b from-gray-950 via-gray-900 to-gray-950 relative text-white">
       <BackgroundDecor />
 
-      <section className="relative pt-20 sm:pt-28 md:pt-32 pb-16 sm:pb-20 md:pb-24 px-4 sm:px-6 lg:px-8 overflow-hidden">
+      <section className="relative pt-24 sm:pt-28 md:pt-32 lg:pt-32 xl:pt-36 pb-16 sm:pb-20 md:pb-20 lg:pb-20 px-4 sm:px-6 lg:px-8 overflow-hidden">
         <div className="max-w-7xl mx-auto relative">
           <div className="text-center max-w-4xl mx-auto animate-fade-in">
-            <div className="flex justify-center mb-8 sm:mb-10 md:mb-12">
+            <div className="flex justify-center mb-8 sm:mb-10 md:mb-10 lg:mb-10">
               <img
                 src="/nexa-logo.png"
                 alt="NEXA"
-                className="h-32 sm:h-40 md:h-48 w-auto drop-shadow-[0_0_30px_rgba(212,172,91,0.5)]"
+                className="h-28 sm:h-36 md:h-40 lg:h-40 xl:h-44 w-auto drop-shadow-[0_0_30px_rgba(212,172,91,0.5)]"
               />
             </div>
 
-            <div className="mb-4 sm:mb-6 inline-flex items-center gap-2 px-3 py-1.5 sm:px-4 sm:py-2 bg-gold-500/10 backdrop-blur-sm rounded-full border border-gold-500/30 animate-slide-up">
+            <div className="mb-5 sm:mb-6 inline-flex items-center gap-2 px-3 py-1.5 sm:px-4 sm:py-2 bg-gold-500/10 backdrop-blur-sm rounded-full border border-gold-500/30 animate-slide-up">
               <Sparkles className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-gold-400" />
               <span className="text-xs sm:text-sm font-medium text-gold-300">{t('landing.hero.badge')}</span>
             </div>
 
-            <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-bold text-white mb-6 sm:mb-8 leading-tight px-2">
+            <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-5xl xl:text-6xl font-bold text-white mb-5 sm:mb-6 md:mb-7 lg:mb-6 leading-tight px-2">
               {t('landing.hero.titleStart')}{' '}
               <span className="text-gradient block sm:inline">{t('landing.hero.titleHighlight')}</span>
             </h1>
 
-            <p className="text-base sm:text-lg md:text-xl lg:text-2xl text-gray-300 mb-8 sm:mb-10 md:mb-12 leading-relaxed font-light max-w-3xl mx-auto px-2">
+            <p className="text-base sm:text-lg md:text-xl lg:text-lg xl:text-xl text-gray-300 mb-8 sm:mb-9 md:mb-10 lg:mb-10 leading-relaxed font-light max-w-3xl mx-auto px-2">
               {t('landing.hero.description')}
             </p>
 
-            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center items-center px-2">
+            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center items-stretch sm:items-center px-2 max-w-md sm:max-w-none mx-auto">
               <button
                 onClick={() => onNavigate('signup')}
-                className="w-full sm:w-auto group relative inline-flex items-center justify-center px-6 py-3.5 sm:px-8 sm:py-4 md:py-5 bg-gradient-to-r from-[#B8913D] to-[#D4AC5B] text-white text-base sm:text-lg font-semibold rounded-xl sm:rounded-2xl hover:shadow-glow-lg transition-all hover:scale-105 shadow-elevated overflow-hidden"
+                className="group relative inline-flex items-center justify-center px-6 py-3.5 sm:px-8 sm:py-4 bg-gradient-to-r from-[#B8913D] to-[#D4AC5B] text-white text-base sm:text-lg font-semibold rounded-xl hover:shadow-glow-lg transition-all hover:scale-105 shadow-elevated overflow-hidden"
               >
                 <div className="absolute inset-0 bg-gradient-to-r from-[#D4AC5B] to-[#B8913D] opacity-0 group-hover:opacity-100 transition-opacity"></div>
                 <Play className="w-4 h-4 sm:w-5 sm:h-5 mr-2 relative z-10 group-hover:animate-pulse" />
@@ -50,7 +50,7 @@ export function Landing({ onNavigate }: LandingProps) {
 
               <button
                 onClick={() => onNavigate('academy')}
-                className="w-full sm:w-auto inline-flex items-center justify-center px-6 py-3.5 sm:px-8 sm:py-4 md:py-5 bg-white/5 backdrop-blur-sm border border-white/10 text-white text-base sm:text-lg font-semibold rounded-xl sm:rounded-2xl hover:bg-white/10 hover:shadow-lg transition-all hover:scale-105"
+                className="inline-flex items-center justify-center px-6 py-3.5 sm:px-8 sm:py-4 bg-white/5 backdrop-blur-sm border border-white/10 text-white text-base sm:text-lg font-semibold rounded-xl hover:bg-white/10 hover:shadow-lg transition-all hover:scale-105"
               >
                 {t('landing.hero.ctaSecondary')}
               </button>
@@ -59,58 +59,58 @@ export function Landing({ onNavigate }: LandingProps) {
         </div>
       </section>
 
-      <section className="relative py-16 sm:py-20 md:py-24 px-4 sm:px-6 lg:px-8">
+      <section className="relative py-16 sm:py-18 md:py-20 lg:py-20 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-10 sm:mb-12 md:mb-16 animate-fade-in">
-            <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-white mb-3 sm:mb-4 px-2">
+          <div className="text-center mb-12 sm:mb-14 md:mb-16 animate-fade-in">
+            <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-3xl xl:text-4xl font-bold text-white mb-3 sm:mb-4 px-2">
               {t('landing.features.titleStart')} <span className="text-gradient">{t('landing.features.titleHighlight')}</span>
             </h2>
-            <p className="text-base sm:text-lg md:text-xl text-gray-400 max-w-2xl mx-auto px-2">
+            <p className="text-base sm:text-lg md:text-xl lg:text-lg xl:text-xl text-gray-400 max-w-2xl mx-auto px-2 font-light">
               {t('landing.features.subtitle')}
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5 sm:gap-6 md:gap-8">
-            <div className="card-elevated relative bg-gradient-to-br from-gray-800 to-gray-900 p-6 sm:p-8 md:p-10 rounded-2xl sm:rounded-3xl border border-gray-700/50 overflow-hidden group">
-              <div className="absolute top-0 right-0 w-24 h-24 sm:w-32 sm:h-32 bg-gradient-to-br from-[#D4AC5B]/20 to-transparent rounded-full blur-2xl"></div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-7 md:gap-6 lg:gap-6 xl:gap-7">
+            <div className="card-elevated relative bg-gradient-to-br from-gray-800 to-gray-900 p-6 sm:p-7 md:p-8 rounded-2xl border border-gray-700/50 overflow-hidden group hover:border-[#B8913D]/30 transition-all">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-[#D4AC5B]/10 to-transparent rounded-full blur-2xl"></div>
               <div className="relative z-10">
-                <div className="w-14 h-14 sm:w-16 sm:h-16 md:w-20 md:h-20 bg-gradient-to-br from-[#B8913D] to-[#D4AC5B] rounded-xl sm:rounded-2xl flex items-center justify-center mb-4 sm:mb-5 md:mb-6 shadow-glow group-hover:shadow-glow-lg transition-shadow">
-                  <Layers className="w-7 h-7 sm:w-8 sm:h-8 md:w-9 md:h-9 text-white" />
+                <div className="w-14 h-14 sm:w-16 sm:h-16 bg-gradient-to-br from-[#B8913D] to-[#D4AC5B] rounded-xl flex items-center justify-center mb-5 shadow-glow group-hover:shadow-glow-lg transition-shadow">
+                  <BookOpen className="w-7 h-7 sm:w-8 sm:h-8 text-white" />
                 </div>
-                <h3 className="text-lg sm:text-xl md:text-2xl font-bold text-white mb-3 sm:mb-4">
+                <h3 className="text-xl sm:text-2xl font-bold text-white mb-3">
                   {t('landing.features.feature1.title')}
                 </h3>
-                <p className="text-gray-400 leading-relaxed text-justify text-sm sm:text-base md:text-lg">
+                <p className="text-gray-400 leading-relaxed text-sm sm:text-base font-light">
                   {t('landing.features.feature1.description')}
                 </p>
               </div>
             </div>
 
-            <div className="card-elevated relative bg-gradient-to-br from-gray-800 to-gray-900 p-6 sm:p-8 md:p-10 rounded-2xl sm:rounded-3xl border border-gray-700/50 overflow-hidden group">
-              <div className="absolute top-0 right-0 w-24 h-24 sm:w-32 sm:h-32 bg-gradient-to-br from-[#D4AC5B]/20 to-transparent rounded-full blur-2xl"></div>
+            <div className="card-elevated relative bg-gradient-to-br from-gray-800 to-gray-900 p-6 sm:p-7 md:p-8 rounded-2xl border border-gray-700/50 overflow-hidden group hover:border-[#B8913D]/30 transition-all">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-[#D4AC5B]/10 to-transparent rounded-full blur-2xl"></div>
               <div className="relative z-10">
-                <div className="w-14 h-14 sm:w-16 sm:h-16 md:w-20 md:h-20 bg-gradient-to-br from-[#B8913D] to-[#D4AC5B] rounded-xl sm:rounded-2xl flex items-center justify-center mb-4 sm:mb-5 md:mb-6 shadow-glow group-hover:shadow-glow-lg transition-shadow">
-                  <Ticket className="w-7 h-7 sm:w-8 sm:h-8 md:w-9 md:h-9 text-white" />
+                <div className="w-14 h-14 sm:w-16 sm:h-16 bg-gradient-to-br from-[#B8913D] to-[#D4AC5B] rounded-xl flex items-center justify-center mb-5 shadow-glow group-hover:shadow-glow-lg transition-shadow">
+                  <Ticket className="w-7 h-7 sm:w-8 sm:h-8 text-white" />
                 </div>
-                <h3 className="text-lg sm:text-xl md:text-2xl font-bold text-white mb-3 sm:mb-4">
+                <h3 className="text-xl sm:text-2xl font-bold text-white mb-3">
                   {t('landing.features.feature2.title')}
                 </h3>
-                <p className="text-gray-400 leading-relaxed text-justify text-sm sm:text-base md:text-lg">
+                <p className="text-gray-400 leading-relaxed text-sm sm:text-base font-light">
                   {t('landing.features.feature2.description')}
                 </p>
               </div>
             </div>
 
-            <div className="card-elevated relative bg-gradient-to-br from-gray-800 to-gray-900 p-6 sm:p-8 md:p-10 rounded-2xl sm:rounded-3xl border border-gray-700/50 overflow-hidden group">
-              <div className="absolute top-0 right-0 w-24 h-24 sm:w-32 sm:h-32 bg-gradient-to-br from-[#D4AC5B]/20 to-transparent rounded-full blur-2xl"></div>
+            <div className="card-elevated relative bg-gradient-to-br from-gray-800 to-gray-900 p-6 sm:p-7 md:p-8 rounded-2xl border border-gray-700/50 overflow-hidden group hover:border-[#B8913D]/30 transition-all md:col-span-2 lg:col-span-1">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-[#D4AC5B]/10 to-transparent rounded-full blur-2xl"></div>
               <div className="relative z-10">
-                <div className="w-14 h-14 sm:w-16 sm:h-16 md:w-20 md:h-20 bg-gradient-to-br from-[#B8913D] to-[#D4AC5B] rounded-xl sm:rounded-2xl flex items-center justify-center mb-4 sm:mb-5 md:mb-6 shadow-glow group-hover:shadow-glow-lg transition-shadow">
-                  <ShoppingBag className="w-7 h-7 sm:w-8 sm:h-8 md:w-9 md:h-9 text-white" />
+                <div className="w-14 h-14 sm:w-16 sm:h-16 bg-gradient-to-br from-[#B8913D] to-[#D4AC5B] rounded-xl flex items-center justify-center mb-5 shadow-glow group-hover:shadow-glow-lg transition-shadow">
+                  <ShoppingBag className="w-7 h-7 sm:w-8 sm:h-8 text-white" />
                 </div>
-                <h3 className="text-lg sm:text-xl md:text-2xl font-bold text-white mb-3 sm:mb-4">
+                <h3 className="text-xl sm:text-2xl font-bold text-white mb-3">
                   {t('landing.features.feature3.title')}
                 </h3>
-                <p className="text-gray-400 leading-relaxed text-justify text-sm sm:text-base md:text-lg">
+                <p className="text-gray-400 leading-relaxed text-sm sm:text-base font-light">
                   {t('landing.features.feature3.description')}
                 </p>
               </div>
@@ -119,52 +119,12 @@ export function Landing({ onNavigate }: LandingProps) {
         </div>
       </section>
 
-      <section className="relative py-10 sm:py-20 md:py-24 px-4 sm:px-6 lg:px-8 overflow-hidden">
-        <div className="max-w-5xl mx-auto relative">
-          <div className="relative bg-gradient-to-br from-[#B8913D] via-[#D4AC5B] to-[#A07F35] rounded-xl sm:rounded-3xl md:rounded-[2.5rem] p-6 sm:p-12 md:p-16 text-center text-white overflow-hidden shadow-elevated">
-            <div className="absolute top-0 right-0 w-64 h-64 sm:w-96 sm:h-96 bg-white opacity-10 rounded-full blur-3xl animate-pulse-slow"></div>
-            <div className="absolute bottom-0 left-0 w-64 h-64 sm:w-96 sm:h-96 bg-black opacity-10 rounded-full blur-3xl animate-float"></div>
-
-            <div className="relative z-10">
-              <div className="inline-flex items-center gap-2 px-3 py-1 sm:px-4 sm:py-2 bg-white/20 backdrop-blur-sm rounded-full border border-white/30 mb-3 sm:mb-6">
-                <Sparkles className="w-3 h-3 sm:w-4 sm:h-4" />
-                <span className="text-xs sm:text-sm font-semibold">{t('landing.cta.badge')}</span>
-              </div>
-
-              <h2 className="text-xl sm:text-3xl md:text-4xl lg:text-5xl font-bold mb-3 sm:mb-6 px-2">
-                {t('landing.cta.title')}
-              </h2>
-
-              <p className="text-sm sm:text-lg md:text-xl mb-3 sm:mb-4 opacity-95 max-w-2xl mx-auto leading-relaxed px-2">
-                {t('landing.cta.description')}
-              </p>
-
-              <div className="mb-5 sm:mb-8 md:mb-10">
-                <div className="inline-block px-3 py-1.5 sm:px-6 sm:py-3 bg-white/20 backdrop-blur-sm rounded-lg sm:rounded-2xl border border-white/30">
-                  <p className="text-lg sm:text-2xl md:text-3xl font-bold">
-                    {t('landing.cta.pricePrefix')} <span className="text-xl sm:text-3xl md:text-4xl text-white">8.99€</span>{t('landing.cta.priceSuffix')}
-                  </p>
-                </div>
-              </div>
-
-              <button
-                onClick={() => onNavigate('signup')}
-                className="w-full sm:w-auto group inline-flex items-center justify-center px-6 py-3 sm:px-10 sm:py-4 md:py-5 bg-white text-[#B8913D] text-sm sm:text-lg md:text-xl font-bold rounded-lg sm:rounded-2xl hover:bg-gray-100 transition-all hover:scale-105 shadow-2xl"
-              >
-                {t('landing.cta.button')}
-                <ArrowRight className="w-4 h-4 sm:w-6 sm:h-6 ml-2 sm:ml-3 group-hover:translate-x-1 transition-transform" />
-              </button>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <footer className="relative py-10 sm:py-12 md:py-16 px-4 sm:px-6 lg:px-8 bg-gray-950/50 border-t border-gray-800">
+      <footer className="relative py-12 sm:py-14 md:py-16 px-4 sm:px-6 lg:px-8 bg-gray-950/50 border-t border-gray-800/50">
         <div className="max-w-7xl mx-auto text-center relative">
-          <div className="flex items-center justify-center mb-4 sm:mb-6">
-            <img src="/nexa-logo.png" alt="NEXA" className="h-10 sm:h-12 md:h-16 w-auto opacity-70 drop-shadow-[0_0_10px_rgba(212,172,91,0.2)]" />
+          <div className="flex items-center justify-center mb-5 sm:mb-6">
+            <img src="/nexa-logo.png" alt="NEXA" className="h-12 sm:h-14 md:h-16 w-auto opacity-70 drop-shadow-[0_0_10px_rgba(212,172,91,0.2)]" />
           </div>
-          <p className="text-sm sm:text-base text-gray-500 font-medium px-2">
+          <p className="text-sm sm:text-base text-gray-500 font-light px-2">
             {t('landing.footer.copyright')}
           </p>
         </div>
