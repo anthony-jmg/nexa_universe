@@ -69,30 +69,30 @@ export function Professors({ onNavigate }: ProfessorsProps) {
   });
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-950 via-gray-900 to-gray-950 pt-16 sm:pt-20 pb-8 sm:pb-12 relative">
+    <div className="min-h-screen bg-gradient-to-b from-gray-950 via-gray-900 to-gray-950 pt-14 sm:pt-16 lg:pt-14 pb-6 sm:pb-10 lg:pb-6 relative">
       <BackgroundDecor />
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-        <div className="text-center mb-6 sm:mb-10 md:mb-12 relative">
+        <div className="text-center mb-5 sm:mb-8 lg:mb-5 relative">
           <div className="absolute -top-10 left-1/2 transform -translate-x-1/2 w-64 h-64 sm:w-96 sm:h-96 bg-[#B8913D] opacity-5 rounded-full blur-3xl pointer-events-none"></div>
-          <h1 className="text-2xl sm:text-3xl md:text-4xl font-light text-white mb-2 sm:mb-3 md:mb-4 relative px-2">
+          <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-2xl xl:text-3xl font-light text-white mb-2 sm:mb-3 lg:mb-2 relative px-2">
             {t('professors.header.titleStart')} <span className="text-[#B8913D]">{t('professors.header.titleHighlight')}</span>
           </h1>
-          <p className="text-sm sm:text-base md:text-lg text-gray-400 max-w-2xl mx-auto relative px-4 sm:px-2 leading-relaxed">
+          <p className="text-sm sm:text-base md:text-lg lg:text-sm xl:text-base text-gray-400 max-w-2xl mx-auto relative px-4 sm:px-2 leading-relaxed">
             {t('professors.header.subtitle')}
           </p>
         </div>
 
-        <div className="mb-6 sm:mb-8">
+        <div className="mb-5 sm:mb-7 lg:mb-5">
           <div className="max-w-4xl mx-auto">
-            <div className="bg-gradient-to-br from-gray-800/80 to-gray-900/80 backdrop-blur-sm border border-gray-700/50 rounded-xl sm:rounded-2xl md:rounded-3xl p-3 sm:p-5 md:p-6 shadow-xl">
-              <div className="relative group mb-3 sm:mb-4">
-                <Search className="absolute left-3 sm:left-4 md:left-5 top-1/2 transform -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 text-gray-400 group-focus-within:text-[#B8913D] transition-colors pointer-events-none z-10" />
+            <div className="bg-gradient-to-br from-gray-800/80 to-gray-900/80 backdrop-blur-sm border border-gray-700/50 rounded-xl sm:rounded-2xl lg:rounded-xl p-3 sm:p-5 lg:p-4 shadow-xl">
+              <div className="relative group mb-3 sm:mb-4 lg:mb-3">
+                <Search className="absolute left-3 sm:left-4 lg:left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 lg:w-3.5 lg:h-3.5 text-gray-400 group-focus-within:text-[#B8913D] transition-colors pointer-events-none z-10" />
                 <input
                   type="text"
                   placeholder={t('professors.search.placeholder')}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-9 sm:pl-12 md:pl-14 pr-9 sm:pr-12 md:pr-14 py-2.5 sm:py-3 md:py-4 text-sm sm:text-base bg-gray-900/50 border border-gray-700/50 rounded-lg sm:rounded-xl md:rounded-2xl outline-none focus:border-[#B8913D] focus:ring-2 focus:ring-[#B8913D]/20 text-white placeholder-gray-500 font-light transition-all"
+                  className="w-full pl-9 sm:pl-12 lg:pl-9 pr-9 sm:pr-12 lg:pr-9 py-2.5 sm:py-3 lg:py-2.5 text-sm sm:text-base lg:text-sm bg-gray-900/50 border border-gray-700/50 rounded-lg sm:rounded-xl lg:rounded-lg outline-none focus:border-[#B8913D] focus:ring-2 focus:ring-[#B8913D]/20 text-white placeholder-gray-500 font-light transition-all"
                 />
                 {searchQuery && (
                   <button

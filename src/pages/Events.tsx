@@ -99,35 +99,35 @@ export function Events({ onNavigate }: EventsProps) {
   }, [events, itemsPerPage]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-950 via-gray-900 to-gray-950 pt-20 pb-12 relative overflow-hidden">
+    <div className="min-h-screen bg-gradient-to-b from-gray-950 via-gray-900 to-gray-950 pt-14 sm:pt-16 lg:pt-14 pb-6 sm:pb-10 lg:pb-6 relative overflow-hidden">
       <BackgroundDecor />
-      <div className="absolute top-40 right-0 w-72 h-72 bg-[#B8913D] opacity-5 rounded-full blur-3xl"></div>
-      <div className="absolute bottom-40 left-0 w-72 h-72 bg-[#A07F35] opacity-5 rounded-full blur-3xl"></div>
+      <div className="absolute top-40 right-0 w-48 h-48 sm:w-72 sm:h-72 bg-[#B8913D] opacity-5 rounded-full blur-3xl"></div>
+      <div className="absolute bottom-40 left-0 w-48 h-48 sm:w-72 sm:h-72 bg-[#A07F35] opacity-5 rounded-full blur-3xl"></div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-        <div className="mb-12 text-center">
-          <h1 className="text-4xl sm:text-5xl font-light text-white mb-3">
+        <div className="mb-6 sm:mb-8 lg:mb-6 text-center">
+          <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-3xl xl:text-4xl font-light text-white mb-3 lg:mb-2">
             Événements <span className="text-[#B8913D]">Kizomba</span>
           </h1>
-          <div className="flex justify-center mb-4">
-            <div className="w-20 h-1 bg-gradient-to-r from-transparent via-[#B8913D] to-transparent rounded-full"></div>
+          <div className="flex justify-center mb-3 sm:mb-4 lg:mb-3">
+            <div className="w-16 sm:w-20 lg:w-16 h-1 bg-gradient-to-r from-transparent via-[#B8913D] to-transparent rounded-full"></div>
           </div>
-          <p className="text-gray-400 text-lg">Découvrez nos événements et réservez vos places</p>
+          <p className="text-gray-400 text-sm sm:text-base md:text-lg lg:text-sm xl:text-base px-2">Découvrez nos événements et réservez vos places</p>
         </div>
 
         {loading ? (
-          <div className="text-center py-16">
-            <div className="inline-block w-10 h-10 border-4 border-[#B8913D] border-t-transparent rounded-full animate-spin"></div>
+          <div className="text-center py-10 sm:py-14 lg:py-10">
+            <div className="inline-block w-8 h-8 lg:w-7 lg:h-7 border-4 border-[#B8913D] border-t-transparent rounded-full animate-spin"></div>
           </div>
         ) : events.length === 0 ? (
-          <div className="text-center py-16 bg-gray-900 bg-opacity-60 backdrop-blur-sm rounded-2xl border border-[#B8913D] border-opacity-30">
-            <Calendar className="w-20 h-20 text-[#B8913D] opacity-50 mx-auto mb-4" />
-            <p className="text-gray-300 text-lg">Aucun événement disponible pour le moment</p>
-            <p className="text-gray-500 mt-2">Revenez bientôt pour découvrir nos prochains événements</p>
+          <div className="text-center py-10 sm:py-14 lg:py-10 bg-gray-900 bg-opacity-60 backdrop-blur-sm rounded-xl sm:rounded-2xl border border-[#B8913D] border-opacity-30">
+            <Calendar className="w-14 h-14 sm:w-18 sm:h-18 lg:w-14 lg:h-14 text-[#B8913D] opacity-50 mx-auto mb-4 lg:mb-3" />
+            <p className="text-gray-300 text-base sm:text-lg lg:text-base px-2">Aucun événement disponible pour le moment</p>
+            <p className="text-gray-500 mt-2 text-sm lg:text-xs px-2">Revenez bientôt pour découvrir nos prochains événements</p>
           </div>
         ) : (
           <>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 sm:gap-6 lg:gap-5">
               {currentEvents.map((event) => {
               const minPrice = getMinPrice(event);
               const minMemberPrice = getMinMemberPrice(event);
@@ -138,9 +138,9 @@ export function Events({ onNavigate }: EventsProps) {
               return (
                 <div
                   key={event.id}
-                  className="bg-gray-900 bg-opacity-60 backdrop-blur-sm rounded-2xl shadow-xl hover:shadow-2xl hover:shadow-[#B8913D]/20 transition-all overflow-hidden group border border-[#B8913D] border-opacity-30"
+                  className="bg-gray-900 bg-opacity-60 backdrop-blur-sm rounded-xl sm:rounded-2xl lg:rounded-xl shadow-xl hover:shadow-2xl hover:shadow-[#B8913D]/20 transition-all overflow-hidden group border border-[#B8913D] border-opacity-30"
                 >
-                  <div className="relative h-64 bg-gray-800 overflow-hidden">
+                  <div className="relative h-56 sm:h-64 lg:h-48 bg-gray-800 overflow-hidden">
                     {event.image_url ? (
                       <img
                         src={event.image_url}
@@ -161,16 +161,16 @@ export function Events({ onNavigate }: EventsProps) {
                     )}
                   </div>
 
-                  <div className="p-6">
-                    <h3 className="text-2xl font-medium text-white mb-3 group-hover:text-[#B8913D] transition-colors">
+                  <div className="p-5 sm:p-6 lg:p-4">
+                    <h3 className="text-xl sm:text-2xl lg:text-lg font-medium text-white mb-2 sm:mb-3 lg:mb-2 group-hover:text-[#B8913D] transition-colors">
                       {event.title}
                     </h3>
 
-                    <p className="text-gray-300 text-sm mb-4 line-clamp-2">
+                    <p className="text-gray-300 text-xs sm:text-sm lg:text-xs mb-3 sm:mb-4 lg:mb-3 line-clamp-2">
                       {event.description}
                     </p>
 
-                    <div className="space-y-3 mb-6">
+                    <div className="space-y-2 sm:space-y-3 lg:space-y-2 mb-4 sm:mb-6 lg:mb-4">
                       <div className="flex items-center space-x-3 text-gray-300">
                         <Calendar className="w-5 h-5 text-[#B8913D] flex-shrink-0" />
                         <span className="text-sm">

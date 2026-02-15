@@ -31,7 +31,7 @@ export function Header({ onNavigate, currentPage }: HeaderProps) {
   return (
     <header className="fixed top-0 left-0 right-0 z-50 bg-gray-900/80 backdrop-blur-xl border-b border-gray-800/50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-14 sm:h-16">
+        <div className="flex items-center justify-between h-12 sm:h-14 lg:h-12">
           <button
             onClick={() => onNavigate('landing')}
             className="flex items-center group"
@@ -39,16 +39,16 @@ export function Header({ onNavigate, currentPage }: HeaderProps) {
             <img
               src="/nexa-logo.png"
               alt="NEXA"
-              className="h-8 sm:h-10 md:h-12 w-auto transition-transform group-hover:scale-105 drop-shadow-[0_0_10px_rgba(212,172,91,0.3)]"
+              className="h-7 sm:h-9 md:h-10 lg:h-7 w-auto transition-transform group-hover:scale-105 drop-shadow-[0_0_10px_rgba(212,172,91,0.3)]"
             />
           </button>
 
-          <nav className="hidden md:flex items-center space-x-1">
+          <nav className="hidden md:flex items-center space-x-0.5 lg:space-x-1">
             {user ? (
               <>
                 <button
                   onClick={() => onNavigate('academy')}
-                  className={`px-4 py-2 text-sm font-medium rounded-xl transition-all ${
+                  className={`px-3 py-1.5 lg:px-3 lg:py-1.5 text-xs lg:text-sm font-medium rounded-lg transition-all ${
                     currentPage === 'academy'
                       ? 'bg-gold-500/20 text-gold-400'
                       : 'text-gray-300 hover:text-white hover:bg-white/5'
@@ -58,7 +58,7 @@ export function Header({ onNavigate, currentPage }: HeaderProps) {
                 </button>
                 <button
                   onClick={() => onNavigate('professors')}
-                  className={`px-4 py-2 text-sm font-medium rounded-xl transition-all ${
+                  className={`px-3 py-1.5 lg:px-3 lg:py-1.5 text-xs lg:text-sm font-medium rounded-lg transition-all ${
                     currentPage === 'professors'
                       ? 'bg-gold-500/20 text-gold-400'
                       : 'text-gray-300 hover:text-white hover:bg-white/5'
@@ -68,7 +68,7 @@ export function Header({ onNavigate, currentPage }: HeaderProps) {
                 </button>
                 <button
                   onClick={() => onNavigate('shop')}
-                  className={`px-4 py-2 text-sm font-medium rounded-xl transition-all ${
+                  className={`px-3 py-1.5 lg:px-3 lg:py-1.5 text-xs lg:text-sm font-medium rounded-lg transition-all ${
                     currentPage === 'shop'
                       ? 'bg-gold-500/20 text-gold-400'
                       : 'text-gray-300 hover:text-white hover:bg-white/5'
@@ -80,30 +80,30 @@ export function Header({ onNavigate, currentPage }: HeaderProps) {
                   <>
                     <button
                       onClick={() => onNavigate('cart')}
-                      className={`relative flex items-center space-x-2 px-4 py-2 text-sm font-medium rounded-xl transition-all ${
+                      className={`relative flex items-center px-3 py-1.5 lg:px-3 lg:py-1.5 text-xs lg:text-sm font-medium rounded-lg transition-all ${
                         currentPage === 'cart'
                           ? 'bg-gold-500/20 text-gold-400'
                           : 'text-gray-300 hover:text-white hover:bg-white/5'
                       }`}
                     >
-                      <ShoppingCart className="w-4 h-4" />
+                      <ShoppingCart className="w-3.5 h-3.5 lg:w-4 lg:h-4" />
                       {getCartCount() > 0 && (
-                        <span className="absolute -top-1 -right-1 w-5 h-5 bg-gradient-to-br from-[#B8913D] to-[#D4AC5B] text-white text-xs rounded-full flex items-center justify-center font-bold shadow-glow">
+                        <span className="absolute -top-1 -right-1 w-4 h-4 lg:w-5 lg:h-5 bg-gradient-to-br from-[#B8913D] to-[#D4AC5B] text-white text-[10px] lg:text-xs rounded-full flex items-center justify-center font-bold shadow-glow">
                           {getCartCount()}
                         </span>
                       )}
                     </button>
                     <button
                       onClick={() => onNavigate('favorites')}
-                      className={`relative flex items-center space-x-2 px-4 py-2 text-sm font-medium rounded-xl transition-all ${
+                      className={`relative flex items-center px-3 py-1.5 lg:px-3 lg:py-1.5 text-xs lg:text-sm font-medium rounded-lg transition-all ${
                         currentPage === 'favorites'
                           ? 'bg-gold-500/20 text-gold-400'
                           : 'text-gray-300 hover:text-white hover:bg-white/5'
                       }`}
                     >
-                      <Heart className="w-4 h-4" />
+                      <Heart className="w-3.5 h-3.5 lg:w-4 lg:h-4" />
                       {favorites.length > 0 && (
-                        <span className="absolute -top-1 -right-1 w-5 h-5 bg-gradient-to-br from-red-500 to-pink-500 text-white text-xs rounded-full flex items-center justify-center font-bold shadow-glow">
+                        <span className="absolute -top-1 -right-1 w-4 h-4 lg:w-5 lg:h-5 bg-gradient-to-br from-red-500 to-pink-500 text-white text-[10px] lg:text-xs rounded-full flex items-center justify-center font-bold shadow-glow">
                           {favorites.length}
                         </span>
                       )}
@@ -114,34 +114,34 @@ export function Header({ onNavigate, currentPage }: HeaderProps) {
                 {profile?.role === 'professor' && (
                   <button
                     onClick={() => onNavigate('professor-dashboard')}
-                    className={`flex items-center space-x-2 px-4 py-2 text-sm font-medium rounded-xl transition-all ${
+                    className={`flex items-center space-x-1.5 px-3 py-1.5 lg:px-3 lg:py-1.5 text-xs lg:text-sm font-medium rounded-lg transition-all ${
                       currentPage === 'professor-dashboard'
                         ? 'bg-gold-500/20 text-gold-400'
                         : 'text-gray-300 hover:text-white hover:bg-white/5'
                     }`}
                   >
-                    <LayoutDashboard className="w-4 h-4" />
-                    <span>Dashboard</span>
+                    <LayoutDashboard className="w-3.5 h-3.5 lg:w-4 lg:h-4" />
+                    <span className="hidden xl:inline">Dashboard</span>
                   </button>
                 )}
                 {profile?.role === 'admin' && (
                   <button
                     onClick={() => onNavigate('admin')}
-                    className={`flex items-center space-x-2 px-4 py-2 text-sm font-medium rounded-xl transition-all ${
+                    className={`flex items-center space-x-1.5 px-3 py-1.5 lg:px-3 lg:py-1.5 text-xs lg:text-sm font-medium rounded-lg transition-all ${
                       currentPage === 'admin'
                         ? 'bg-gold-500/20 text-gold-400'
                         : 'text-gray-300 hover:text-white hover:bg-white/5'
                     }`}
                   >
-                    <Shield className="w-4 h-4" />
-                    <span>Admin</span>
+                    <Shield className="w-3.5 h-3.5 lg:w-4 lg:h-4" />
+                    <span className="hidden xl:inline">Admin</span>
                   </button>
                 )}
                 <LanguageSelector />
                 <div className="relative">
                   <button
                     onClick={() => setUserMenuOpen(!userMenuOpen)}
-                    className={`flex items-center space-x-2 px-4 py-2 text-sm font-medium rounded-xl transition-all ${
+                    className={`flex items-center space-x-1.5 px-3 py-1.5 lg:px-3 lg:py-1.5 text-xs lg:text-sm font-medium rounded-lg transition-all ${
                       currentPage === 'account'
                         ? 'bg-gold-500/20 text-gold-400'
                         : 'text-gray-300 hover:text-white hover:bg-white/5'
@@ -151,13 +151,13 @@ export function Header({ onNavigate, currentPage }: HeaderProps) {
                       <img
                         src={getAvatarUrl(profile.avatar_url) || ''}
                         alt={profile.full_name || 'User'}
-                        className="w-6 h-6 rounded-full object-cover border border-gray-700"
+                        className="w-5 h-5 lg:w-6 lg:h-6 rounded-full object-cover border border-gray-700"
                       />
                     ) : (
-                      <User className="w-4 h-4" />
+                      <User className="w-3.5 h-3.5 lg:w-4 lg:h-4" />
                     )}
-                    <span>{profile?.full_name || t('nav.account')}</span>
-                    <ChevronDown className={`w-4 h-4 transition-transform ${userMenuOpen ? 'rotate-180' : ''}`} />
+                    <span className="hidden lg:inline">{profile?.full_name || t('nav.account')}</span>
+                    <ChevronDown className={`w-3 h-3 lg:w-4 lg:h-4 transition-transform ${userMenuOpen ? 'rotate-180' : ''}`} />
                   </button>
                   {userMenuOpen && (
                     <div className="absolute right-0 mt-2 w-48 bg-gray-900/95 backdrop-blur-xl border border-gray-800/50 rounded-xl shadow-xl py-2 z-50">
@@ -196,7 +196,7 @@ export function Header({ onNavigate, currentPage }: HeaderProps) {
               <>
                 <button
                   onClick={() => onNavigate('academy')}
-                  className={`px-4 py-2 text-sm font-medium rounded-xl transition-all ${
+                  className={`px-3 py-1.5 lg:px-3 lg:py-1.5 text-xs lg:text-sm font-medium rounded-lg transition-all ${
                     currentPage === 'academy'
                       ? 'bg-gold-500/20 text-gold-400'
                       : 'text-gray-300 hover:text-white hover:bg-white/5'
@@ -206,26 +206,26 @@ export function Header({ onNavigate, currentPage }: HeaderProps) {
                 </button>
                 <button
                   onClick={() => onNavigate('professors')}
-                  className="px-4 py-2 text-sm font-medium text-gray-300 hover:text-white hover:bg-white/5 rounded-xl transition-all"
+                  className="px-3 py-1.5 lg:px-3 lg:py-1.5 text-xs lg:text-sm font-medium text-gray-300 hover:text-white hover:bg-white/5 rounded-lg transition-all"
                 >
                   {t('nav.professors')}
                 </button>
                 <button
                   onClick={() => onNavigate('shop')}
-                  className="px-4 py-2 text-sm font-medium text-gray-300 hover:text-white hover:bg-white/5 rounded-xl transition-all"
+                  className="px-3 py-1.5 lg:px-3 lg:py-1.5 text-xs lg:text-sm font-medium text-gray-300 hover:text-white hover:bg-white/5 rounded-lg transition-all"
                 >
                   {t('nav.shop')}
                 </button>
                 <LanguageSelector />
                 <button
                   onClick={() => onNavigate('signin')}
-                  className="px-4 py-2 text-sm font-medium text-gray-300 hover:text-white hover:bg-white/5 rounded-xl transition-all"
+                  className="px-3 py-1.5 lg:px-3 lg:py-1.5 text-xs lg:text-sm font-medium text-gray-300 hover:text-white hover:bg-white/5 rounded-lg transition-all"
                 >
                   {t('nav.signIn')}
                 </button>
                 <button
                   onClick={() => onNavigate('signup')}
-                  className="px-6 py-2 bg-gradient-to-r from-[#B8913D] to-[#D4AC5B] text-white text-sm font-semibold rounded-xl hover:shadow-glow transition-all hover:scale-105"
+                  className="px-4 py-1.5 lg:px-5 lg:py-2 bg-gradient-to-r from-[#B8913D] to-[#D4AC5B] text-white text-xs lg:text-sm font-semibold rounded-lg hover:shadow-glow transition-all hover:scale-105"
                 >
                   {t('nav.getStarted')}
                 </button>

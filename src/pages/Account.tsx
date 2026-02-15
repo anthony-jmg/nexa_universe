@@ -291,59 +291,59 @@ export function Account({ onNavigate }: AccountProps) {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-950 via-gray-900 to-gray-950 pt-20 pb-12 relative">
+    <div className="min-h-screen bg-gradient-to-b from-gray-950 via-gray-900 to-gray-950 pt-16 sm:pt-18 lg:pt-14 pb-8 sm:pb-10 lg:pb-6 relative">
       <BackgroundDecor />
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-        <div className="relative mb-8">
+        <div className="relative mb-6 sm:mb-7 lg:mb-5">
           <div className="absolute -top-10 right-0 w-64 h-64 bg-[#B8913D] opacity-5 rounded-full blur-3xl pointer-events-none"></div>
-          <h1 className="text-3xl sm:text-4xl font-light text-white relative">
+          <h1 className="text-2xl sm:text-3xl lg:text-2xl xl:text-3xl font-light text-white relative">
             {t('account.header.title')}
           </h1>
         </div>
 
-        <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl overflow-hidden border border-gray-700/50">
+        <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl sm:rounded-2xl lg:rounded-xl overflow-hidden border border-gray-700/50">
           <div className="border-b border-gray-700/50 bg-gray-800/50">
-            <nav className="flex space-x-8 px-6">
+            <nav className="flex space-x-4 sm:space-x-8 lg:space-x-6 px-4 sm:px-6 lg:px-4 overflow-x-auto">
               <button
                 onClick={() => setActiveTab('profile')}
-                className={`py-4 border-b-2 font-medium text-sm transition-all ${
+                className={`py-3 sm:py-4 lg:py-3 border-b-2 font-medium text-xs sm:text-sm lg:text-xs whitespace-nowrap transition-all ${
                   activeTab === 'profile'
                     ? 'border-[#B8913D] text-[#B8913D]'
                     : 'border-transparent text-gray-400 hover:text-white hover:border-gray-600'
                 }`}
               >
-                <User className="w-4 h-4 inline mr-2" />
+                <User className="w-3 h-3 sm:w-4 sm:h-4 lg:w-3 lg:h-3 inline mr-1.5 sm:mr-2 lg:mr-1.5" />
                 {t('account.tabs.profile')}
               </button>
               <button
                 onClick={() => setActiveTab('subscription')}
-                className={`py-4 border-b-2 font-medium text-sm transition-all ${
+                className={`py-3 sm:py-4 lg:py-3 border-b-2 font-medium text-xs sm:text-sm lg:text-xs whitespace-nowrap transition-all ${
                   activeTab === 'subscription'
                     ? 'border-[#B8913D] text-[#B8913D]'
                     : 'border-transparent text-gray-400 hover:text-white hover:border-gray-600'
                 }`}
               >
-                <Settings className="w-4 h-4 inline mr-2" />
+                <Settings className="w-3 h-3 sm:w-4 sm:h-4 lg:w-3 lg:h-3 inline mr-1.5 sm:mr-2 lg:mr-1.5" />
                 {t('account.tabs.subscription')}
               </button>
               <button
                 onClick={() => setActiveTab('billing')}
-                className={`py-4 border-b-2 font-medium text-sm transition-all ${
+                className={`py-3 sm:py-4 lg:py-3 border-b-2 font-medium text-xs sm:text-sm lg:text-xs whitespace-nowrap transition-all ${
                   activeTab === 'billing'
                     ? 'border-[#B8913D] text-[#B8913D]'
                     : 'border-transparent text-gray-400 hover:text-white hover:border-gray-600'
                 }`}
               >
-                <CreditCard className="w-4 h-4 inline mr-2" />
+                <CreditCard className="w-3 h-3 sm:w-4 sm:h-4 lg:w-3 lg:h-3 inline mr-1.5 sm:mr-2 lg:mr-1.5" />
                 {t('account.tabs.billing')}
               </button>
             </nav>
           </div>
 
-          <div className="p-6 sm:p-8">
+          <div className="p-4 sm:p-6 lg:p-5">
             {activeTab === 'profile' && (
               <div>
-                <h2 className="text-xl font-medium text-white mb-6">{t('account.profile.title')}</h2>
+                <h2 className="text-lg sm:text-xl lg:text-lg font-medium text-white mb-4 sm:mb-6 lg:mb-4">{t('account.profile.title')}</h2>
 
                 {profile && (
                   <div className="mb-8">

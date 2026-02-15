@@ -11,6 +11,18 @@
     -moz-osx-font-smoothing: grayscale;
   }
 
+  @media (min-width: 1024px) and (max-width: 1439px) {
+    html {
+      font-size: 14.5px;
+    }
+  }
+
+  @media (min-width: 1024px) and (max-width: 1279px) {
+    html {
+      font-size: 14px;
+    }
+  }
+
   input[type="number"]::-webkit-inner-spin-button,
   input[type="number"]::-webkit-outer-spin-button {
     -webkit-appearance: none;

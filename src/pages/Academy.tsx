@@ -285,34 +285,34 @@ export function Academy({ onNavigate }: AcademyProps) {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-950 via-gray-900 to-gray-950 pt-16 sm:pt-20 pb-8 sm:pb-12 relative">
+    <div className="min-h-screen bg-gradient-to-b from-gray-950 via-gray-900 to-gray-950 pt-14 sm:pt-16 lg:pt-14 pb-6 sm:pb-10 lg:pb-6 relative">
       <BackgroundDecor />
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-        <div className="mb-6 sm:mb-8 relative">
+        <div className="mb-5 sm:mb-7 lg:mb-5 relative">
           <div className="absolute -top-20 right-0 w-64 h-64 sm:w-96 sm:h-96 bg-[#B8913D] opacity-5 rounded-full blur-3xl pointer-events-none"></div>
-          <h1 className="text-2xl sm:text-3xl md:text-4xl font-light text-white mb-2 relative">
+          <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-2xl xl:text-3xl font-light text-white mb-2 relative">
             {t('academy.header.title')}
           </h1>
-          <p className="text-sm sm:text-base text-gray-400 relative">
+          <p className="text-sm sm:text-base lg:text-sm text-gray-400 relative">
             {hasAccess ? t('academy.header.accessFull') : t('academy.header.accessLimited')}
           </p>
         </div>
 
         {!hasAccess && (
-          <div className="mb-6 sm:mb-8 p-4 sm:p-6 md:p-8 bg-gradient-to-br from-[#B8913D] to-[#A07F35] rounded-xl sm:rounded-3xl text-white relative overflow-hidden shadow-xl">
+          <div className="mb-5 sm:mb-7 lg:mb-5 p-4 sm:p-6 md:p-7 lg:p-5 bg-gradient-to-br from-[#B8913D] to-[#A07F35] rounded-xl sm:rounded-2xl text-white relative overflow-hidden shadow-xl">
             <div className="absolute top-0 right-0 w-32 h-32 sm:w-40 sm:h-40 bg-white opacity-5 rounded-full blur-2xl"></div>
             <div className="absolute bottom-0 left-0 w-32 h-32 sm:w-40 sm:h-40 bg-white opacity-5 rounded-full blur-2xl"></div>
             <div className="relative">
-              <h3 className="text-base sm:text-xl md:text-2xl font-medium mb-1.5 sm:mb-2">{t('academy.banner.title')}</h3>
-              <p className="mb-2 sm:mb-2 opacity-90 text-xs sm:text-base leading-snug sm:leading-relaxed">
+              <h3 className="text-base sm:text-xl md:text-2xl lg:text-lg xl:text-xl font-medium mb-1.5 sm:mb-2">{t('academy.banner.title')}</h3>
+              <p className="mb-2 opacity-90 text-xs sm:text-base lg:text-sm leading-snug sm:leading-relaxed">
                 {t('academy.banner.description')}
               </p>
-              <p className="mb-3 sm:mb-5 text-sm sm:text-lg md:text-xl font-light">
+              <p className="mb-3 sm:mb-4 lg:mb-3 text-sm sm:text-lg md:text-xl lg:text-base xl:text-lg font-light">
                 {t('academy.banner.pricing')}
               </p>
               <button
                 onClick={() => onNavigate('account')}
-                className="px-5 py-2.5 sm:px-7 sm:py-3.5 text-xs sm:text-base bg-white text-[#B8913D] font-medium rounded-lg sm:rounded-full hover:bg-gray-100 transition-all shadow-lg hover:shadow-xl transform hover:scale-105"
+                className="px-4 py-2 sm:px-6 sm:py-2.5 lg:px-5 lg:py-2 text-xs sm:text-base lg:text-sm bg-white text-[#B8913D] font-medium rounded-lg hover:bg-gray-100 transition-all shadow-lg hover:shadow-xl transform hover:scale-105"
               >
                 {t('academy.banner.button')}
               </button>
@@ -320,22 +320,22 @@ export function Academy({ onNavigate }: AcademyProps) {
           </div>
         )}
 
-        <div className="mb-6 sm:mb-8">
-          <div className="bg-gradient-to-br from-gray-800/60 to-gray-900/60 backdrop-blur-sm border border-gray-700/50 rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xl">
-            <div className="flex items-center mb-4 sm:mb-6">
-              <Filter className="w-4 h-4 sm:w-5 sm:h-5 text-gold-400 mr-2" />
-              <h3 className="text-base sm:text-lg font-medium text-white">{t('academy.filters.title')}</h3>
+        <div className="mb-5 sm:mb-7 lg:mb-5">
+          <div className="bg-gradient-to-br from-gray-800/60 to-gray-900/60 backdrop-blur-sm border border-gray-700/50 rounded-xl sm:rounded-2xl p-4 sm:p-5 lg:p-4 shadow-xl">
+            <div className="flex items-center mb-3 sm:mb-5 lg:mb-3">
+              <Filter className="w-4 h-4 lg:w-3.5 lg:h-3.5 text-gold-400 mr-2" />
+              <h3 className="text-base sm:text-lg lg:text-base font-medium text-white">{t('academy.filters.title')}</h3>
             </div>
 
-            <div className="space-y-3 sm:space-y-4">
+            <div className="space-y-3 sm:space-y-4 lg:space-y-3">
               <div className="relative group">
-                <Search className="absolute left-3 sm:left-5 top-1/2 transform -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 text-gray-400 group-focus-within:text-gold-400 transition-colors" />
+                <Search className="absolute left-3 sm:left-4 lg:left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 lg:w-3.5 lg:h-3.5 text-gray-400 group-focus-within:text-gold-400 transition-colors" />
                 <input
                   type="text"
                   placeholder={t('academy.filters.searchPlaceholder')}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-10 sm:pl-14 pr-10 sm:pr-12 py-3 sm:py-4 text-sm sm:text-base bg-gray-900/50 border border-gray-700/50 rounded-xl sm:rounded-2xl focus:border-gold-500 focus:ring-2 focus:ring-gold-500/20 outline-none shadow-sm text-white placeholder-gray-400 transition-all"
+                  className="w-full pl-9 sm:pl-12 lg:pl-9 pr-9 sm:pr-11 lg:pr-9 py-2.5 sm:py-3.5 lg:py-2.5 text-sm sm:text-base lg:text-sm bg-gray-900/50 border border-gray-700/50 rounded-xl focus:border-gold-500 focus:ring-2 focus:ring-gold-500/20 outline-none shadow-sm text-white placeholder-gray-400 transition-all"
                 />
                 {searchQuery && (
                   <button

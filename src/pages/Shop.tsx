@@ -275,24 +275,24 @@ export function Shop({ onNavigate }: ShopProps) {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-950 via-gray-900 to-gray-950 pt-16 sm:pt-20 pb-8 sm:pb-12 relative overflow-hidden">
+    <div className="min-h-screen bg-gradient-to-b from-gray-950 via-gray-900 to-gray-950 pt-14 sm:pt-16 lg:pt-14 pb-6 sm:pb-10 lg:pb-6 relative overflow-hidden">
       <BackgroundDecor />
       <div className="absolute top-40 right-0 w-48 h-48 sm:w-72 sm:h-72 bg-[#B8913D] opacity-5 rounded-full blur-3xl"></div>
       <div className="absolute bottom-40 left-0 w-48 h-48 sm:w-72 sm:h-72 bg-[#A07F35] opacity-5 rounded-full blur-3xl"></div>
 
       <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 relative z-10">
-        <div className="mb-4 sm:mb-8 text-center">
-          <h1 className="text-xl sm:text-3xl md:text-4xl font-light text-white mb-1.5 sm:mb-2 px-2">
+        <div className="mb-4 sm:mb-7 lg:mb-4 text-center">
+          <h1 className="text-xl sm:text-3xl md:text-4xl lg:text-2xl xl:text-3xl font-light text-white mb-1.5 sm:mb-2 lg:mb-1.5 px-2">
             {t('shop.header.brand')} <span className="text-[#B8913D]">{t('shop.header.title')}</span>
           </h1>
-          <div className="flex justify-center mb-2 sm:mb-3">
-            <div className="w-10 sm:w-16 h-0.5 sm:h-1 bg-gradient-to-r from-transparent via-[#B8913D] to-transparent rounded-full"></div>
+          <div className="flex justify-center mb-2 sm:mb-3 lg:mb-2">
+            <div className="w-10 sm:w-16 lg:w-12 h-0.5 sm:h-1 lg:h-0.5 bg-gradient-to-r from-transparent via-[#B8913D] to-transparent rounded-full"></div>
           </div>
-          <p className="text-xs sm:text-base text-gray-400 px-2">{t('shop.header.subtitle')}</p>
+          <p className="text-xs sm:text-base lg:text-sm text-gray-400 px-2">{t('shop.header.subtitle')}</p>
           {isMember && (
-            <div className="mt-2 sm:mt-4 inline-flex items-center space-x-1.5 sm:space-x-2 px-2.5 py-1 sm:px-4 sm:py-2 bg-[#B8913D] bg-opacity-10 rounded-full">
-              <Check className="w-3 h-3 sm:w-4 sm:h-4 text-[#B8913D]" />
-              <span className="text-xs sm:text-sm font-medium text-[#B8913D]">{t('shop.header.memberActive')}</span>
+            <div className="mt-2 sm:mt-4 lg:mt-2 inline-flex items-center space-x-1.5 sm:space-x-2 lg:space-x-1.5 px-2.5 py-1 sm:px-4 sm:py-2 lg:px-3 lg:py-1.5 bg-[#B8913D] bg-opacity-10 rounded-full">
+              <Check className="w-3 h-3 lg:w-2.5 lg:h-2.5 text-[#B8913D]" />
+              <span className="text-xs sm:text-sm lg:text-xs font-medium text-[#B8913D]">{t('shop.header.memberActive')}</span>
             </div>
           )}
         </div>
