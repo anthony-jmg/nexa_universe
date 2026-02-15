@@ -15,7 +15,6 @@ type Program = Database['public']['Tables']['programs']['Row'];
 interface VideoProgress {
   video_id: string;
   progress_percentage: number;
-  last_position_seconds: number;
   completed: boolean;
 }
 
@@ -105,9 +104,9 @@ export function Academy({ onNavigate }: AcademyProps) {
     if (user) {
       const { data: progressData } = await supabase
         .from('video_views')
-        .select('video_id, progress_percentage, last_position_seconds, completed')
+        .select('video_id, progress_percentage, completed')
         .eq('user_id', user.id)
-        .order('watched_at', { ascending: false });
+        .order('last_watched_at', { ascending: false });
 
       if (progressData) {
         const progressMap: Record<string, VideoProgress> = {};
@@ -118,7 +117,6 @@ export function Academy({ onNavigate }: AcademyProps) {
             progressMap[view.video_id] = {
               video_id: view.video_id,
               progress_percentage: view.progress_percentage || 0,
-              last_position_seconds: view.last_position_seconds || 0,
               completed: view.completed || false
             };
             seenVideos.add(view.video_id);
@@ -207,6 +205,12 @@ export function Academy({ onNavigate }: AcademyProps) {
   };
 
   const getVideoAccess = (video: Video) => {
+    // Professors can always access their own videos
+    if (user && video.professor_id === user.id) return 'full';
+
+    // Admins can access everything
+    if (profile?.role === 'admin') return 'full';
+
     if (video.visibility === 'public') {
       return user ? 'full' : 'locked';
     }

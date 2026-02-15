@@ -138,6 +138,12 @@ export function ProgramDetail({ programId, onNavigate, onBack }: ProgramDetailPr
   const canAccess = () => {
     if (!program) return false;
 
+    // Professors can always access their own programs
+    if (user && program.professor_id === user.id) return true;
+
+    // Admins can access everything
+    if (profile?.role === 'admin') return true;
+
     if (program.visibility === 'public' && user) return true;
     if (program.visibility === 'subscribers_only' && hasSubscription) return true;
     if (program.visibility === 'paid' && (hasPurchased || hasSubscription)) return true;

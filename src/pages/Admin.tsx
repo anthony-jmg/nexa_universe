@@ -7,8 +7,9 @@ import { VideoUpload } from '../components/VideoUpload';
 import { ProductTypesManagement } from '../components/ProductTypesManagement';
 import { EventsManagement } from '../components/EventsManagement';
 import { TicketTypesManagement } from '../components/TicketTypesManagement';
+import ProfessorPayments from '../components/ProfessorPayments';
 import { Database } from '../lib/database.types';
-import { Video, Users, Plus, Edit2, Trash2, X, Check, AlertCircle, ShoppingBag, Package, Search, Filter, Tag, Calendar, Ticket } from 'lucide-react';
+import { Video, Users, Plus, Edit2, Trash2, X, Check, AlertCircle, ShoppingBag, Package, Search, Filter, Tag, Calendar, Ticket, DollarSign } from 'lucide-react';
 
 type Video = Database['public']['Tables']['videos']['Row'];
 type Profile = Database['public']['Tables']['profiles']['Row'];
@@ -55,7 +56,7 @@ interface AdminProps {
 
 export function Admin({ onNavigate }: AdminProps) {
   const { user, profile } = useAuth();
-  const [activeTab, setActiveTab] = useState<'videos' | 'users' | 'products' | 'product-types' | 'orders' | 'events' | 'ticket-types'>('videos');
+  const [activeTab, setActiveTab] = useState<'videos' | 'users' | 'products' | 'product-types' | 'orders' | 'events' | 'ticket-types' | 'payments'>('videos');
   const [videos, setVideos] = useState<Video[]>([]);
   const [users, setUsers] = useState<Profile[]>([]);
   const [professors, setProfessors] = useState<Professor[]>([]);
@@ -720,6 +721,17 @@ export function Admin({ onNavigate }: AdminProps) {
             >
               <Ticket className="w-4 h-4" />
               <span>Ticket Types</span>
+            </button>
+            <button
+              onClick={() => setActiveTab('payments')}
+              className={`px-6 py-3 rounded-full font-medium transition-all flex items-center space-x-2 whitespace-nowrap ${
+                activeTab === 'payments'
+                  ? 'bg-gradient-to-r from-[#B8913D] to-[#D4AC5B] text-white border-transparent'
+                  : 'text-gray-300 hover:bg-gray-700/70'
+              }`}
+            >
+              <DollarSign className="w-4 h-4" />
+              <span>Payments</span>
             </button>
           </div>
         </div>
@@ -1849,6 +1861,8 @@ export function Admin({ onNavigate }: AdminProps) {
           <EventsManagement />
         ) : activeTab === 'ticket-types' ? (
           <TicketTypesManagement />
+        ) : activeTab === 'payments' ? (
+          <ProfessorPayments />
         ) : null}
       </div>
     </div>

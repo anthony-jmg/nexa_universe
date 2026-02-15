@@ -6,6 +6,7 @@ import { ImageUpload } from '../components/ImageUpload';
 import { VideoUpload } from '../components/VideoUpload';
 import { ProgramEditForm } from '../components/ProgramEditForm';
 import { VideoEditForm } from '../components/VideoEditForm';
+import ProfessorPaymentHistory from '../components/ProfessorPaymentHistory';
 import LazyImage from '../components/LazyImage';
 import { Database } from '../lib/database.types';
 import { Video, Folder, Plus, Edit2, Trash2, X, Check, AlertCircle, Eye, EyeOff, Lock, Settings, Percent, ChevronUp, ChevronDown, List, BarChart3, Users, Play, DollarSign, TrendingUp } from 'lucide-react';
@@ -64,7 +65,7 @@ async function ensureProfessorExists(userId: string): Promise<void> {
 
 export function ProfessorDashboard({ onNavigate }: ProfessorDashboardProps) {
   const { user, profile } = useAuth();
-  const [activeTab, setActiveTab] = useState<'videos' | 'programs' | 'settings' | 'stats'>('stats');
+  const [activeTab, setActiveTab] = useState<'videos' | 'programs' | 'settings' | 'stats' | 'payments'>('stats');
   const [videos, setVideos] = useState<Video[]>([]);
   const [programs, setPrograms] = useState<Program[]>([]);
   const [loading, setLoading] = useState(true);
@@ -766,6 +767,18 @@ export function ProfessorDashboard({ onNavigate }: ProfessorDashboardProps) {
               <BarChart3 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               <span className="hidden xs:inline">Statistiques</span>
               <span className="xs:hidden">Stats</span>
+            </button>
+            <button
+              onClick={() => setActiveTab('payments')}
+              className={`px-3 sm:px-6 py-2 sm:py-3 rounded-full text-xs sm:text-base font-medium transition-all flex items-center space-x-1.5 sm:space-x-2 ${
+                activeTab === 'payments'
+                  ? 'bg-gradient-to-r from-[#B8913D] to-[#D4AC5B] text-white border-transparent'
+                  : 'text-gray-300 hover:bg-gray-700/70'
+              }`}
+            >
+              <DollarSign className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              <span className="hidden xs:inline">Paiements</span>
+              <span className="xs:hidden">€</span>
             </button>
             <button
               onClick={() => setActiveTab('programs')}
@@ -1538,7 +1551,9 @@ export function ProfessorDashboard({ onNavigate }: ProfessorDashboardProps) {
               </div>
             )}
           </div>
-        ) : (
+        ) : activeTab === 'payments' ? (
+          <ProfessorPaymentHistory />
+        ) : activeTab === 'videos' ? (
           <div className="space-y-4 sm:space-y-6">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-0">
               <h2 className="text-xl sm:text-2xl font-light text-white">Mes Vidéos</h2>
@@ -1788,7 +1803,7 @@ export function ProfessorDashboard({ onNavigate }: ProfessorDashboardProps) {
               )}
             </div>
           </div>
-        )}
+        ) : null}
       </div>
     </div>
   );

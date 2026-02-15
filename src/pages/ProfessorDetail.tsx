@@ -174,6 +174,9 @@ export function ProfessorDetail({ professorId, onNavigate, onBack }: ProfessorDe
   const publicPrograms = programs.filter(p => p.visibility === 'public');
   const publicVideos = videos.filter(v => v.visibility === 'public' && !v.program_id);
 
+  // Professors can always access their own content
+  const isProfessorOwner = user?.id === professorId;
+
   const subscriberPrograms = programs.filter(p => p.visibility === 'subscribers_only');
   const subscriberVideos = videos.filter(v => v.visibility === 'subscribers_only' && !v.program_id);
 
@@ -400,7 +403,7 @@ export function ProfessorDetail({ professorId, onNavigate, onBack }: ProfessorDe
                     <ProgramCard
                       key={program.id}
                       program={program}
-                      hasAccess={subscribed || purchasedPrograms.has(program.id)}
+                      hasAccess={isProfessorOwner || subscribed || purchasedPrograms.has(program.id)}
                       subscribed={subscribed}
                       onClick={() => handleProgramClick(program)}
                       showPrice={false}
@@ -418,7 +421,7 @@ export function ProfessorDetail({ professorId, onNavigate, onBack }: ProfessorDe
                     <VideoCard
                       key={video.id}
                       video={video}
-                      hasAccess={subscribed || purchasedVideos.has(video.id)}
+                      hasAccess={isProfessorOwner || subscribed || purchasedVideos.has(video.id)}
                       subscribed={subscribed}
                       onClick={() => handleVideoClick(video)}
                     />
@@ -451,7 +454,7 @@ export function ProfessorDetail({ professorId, onNavigate, onBack }: ProfessorDe
                     <ProgramCard
                       key={program.id}
                       program={program}
-                      hasAccess={subscribed || purchasedPrograms.has(program.id)}
+                      hasAccess={isProfessorOwner || subscribed || purchasedPrograms.has(program.id)}
                       subscribed={subscribed}
                       onClick={() => handleProgramClick(program)}
                       showPrice={priceVisibility[program.id]}
@@ -470,7 +473,7 @@ export function ProfessorDetail({ professorId, onNavigate, onBack }: ProfessorDe
                     <VideoCard
                       key={video.id}
                       video={video}
-                      hasAccess={subscribed || purchasedVideos.has(video.id)}
+                      hasAccess={isProfessorOwner || subscribed || purchasedVideos.has(video.id)}
                       subscribed={subscribed}
                       onClick={() => handleVideoClick(video)}
                       showPrice={priceVisibility[video.id]}

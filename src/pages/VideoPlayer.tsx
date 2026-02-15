@@ -80,6 +80,13 @@ export function VideoPlayer({ videoId, onNavigate, onBack }: VideoPlayerProps) {
   };
 
   const checkAccess = async (videoData: Video) => {
+    // Professors can always access their own videos
+    if (user && videoData.professor_id === user.id) {
+      setCanAccess(true);
+      setAccessType('free');
+      return;
+    }
+
     if (videoData.visibility === 'public') {
       if (!user) {
         setCanAccess(false);
