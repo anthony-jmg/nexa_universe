@@ -44,13 +44,18 @@ export function Professors({ onNavigate }: ProfessorsProps) {
     } else if (data) {
       setProfessors(data as any);
 
-      const specialties = new Set<string>();
+      const specialtiesMap = new Map<string, string>();
       data.forEach(prof => {
         if (prof.specialties && Array.isArray(prof.specialties)) {
-          prof.specialties.forEach((s: string) => specialties.add(s));
+          prof.specialties.forEach((s: string) => {
+            const key = s.toLowerCase().trim();
+            if (!specialtiesMap.has(key)) {
+              specialtiesMap.set(key, s.trim());
+            }
+          });
         }
       });
-      setAllSpecialties(Array.from(specialties).sort());
+      setAllSpecialties(Array.from(specialtiesMap.values()).sort((a, b) => a.localeCompare(b)));
     }
     setLoading(false);
   };
@@ -63,7 +68,9 @@ export function Professors({ onNavigate }: ProfessorsProps) {
       (professor.bio?.toLowerCase().includes(searchQuery.toLowerCase()) || false);
 
     const matchesSpecialty = selectedSpecialty === 'all' ||
-      (professor.specialties && professor.specialties.includes(selectedSpecialty));
+      (professor.specialties && professor.specialties.some(
+        (s: string) => s.toLowerCase().trim() === selectedSpecialty.toLowerCase().trim()
+      ));
 
     return matchesSearch && matchesSpecialty;
   });
