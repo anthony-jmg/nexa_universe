@@ -63,8 +63,7 @@ export function Shop({ onNavigate }: ShopProps) {
     let query = supabase
       .from('products')
       .select('*', { count: 'exact' })
-      .eq('is_active', true)
-      .eq('category', 'merchandise');
+      .eq('is_active', true);
 
     if (debouncedSearchQuery.trim()) {
       query = query.or(`name.ilike.%${debouncedSearchQuery}%,description.ilike.%${debouncedSearchQuery}%`);
