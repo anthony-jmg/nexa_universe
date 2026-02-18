@@ -319,10 +319,13 @@ export function ProfessorDetail({ professorId, onNavigate, onBack }: ProfessorDe
                       <div className="flex-1 text-center md:text-left">
                         <div className="flex items-center justify-center md:justify-start space-x-2 mb-2">
                           <Gift className="w-5 h-5 text-green-400" />
-                          <span className="text-base sm:text-lg font-medium text-green-400">Contenu entièrement gratuit</span>
+                          <span className="text-base sm:text-lg font-medium text-green-400">Abonnement gratuit</span>
                         </div>
                         <p className="text-xs sm:text-sm text-gray-300 leading-relaxed">
-                          Ce professeur partage son contenu exclusif sans frais. Abonnez-vous gratuitement pour y accéder.
+                          L'abonnement à ce professeur est gratuit. Abonnez-vous pour accéder à son contenu réservé aux abonnés.
+                          {paidPrograms.length > 0 || paidVideos.length > 0 ? (
+                            <span className="block mt-1 text-gray-400">Certains contenus restent disponibles à l'achat individuel.</span>
+                          ) : null}
                         </p>
                         <div className="mt-2 inline-flex items-center space-x-1.5 bg-green-500/10 border border-green-500/20 rounded-full px-3 py-1">
                           <span className="text-xl sm:text-2xl font-bold text-green-400">0€</span>
