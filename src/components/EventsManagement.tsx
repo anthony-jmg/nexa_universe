@@ -144,14 +144,22 @@ export function EventsManagement() {
     setShowEventForm(true);
   };
 
+  const toDatetimeLocal = (isoString: string | null | undefined): string => {
+    if (!isoString) return '';
+    const date = new Date(isoString);
+    if (isNaN(date.getTime())) return '';
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+  };
+
   const handleEditEvent = (event: EventWithTickets) => {
     localStorage.removeItem('eventFormDraft');
     setEditingEvent(event);
     setEventForm({
       title: event.title,
       description: event.description || '',
-      start_date: event.start_date,
-      end_date: event.end_date || '',
+      start_date: toDatetimeLocal(event.start_date),
+      end_date: toDatetimeLocal(event.end_date),
       location: event.location || '',
       thumbnail_url: event.thumbnail_url || '',
       event_status: event.event_status as 'draft' | 'published',
