@@ -219,7 +219,7 @@ export function Cart({ onNavigate }: CartProps) {
             <ShoppingBag className="w-16 h-16 text-gray-300 mx-auto mb-4" />
             <h3 className="text-xl font-medium text-white mb-2">{t('cart.empty.title')}</h3>
             <p className="text-gray-400 mb-6">{t('cart.empty.message')}</p>
-            <div className="flex justify-center space-x-4">
+            <div className="flex flex-col sm:flex-row justify-center gap-3">
               <button
                 onClick={() => onNavigate('shop')}
                 className="px-8 py-3 bg-gradient-to-r from-[#B8913D] to-[#A07F35] text-white rounded-lg hover:shadow-lg transition-all"
@@ -235,8 +235,8 @@ export function Cart({ onNavigate }: CartProps) {
             </div>
           </div>
         ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <div className="lg:col-span-2 space-y-4">
+          <div className="flex flex-col lg:grid lg:grid-cols-3 gap-8">
+            <div className="order-2 lg:order-1 lg:col-span-2 space-y-4">
               {eventTickets.map((ticket) => {
                 const price = isMember && ticket.eventTicketType.member_price > 0
                   ? ticket.eventTicketType.member_price
@@ -248,17 +248,17 @@ export function Cart({ onNavigate }: CartProps) {
                     key={ticket.eventTicketType.id}
                     className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl p-6 border border-[#B8913D] border-opacity-50"
                   >
-                    <div className="flex items-start space-x-4">
-                      <div className="w-24 h-24 bg-gray-700 rounded-lg overflow-hidden flex-shrink-0 flex items-center justify-center">
-                        <Ticket className="w-12 h-12 text-[#B8913D]" />
+                    <div className="flex items-start gap-3">
+                      <div className="w-16 h-16 sm:w-24 sm:h-24 bg-gray-700 rounded-lg overflow-hidden flex-shrink-0 flex items-center justify-center">
+                        <Ticket className="w-8 h-8 sm:w-12 sm:h-12 text-[#B8913D]" />
                       </div>
 
-                      <div className="flex-1">
+                      <div className="flex-1 min-w-0">
                         <div className="flex items-center space-x-2 mb-1">
-                          <Calendar className="w-4 h-4 text-[#B8913D]" />
+                          <Calendar className="w-4 h-4 text-[#B8913D] flex-shrink-0" />
                           <span className="text-sm text-[#B8913D]">Billet d'événement</span>
                         </div>
-                        <h3 className="text-lg font-medium text-white">{ticket.eventTicketType.event.title}</h3>
+                        <h3 className="text-base sm:text-lg font-medium text-white truncate">{ticket.eventTicketType.event.title}</h3>
                         <p className="text-sm text-gray-400 mt-1">
                           {ticket.eventTicketType.ticket_type.name}
                         </p>
@@ -271,7 +271,7 @@ export function Cart({ onNavigate }: CartProps) {
                           })}
                         </p>
                         <div className="mt-2">
-                          <span className="text-lg font-bold text-[#B8913D]">
+                          <span className="text-base sm:text-lg font-bold text-[#B8913D]">
                             {price.toFixed(2)}€
                           </span>
                           {isMember && ticket.eventTicketType.member_price > 0 && ticket.eventTicketType.member_price < ticket.eventTicketType.price && (
@@ -280,28 +280,27 @@ export function Cart({ onNavigate }: CartProps) {
                             </span>
                           )}
                         </div>
-                      </div>
-
-                      <div className="flex items-center space-x-3">
-                        <button
-                          onClick={() => updateEventTicketQuantity(ticket.eventTicketType.id, ticket.quantity - 1)}
-                          className="p-2 border border-gray-600 rounded-lg hover:bg-gray-700 transition-colors text-white"
-                        >
-                          <Minus className="w-4 h-4" />
-                        </button>
-                        <span className="w-8 text-center font-medium text-white">{ticket.quantity}</span>
-                        <button
-                          onClick={() => updateEventTicketQuantity(ticket.eventTicketType.id, ticket.quantity + 1)}
-                          className="p-2 border border-gray-600 rounded-lg hover:bg-gray-700 transition-colors text-white"
-                        >
-                          <Plus className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => removeEventTicketFromCart(ticket.eventTicketType.id)}
-                          className="p-2 text-red-400 hover:bg-red-900 hover:bg-opacity-20 rounded-lg transition-colors ml-2"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                        <div className="flex items-center gap-2 mt-3">
+                          <button
+                            onClick={() => updateEventTicketQuantity(ticket.eventTicketType.id, ticket.quantity - 1)}
+                            className="p-2 border border-gray-600 rounded-lg hover:bg-gray-700 transition-colors text-white"
+                          >
+                            <Minus className="w-4 h-4" />
+                          </button>
+                          <span className="w-8 text-center font-medium text-white">{ticket.quantity}</span>
+                          <button
+                            onClick={() => updateEventTicketQuantity(ticket.eventTicketType.id, ticket.quantity + 1)}
+                            className="p-2 border border-gray-600 rounded-lg hover:bg-gray-700 transition-colors text-white"
+                          >
+                            <Plus className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => removeEventTicketFromCart(ticket.eventTicketType.id)}
+                            className="p-2 text-red-400 hover:bg-red-900 hover:bg-opacity-20 rounded-lg transition-colors ml-1"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
                       </div>
                     </div>
 
@@ -332,8 +331,8 @@ export function Cart({ onNavigate }: CartProps) {
                     key={item.id || `cart-item-${index}`}
                     className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl p-6 border border-gray-700/50"
                   >
-                    <div className="flex items-start space-x-4">
-                      <div className="w-24 h-24 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
+                    <div className="flex items-start gap-3">
+                      <div className="w-16 h-16 sm:w-24 sm:h-24 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
                         {item.product.image_url ? (
                           <img
                             src={item.product.image_url}
@@ -347,15 +346,15 @@ export function Cart({ onNavigate }: CartProps) {
                         )}
                       </div>
 
-                      <div className="flex-1">
-                        <h3 className="text-lg font-medium text-white">{item.product.name}</h3>
+                      <div className="flex-1 min-w-0">
+                        <h3 className="text-base sm:text-lg font-medium text-white truncate">{item.product.name}</h3>
                         {item.selectedSize && (
                           <p className="text-sm text-gray-400 mt-1">
                             {item.product.category === 'event_pass' ? t('cart.item.category') : t('cart.item.size')}: {item.selectedSize}
                           </p>
                         )}
                         <div className="mt-2">
-                          <span className="text-lg font-bold text-[#B8913D]">
+                          <span className="text-base sm:text-lg font-bold text-[#B8913D]">
                             {price.toFixed(2)}€
                           </span>
                           {isMember && originalPrice > price && (
@@ -364,28 +363,27 @@ export function Cart({ onNavigate }: CartProps) {
                             </span>
                           )}
                         </div>
-                      </div>
-
-                      <div className="flex items-center space-x-3">
-                        <button
-                          onClick={() => updateQuantity(item.product.id, item.quantity - 1, item.selectedSize)}
-                          className="p-2 border border-gray-600 rounded-lg hover:bg-gray-700 transition-colors text-white"
-                        >
-                          <Minus className="w-4 h-4" />
-                        </button>
-                        <span className="w-8 text-center font-medium text-white">{item.quantity}</span>
-                        <button
-                          onClick={() => updateQuantity(item.product.id, item.quantity + 1, item.selectedSize)}
-                          className="p-2 border border-gray-600 rounded-lg hover:bg-gray-700 transition-colors text-white"
-                        >
-                          <Plus className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => removeFromCart(item.product.id, item.selectedSize)}
-                          className="p-2 text-red-400 hover:bg-red-900 hover:bg-opacity-20 rounded-lg transition-colors ml-2"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                        <div className="flex items-center gap-2 mt-3">
+                          <button
+                            onClick={() => updateQuantity(item.product.id, item.quantity - 1, item.selectedSize)}
+                            className="p-2 border border-gray-600 rounded-lg hover:bg-gray-700 transition-colors text-white"
+                          >
+                            <Minus className="w-4 h-4" />
+                          </button>
+                          <span className="w-8 text-center font-medium text-white">{item.quantity}</span>
+                          <button
+                            onClick={() => updateQuantity(item.product.id, item.quantity + 1, item.selectedSize)}
+                            className="p-2 border border-gray-600 rounded-lg hover:bg-gray-700 transition-colors text-white"
+                          >
+                            <Plus className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => removeFromCart(item.product.id, item.selectedSize)}
+                            className="p-2 text-red-400 hover:bg-red-900 hover:bg-opacity-20 rounded-lg transition-colors ml-1"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
                       </div>
                     </div>
 
@@ -398,8 +396,8 @@ export function Cart({ onNavigate }: CartProps) {
               })}
             </div>
 
-            <div className="lg:col-span-1">
-              <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl p-6 border border-gray-700/50 sticky top-24">
+            <div className="order-1 lg:order-2 lg:col-span-1">
+              <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl p-4 sm:p-6 border border-gray-700/50 lg:sticky lg:top-24">
                 <h3 className="text-xl font-medium text-white mb-6">{t('cart.summary.title')}</h3>
 
                 <div className="space-y-3 mb-6 pb-6 border-b border-gray-700/50">
