@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import { Play, Lock, CheckCircle, Clock, Folder, Video as VideoIcon, Search, X, Filter, User } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
@@ -204,11 +204,12 @@ export function Academy({ onNavigate }: AcademyProps) {
     setLoading(false);
   };
 
-  const getVideoAccess = (video: Video) => {
-    // Professors can always access their own videos
-    if (user && video.professor_id === user.id) return 'full';
+  const hasAccess = profile?.platform_subscription_status === 'active' &&
+    profile?.platform_subscription_expires_at &&
+    new Date(profile.platform_subscription_expires_at) > new Date();
 
-    // Admins can access everything
+  const getVideoAccess = (video: Video) => {
+    if (user && video.professor_id === user.id) return 'full';
     if (profile?.role === 'admin') return 'full';
 
     if (video.visibility === 'public') {
@@ -225,38 +226,34 @@ export function Academy({ onNavigate }: AcademyProps) {
     return 'locked';
   };
 
-  const hasAccess = profile?.platform_subscription_status === 'active' &&
-    profile?.platform_subscription_expires_at &&
-    new Date(profile.platform_subscription_expires_at) > new Date();
-
-  const filterBySearch = (item: { title: string; description: string | null }) => {
+  const filterBySearch = useCallback((item: { title: string; description: string | null }) => {
     if (!debouncedSearchQuery.trim()) return true;
     const query = debouncedSearchQuery.toLowerCase();
     return item.title.toLowerCase().includes(query) ||
            (item.description?.toLowerCase().includes(query) || false);
-  };
+  }, [debouncedSearchQuery]);
 
-  const filterByProfessor = (professorId: string | null) => {
+  const filterByProfessor = useCallback((professorId: string | null) => {
     if (selectedProfessor === 'all') return true;
     return professorId === selectedProfessor;
-  };
+  }, [selectedProfessor]);
 
-  const filterByLevel = (level: string) => {
+  const filterByLevel = useCallback((level: string) => {
     if (selectedLevel === 'all') return true;
     return level === selectedLevel;
-  };
+  }, [selectedLevel]);
 
   const filteredPrograms = useMemo(() => programs
     .filter(filterBySearch)
     .filter(p => filterByProfessor(p.professor_id))
     .filter(p => filterByLevel(p.level)),
-    [programs, debouncedSearchQuery, selectedProfessor, selectedLevel]);
+    [programs, filterBySearch, filterByProfessor, filterByLevel]);
 
   const levelVideos = useMemo(() => videos
     .filter(v => filterByLevel(v.level))
     .filter(filterBySearch)
     .filter(v => filterByProfessor(v.professor_id)),
-    [videos, selectedLevel, debouncedSearchQuery, selectedProfessor]);
+    [videos, filterByLevel, filterBySearch, filterByProfessor]);
 
   const currentItems = useMemo(() => {
     const items = activeTab === 'programs' ? filteredPrograms : levelVideos;
@@ -530,6 +527,7 @@ export function Academy({ onNavigate }: AcademyProps) {
                         <img
                           src={program.thumbnail_url}
                           alt={program.title}
+                          loading="lazy"
                           className="absolute inset-0 w-full h-full object-cover"
                         />
                       ) : (
@@ -698,6 +696,7 @@ export function Academy({ onNavigate }: AcademyProps) {
                       <img
                         src={video.thumbnail_url}
                         alt={video.title}
+                        loading="lazy"
                         className="absolute inset-0 w-full h-full object-cover"
                       />
                     ) : (

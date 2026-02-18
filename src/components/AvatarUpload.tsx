@@ -6,8 +6,7 @@ import { useLanguage } from '../contexts/LanguageContext';
 
 export function getAvatarUrl(avatarUrl: string | null): string | null {
   if (!avatarUrl) return null;
-  if (avatarUrl.includes('?t=')) return avatarUrl;
-  return `${avatarUrl}?t=${Date.now()}`;
+  return avatarUrl;
 }
 
 interface AvatarUploadProps {
