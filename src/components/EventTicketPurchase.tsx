@@ -119,31 +119,6 @@ export function EventTicketPurchase({ eventId, onPurchaseComplete }: EventTicket
     setAttendees(newAttendees);
   };
 
-  const generateQRCodeData = (
-    attendeeId: string,
-    attendee: AttendeeInfo,
-    eventId: string,
-    ticketTypeId: string
-  ) => {
-    return JSON.stringify({
-      attendee_id: attendeeId,
-      first_name: attendee.first_name,
-      last_name: attendee.last_name,
-      email: attendee.email,
-      event_id: eventId,
-      ticket_type_id: ticketTypeId,
-      timestamp: new Date().toISOString()
-    });
-  };
-
-  const generateQRCodeHash = async (qrData: string) => {
-    const encoder = new TextEncoder();
-    const data = encoder.encode(qrData);
-    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-  };
-
   const validateAttendees = () => {
     for (let i = 0; i < attendees.length; i++) {
       const attendee = attendees[i];
@@ -233,30 +208,16 @@ export function EventTicketPurchase({ eventId, onPurchaseComplete }: EventTicket
 
       if (orderItemError) throw orderItemError;
 
-      const attendeeInserts = await Promise.all(
-        attendees.map(async (attendee) => {
-          const attendeeId = crypto.randomUUID();
-          const qrCodeData = generateQRCodeData(
-            attendeeId,
-            attendee,
-            selectedEvent.id,
-            selectedTicketType.id
-          );
-          const qrCodeHash = await generateQRCodeHash(qrCodeData);
-
-          return {
-            id: attendeeId,
-            order_id: order.id,
-            event_ticket_type_id: selectedTicketType.id,
-            attendee_first_name: attendee.first_name.trim(),
-            attendee_last_name: attendee.last_name.trim(),
-            attendee_email: attendee.email.trim().toLowerCase(),
-            attendee_phone: attendee.phone.trim() || null,
-            qr_code_data: qrCodeData,
-            qr_code_hash: qrCodeHash
-          };
-        })
-      );
+      const attendeeInserts = attendees.map((attendee) => {
+        const qrCode = `EVT-${order.id}-${selectedTicketType.id}-${crypto.randomUUID()}`;
+        return {
+          event_id: selectedEvent.id,
+          user_id: user.id,
+          event_ticket_type_id: selectedTicketType.id,
+          qr_code: qrCode,
+          check_in_status: 'not_checked_in',
+        };
+      });
 
       const { error: attendeesError } = await supabase
         .from('event_attendees')

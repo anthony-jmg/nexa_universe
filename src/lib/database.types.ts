@@ -504,54 +504,39 @@ export interface Database {
       event_attendees: {
         Row: {
           id: string
-          order_id: string
-          event_ticket_type_id: string
-          attendee_first_name: string
-          attendee_last_name: string
-          attendee_email: string
-          attendee_phone: string | null
-          qr_code_data: string
-          qr_code_hash: string
-          checked_in: boolean
+          event_id: string
+          user_id: string
+          event_ticket_type_id: string | null
+          qr_code: string
+          check_in_status: string
           checked_in_at: string | null
           checked_in_by: string | null
-          status: 'valid' | 'used' | 'cancelled'
-          created_at: string
-          updated_at: string
+          purchased_at: string | null
+          created_at: string | null
         }
         Insert: {
           id?: string
-          order_id: string
-          event_ticket_type_id: string
-          attendee_first_name: string
-          attendee_last_name: string
-          attendee_email: string
-          attendee_phone?: string | null
-          qr_code_data: string
-          qr_code_hash: string
-          checked_in?: boolean
+          event_id: string
+          user_id: string
+          event_ticket_type_id?: string | null
+          qr_code: string
+          check_in_status?: string
           checked_in_at?: string | null
           checked_in_by?: string | null
-          status?: 'valid' | 'used' | 'cancelled'
-          created_at?: string
-          updated_at?: string
+          purchased_at?: string | null
+          created_at?: string | null
         }
         Update: {
           id?: string
-          order_id?: string
-          event_ticket_type_id?: string
-          attendee_first_name?: string
-          attendee_last_name?: string
-          attendee_email?: string
-          attendee_phone?: string | null
-          qr_code_data?: string
-          qr_code_hash?: string
-          checked_in?: boolean
+          event_id?: string
+          user_id?: string
+          event_ticket_type_id?: string | null
+          qr_code?: string
+          check_in_status?: string
           checked_in_at?: string | null
           checked_in_by?: string | null
-          status?: 'valid' | 'used' | 'cancelled'
-          created_at?: string
-          updated_at?: string
+          purchased_at?: string | null
+          created_at?: string | null
         }
       }
       products: {

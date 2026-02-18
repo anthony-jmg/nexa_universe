@@ -79,14 +79,6 @@ export function EventTicketPurchasePage({ onNavigate }: EventTicketPurchasePageP
     return true;
   };
 
-  const hashString = async (str: string): Promise<string> => {
-    const encoder = new TextEncoder();
-    const data = encoder.encode(str);
-    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-  };
-
   const handleConfirm = async () => {
     if (!validateAttendees()) {
       setError('Veuillez remplir tous les champs obligatoires avec des informations valides');
@@ -101,23 +93,24 @@ export function EventTicketPurchasePage({ onNavigate }: EventTicketPurchasePageP
 
       for (const ticket of eventTickets) {
         for (let i = 0; i < ticket.quantity; i++) {
-          const attendee = attendees[attendeeIndex];
+          const qrCode = `EVT-${orderId}-${ticket.eventTicketType.id}-${crypto.randomUUID()}`;
 
-          const qrCodeData = crypto.randomUUID();
-          const qrCodeHash = await hashString(qrCodeData);
+          const { data: ticketTypeData } = await supabase
+            .from('event_ticket_types')
+            .select('event_id')
+            .eq('id', ticket.eventTicketType.id)
+            .maybeSingle();
+
+          if (!ticketTypeData) throw new Error('Ticket type not found');
 
           const { error: attendeeError } = await supabase
             .from('event_attendees')
             .insert({
-              order_id: orderId,
+              event_id: ticketTypeData.event_id,
+              user_id: user!.id,
               event_ticket_type_id: ticket.eventTicketType.id,
-              attendee_first_name: attendee.firstName,
-              attendee_last_name: attendee.lastName,
-              attendee_email: attendee.email,
-              attendee_phone: attendee.phone || null,
-              qr_code_data: qrCodeData,
-              qr_code_hash: qrCodeHash,
-              status: 'valid'
+              qr_code: qrCode,
+              check_in_status: 'not_checked_in',
             });
 
           if (attendeeError) throw attendeeError;

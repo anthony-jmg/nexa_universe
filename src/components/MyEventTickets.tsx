@@ -1,29 +1,34 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { Database } from '../lib/database.types';
 import { Calendar, MapPin, Ticket, Download, QrCode, Check, X } from 'lucide-react';
 import QRCode from 'qrcode';
 
-type EventAttendee = Database['public']['Tables']['event_attendees']['Row'];
-type Order = Database['public']['Tables']['orders']['Row'];
-
-interface EventTicketWithDetails extends EventAttendee {
-  orders: Order;
+interface EventTicketWithDetails {
+  id: string;
+  event_id: string;
+  user_id: string;
+  event_ticket_type_id: string | null;
+  qr_code: string;
+  check_in_status: string;
+  checked_in_at: string | null;
+  purchased_at: string | null;
+  created_at: string | null;
   event_ticket_types: {
+    id: string;
     event_id: string;
-    events: {
-      title: string;
-      description: string;
-      location: string;
-      start_date: string;
-      end_date: string | null;
-      image_url: string;
-    };
     ticket_types: {
       name: string;
       description: string;
     };
+  } | null;
+  events: {
+    title: string;
+    description: string;
+    location: string;
+    start_date: string;
+    end_date: string | null;
+    thumbnail_url: string | null;
   };
 }
 
@@ -42,7 +47,7 @@ export function MyEventTickets() {
 
   useEffect(() => {
     if (selectedTicket) {
-      generateQRCode(selectedTicket.qr_code_data);
+      generateQRCode(selectedTicket.qr_code);
     }
   }, [selectedTicket]);
 
@@ -52,14 +57,14 @@ export function MyEventTickets() {
       .from('event_attendees')
       .select(`
         *,
-        orders!inner(id, user_id, status, created_at),
-        event_ticket_types!inner(
+        event_ticket_types (
+          id,
           event_id,
-          events!inner(title, description, location, start_date, end_date, image_url),
-          ticket_types!inner(name, description)
-        )
+          ticket_types (name, description)
+        ),
+        events (title, description, location, start_date, end_date, thumbnail_url)
       `)
-      .eq('orders.user_id', user?.id)
+      .eq('user_id', user!.id)
       .order('created_at', { ascending: false });
 
     if (!error && data) {
@@ -80,15 +85,14 @@ export function MyEventTickets() {
       });
       setQrCodeUrl(url);
     } catch (err) {
-      console.error('Error generating QR code:', err);
+      // QR generation failed silently
     }
   };
 
   const downloadQRCode = () => {
     if (!qrCodeUrl || !selectedTicket) return;
-
     const link = document.createElement('a');
-    link.download = `ticket-${selectedTicket.attendee_first_name}-${selectedTicket.attendee_last_name}.png`;
+    link.download = `ticket-${selectedTicket.id}.png`;
     link.href = qrCodeUrl;
     link.click();
   };
@@ -96,7 +100,7 @@ export function MyEventTickets() {
   const groupTicketsByEvent = () => {
     const grouped: { [key: string]: EventTicketWithDetails[] } = {};
     tickets.forEach(ticket => {
-      const eventId = ticket.event_ticket_types.event_id;
+      const eventId = ticket.event_id;
       if (!grouped[eventId]) {
         grouped[eventId] = [];
       }
@@ -117,7 +121,7 @@ export function MyEventTickets() {
     return (
       <div className="text-center py-12">
         <Ticket className="w-16 h-16 text-gray-600 mx-auto mb-4" />
-        <p className="text-gray-400">Vous n'avez pas encore de billets d'événement</p>
+        <p className="text-gray-400">Vous n'avez pas encore de billets d'evenement</p>
       </div>
     );
   }
@@ -127,7 +131,7 @@ export function MyEventTickets() {
   return (
     <div className="space-y-6">
       {Object.entries(groupedTickets).map(([eventId, eventTickets]) => {
-        const event = eventTickets[0].event_ticket_types.events;
+        const event = eventTickets[0].events;
         const isPastEvent = new Date(event.start_date) < new Date();
 
         return (
@@ -137,7 +141,7 @@ export function MyEventTickets() {
           >
             <div className="relative h-48">
               <img
-                src={event.image_url || 'https://images.pexels.com/photos/1190297/pexels-photo-1190297.jpeg'}
+                src={event.thumbnail_url || 'https://images.pexels.com/photos/1190297/pexels-photo-1190297.jpeg'}
                 alt={event.title}
                 className="w-full h-full object-cover"
               />
@@ -170,7 +174,7 @@ export function MyEventTickets() {
                 </h4>
                 {isPastEvent && (
                   <span className="px-3 py-1 bg-gray-700 text-gray-300 rounded-full text-xs">
-                    Événement passé
+                    Evenement passe
                   </span>
                 )}
               </div>
@@ -184,32 +188,32 @@ export function MyEventTickets() {
                   >
                     <div className="flex items-start justify-between mb-3">
                       <div>
-                        <p className="text-white font-medium">
-                          {ticket.attendee_first_name} {ticket.attendee_last_name}
+                        {ticket.event_ticket_types?.ticket_types && (
+                          <p className="text-white font-medium">
+                            {ticket.event_ticket_types.ticket_types.name}
+                          </p>
+                        )}
+                        <p className="text-sm text-gray-400">
+                          {ticket.purchased_at
+                            ? new Date(ticket.purchased_at).toLocaleDateString('fr-FR')
+                            : ''}
                         </p>
-                        <p className="text-sm text-gray-400">{ticket.attendee_email}</p>
                       </div>
                       <QrCode className="w-5 h-5 text-[#B8913D]" />
                     </div>
 
                     <div className="space-y-2">
                       <div className="flex items-center justify-between text-sm">
-                        <span className="text-gray-400">Type:</span>
-                        <span className="text-white">
-                          {ticket.event_ticket_types.ticket_types.name}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between text-sm">
                         <span className="text-gray-400">Check-in:</span>
-                        {ticket.checked_in ? (
+                        {ticket.check_in_status === 'checked_in' ? (
                           <span className="flex items-center text-green-400">
                             <Check className="w-4 h-4 mr-1" />
-                            Validé
+                            Valide
                           </span>
                         ) : (
                           <span className="flex items-center text-gray-400">
                             <X className="w-4 h-4 mr-1" />
-                            Non validé
+                            Non valide
                           </span>
                         )}
                       </div>
@@ -244,7 +248,7 @@ export function MyEventTickets() {
             <div className="text-center mb-6">
               <h3 className="text-2xl font-light text-white mb-2">Votre Billet</h3>
               <p className="text-gray-400">
-                {selectedTicket.event_ticket_types.events.title}
+                {selectedTicket.events.title}
               </p>
             </div>
 
@@ -263,33 +267,25 @@ export function MyEventTickets() {
             </div>
 
             <div className="space-y-3 mb-6">
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-400">Nom:</span>
-                <span className="text-white font-medium">
-                  {selectedTicket.attendee_first_name} {selectedTicket.attendee_last_name}
-                </span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-400">Email:</span>
-                <span className="text-white">{selectedTicket.attendee_email}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-400">Type de billet:</span>
-                <span className="text-white">
-                  {selectedTicket.event_ticket_types.ticket_types.name}
-                </span>
-              </div>
+              {selectedTicket.event_ticket_types?.ticket_types && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-400">Type de billet:</span>
+                  <span className="text-white">
+                    {selectedTicket.event_ticket_types.ticket_types.name}
+                  </span>
+                </div>
+              )}
               <div className="flex justify-between text-sm">
                 <span className="text-gray-400">Statut:</span>
-                {selectedTicket.checked_in ? (
+                {selectedTicket.check_in_status === 'checked_in' ? (
                   <span className="flex items-center text-green-400">
                     <Check className="w-4 h-4 mr-1" />
-                    Validé le {new Date(selectedTicket.checked_in_at!).toLocaleDateString('fr-FR')}
+                    Valide le {selectedTicket.checked_in_at ? new Date(selectedTicket.checked_in_at).toLocaleDateString('fr-FR') : ''}
                   </span>
                 ) : (
                   <span className="flex items-center text-gray-400">
                     <X className="w-4 h-4 mr-1" />
-                    Non validé
+                    Non valide
                   </span>
                 )}
               </div>
@@ -301,7 +297,7 @@ export function MyEventTickets() {
                 className="flex-1 flex items-center justify-center space-x-2 py-3 bg-[#B8913D]/20 text-[#B8913D] rounded-lg hover:bg-[#B8913D]/30 transition-colors"
               >
                 <Download className="w-4 h-4" />
-                <span>Télécharger</span>
+                <span>Telecharger</span>
               </button>
               <button
                 onClick={() => setSelectedTicket(null)}

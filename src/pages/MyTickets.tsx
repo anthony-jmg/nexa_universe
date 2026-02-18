@@ -1,20 +1,34 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { BackgroundDecor } from '../components/BackgroundDecor';
-import { Database } from '../lib/database.types';
 import { Calendar, MapPin, Ticket, Download, X, CheckCircle, XCircle, Clock } from 'lucide-react';
 import QRCode from 'qrcode';
 
-type EventAttendee = Database['public']['Tables']['event_attendees']['Row'];
-type EventTicketType = Database['public']['Tables']['event_ticket_types']['Row'];
-type TicketType = Database['public']['Tables']['ticket_types']['Row'];
-type Event = Database['public']['Tables']['events']['Row'];
-
-interface AttendeeWithDetails extends EventAttendee {
-  event_ticket_type: EventTicketType & {
-    ticket_type: TicketType;
-    event: Event;
+interface AttendeeWithDetails {
+  id: string;
+  event_id: string;
+  user_id: string;
+  event_ticket_type_id: string | null;
+  qr_code: string;
+  check_in_status: string;
+  checked_in_at: string | null;
+  purchased_at: string | null;
+  created_at: string | null;
+  event_ticket_types: {
+    id: string;
+    price: number;
+    ticket_types: {
+      name: string;
+    };
+  } | null;
+  events: {
+    id: string;
+    title: string;
+    location: string;
+    start_date: string;
+    end_date: string | null;
+    thumbnail_url: string | null;
   };
 }
 
@@ -28,7 +42,6 @@ export function MyTickets({ onNavigate }: MyTicketsProps) {
   const [loading, setLoading] = useState(true);
   const [selectedTicket, setSelectedTicket] = useState<AttendeeWithDetails | null>(null);
   const [qrCodeUrl, setQrCodeUrl] = useState<string>('');
-  const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
     if (user) {
@@ -38,35 +51,30 @@ export function MyTickets({ onNavigate }: MyTicketsProps) {
 
   useEffect(() => {
     if (selectedTicket) {
-      generateQRCode(selectedTicket.qr_code_data);
+      generateQRCode(selectedTicket.qr_code);
     }
   }, [selectedTicket]);
 
   const loadTickets = async () => {
-    const { data: ordersData } = await supabase
-      .from('orders')
-      .select('id')
-      .eq('user_id', user!.id);
-
-    if (!ordersData || ordersData.length === 0) {
-      setTickets([]);
-      setLoading(false);
-      return;
-    }
-
-    const orderIds = ordersData.map(order => order.id);
-
     const { data, error } = await supabase
       .from('event_attendees')
       .select(`
         *,
-        event_ticket_type:event_ticket_types (
-          *,
-          ticket_type:ticket_types (*),
-          event:events (*)
+        event_ticket_types (
+          id,
+          price,
+          ticket_types (name)
+        ),
+        events (
+          id,
+          title,
+          location,
+          start_date,
+          end_date,
+          thumbnail_url
         )
       `)
-      .in('order_id', orderIds)
+      .eq('user_id', user!.id)
       .order('created_at', { ascending: false });
 
     if (!error && data) {
@@ -87,75 +95,62 @@ export function MyTickets({ onNavigate }: MyTicketsProps) {
       });
       setQrCodeUrl(url);
     } catch (err) {
-      console.error('Error generating QR code:', err);
+      // QR generation failed silently
     }
   };
 
   const downloadQRCode = () => {
     if (!selectedTicket || !qrCodeUrl) return;
-
     const link = document.createElement('a');
-    link.download = `ticket-${selectedTicket.attendee_first_name}-${selectedTicket.attendee_last_name}.png`;
+    link.download = `ticket-${selectedTicket.id}.png`;
     link.href = qrCodeUrl;
     link.click();
   };
 
-  const cancelTicket = async (ticketId: string) => {
-    if (!confirm('Êtes-vous sûr de vouloir annuler ce billet ? Cette action est irréversible.')) {
-      return;
-    }
-
-    const { error } = await supabase
-      .from('event_attendees')
-      .update({ status: 'cancelled', updated_at: new Date().toISOString() })
-      .eq('id', ticketId)
-      .eq('status', 'valid');
-
-    if (!error) {
-      loadTickets();
-      setSelectedTicket(null);
-    }
-  };
-
   const getStatusBadge = (status: string) => {
     switch (status) {
-      case 'valid':
+      case 'not_checked_in':
         return (
           <span className="inline-flex items-center space-x-1 px-3 py-1 bg-green-900 bg-opacity-40 text-green-400 rounded-full text-sm border border-green-600 border-opacity-40">
             <CheckCircle className="w-4 h-4" />
             <span>Valide</span>
           </span>
         );
-      case 'used':
+      case 'checked_in':
         return (
           <span className="inline-flex items-center space-x-1 px-3 py-1 bg-blue-900 bg-opacity-40 text-blue-400 rounded-full text-sm border border-blue-600 border-opacity-40">
             <CheckCircle className="w-4 h-4" />
-            <span>Utilisé</span>
+            <span>Utilise</span>
           </span>
         );
       case 'cancelled':
         return (
           <span className="inline-flex items-center space-x-1 px-3 py-1 bg-red-900 bg-opacity-40 text-red-400 rounded-full text-sm border border-red-600 border-opacity-40">
             <XCircle className="w-4 h-4" />
-            <span>Annulé</span>
+            <span>Annule</span>
           </span>
         );
       default:
-        return null;
+        return (
+          <span className="inline-flex items-center space-x-1 px-3 py-1 bg-green-900 bg-opacity-40 text-green-400 rounded-full text-sm border border-green-600 border-opacity-40">
+            <CheckCircle className="w-4 h-4" />
+            <span>Valide</span>
+          </span>
+        );
     }
   };
 
   const groupedTickets = tickets.reduce((acc, ticket) => {
-    const eventId = ticket.event_ticket_type.event.id;
+    const eventId = ticket.event_id;
     if (!acc[eventId]) {
       acc[eventId] = {
-        event: ticket.event_ticket_type.event,
+        event: ticket.events,
         tickets: []
       };
     }
     acc[eventId].tickets.push(ticket);
     return acc;
-  }, {} as Record<string, { event: Event; tickets: AttendeeWithDetails[] }>);
+  }, {} as Record<string, { event: AttendeeWithDetails['events']; tickets: AttendeeWithDetails[] }>);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-950 via-gray-900 to-gray-950 pt-20 pb-12 relative overflow-hidden">
@@ -169,7 +164,7 @@ export function MyTickets({ onNavigate }: MyTicketsProps) {
           <div className="flex justify-center mb-3">
             <div className="w-16 h-1 bg-gradient-to-r from-transparent via-[#B8913D] to-transparent rounded-full"></div>
           </div>
-          <p className="text-gray-400">Tous vos billets d'événements</p>
+          <p className="text-gray-400">Tous vos billets d'evenements</p>
         </div>
 
         {loading ? (
@@ -184,7 +179,7 @@ export function MyTickets({ onNavigate }: MyTicketsProps) {
               onClick={() => onNavigate('events')}
               className="px-6 py-3 bg-gradient-to-r from-[#B8913D] to-[#A07F35] text-white rounded-lg hover:shadow-lg transition-all"
             >
-              Découvrir les événements
+              Decouvrir les evenements
             </button>
           </div>
         ) : (
@@ -226,7 +221,7 @@ export function MyTickets({ onNavigate }: MyTicketsProps) {
                       </div>
                       {isPast && (
                         <span className="px-3 py-1 bg-gray-800 text-gray-400 rounded-full text-sm">
-                          Événement passé
+                          Evenement passe
                         </span>
                       )}
                     </div>
@@ -242,26 +237,29 @@ export function MyTickets({ onNavigate }: MyTicketsProps) {
                         >
                           <div className="flex items-start justify-between mb-3">
                             <div className="flex-1">
-                              <p className="text-sm font-medium text-[#B8913D] mb-1">
-                                {ticket.event_ticket_type.ticket_type.name}
+                              {ticket.event_ticket_types?.ticket_types && (
+                                <p className="text-sm font-medium text-[#B8913D] mb-1">
+                                  {ticket.event_ticket_types.ticket_types.name}
+                                </p>
+                              )}
+                              <p className="text-xs text-gray-400 mt-1">
+                                {ticket.purchased_at
+                                  ? `Achete le ${new Date(ticket.purchased_at).toLocaleDateString('fr-FR')}`
+                                  : ''}
                               </p>
-                              <p className="text-white font-medium">
-                                {ticket.attendee_first_name} {ticket.attendee_last_name}
-                              </p>
-                              <p className="text-xs text-gray-400 mt-1">{ticket.attendee_email}</p>
                             </div>
                             <Ticket className="w-5 h-5 text-[#B8913D]" />
                           </div>
 
                           <div className="mt-3 pt-3 border-t border-gray-700">
-                            {getStatusBadge(ticket.status)}
+                            {getStatusBadge(ticket.check_in_status)}
                           </div>
 
-                          {ticket.status === 'used' && ticket.checked_in_at && (
+                          {ticket.check_in_status === 'checked_in' && ticket.checked_in_at && (
                             <p className="text-xs text-gray-500 mt-2 flex items-center space-x-1">
                               <Clock className="w-3 h-3" />
                               <span>
-                                Scanné le {new Date(ticket.checked_in_at).toLocaleDateString('fr-FR', {
+                                Scanne le {new Date(ticket.checked_in_at).toLocaleDateString('fr-FR', {
                                   day: 'numeric',
                                   month: 'short',
                                   hour: '2-digit',
@@ -291,68 +289,54 @@ export function MyTickets({ onNavigate }: MyTicketsProps) {
               <X className="w-6 h-6" />
             </button>
 
-            <h3 className="text-2xl font-medium text-white mb-6 text-center">Billet d'entrée</h3>
+            <h3 className="text-2xl font-medium text-white mb-6 text-center">Billet d'entree</h3>
 
             <div className="space-y-4 mb-6">
               <div>
-                <p className="text-sm text-gray-400">Événement</p>
-                <p className="text-white font-medium">{selectedTicket.event_ticket_type.event.title}</p>
+                <p className="text-sm text-gray-400">Evenement</p>
+                <p className="text-white font-medium">{selectedTicket.events.title}</p>
               </div>
 
-              <div>
-                <p className="text-sm text-gray-400">Type de billet</p>
-                <p className="text-[#B8913D] font-medium">{selectedTicket.event_ticket_type.ticket_type.name}</p>
-              </div>
-
-              <div>
-                <p className="text-sm text-gray-400">Participant</p>
-                <p className="text-white font-medium">
-                  {selectedTicket.attendee_first_name} {selectedTicket.attendee_last_name}
-                </p>
-                <p className="text-sm text-gray-400">{selectedTicket.attendee_email}</p>
-              </div>
+              {selectedTicket.event_ticket_types?.ticket_types && (
+                <div>
+                  <p className="text-sm text-gray-400">Type de billet</p>
+                  <p className="text-[#B8913D] font-medium">{selectedTicket.event_ticket_types.ticket_types.name}</p>
+                </div>
+              )}
 
               <div>
                 <p className="text-sm text-gray-400 mb-2">Statut</p>
-                {getStatusBadge(selectedTicket.status)}
+                {getStatusBadge(selectedTicket.check_in_status)}
               </div>
             </div>
 
-            {selectedTicket.status === 'valid' && qrCodeUrl && (
+            {selectedTicket.check_in_status === 'not_checked_in' && qrCodeUrl && (
               <>
                 <div className="bg-white p-4 rounded-xl mb-6">
                   <img src={qrCodeUrl} alt="QR Code" className="w-full" />
                 </div>
 
-                <div className="flex space-x-3">
-                  <button
-                    onClick={downloadQRCode}
-                    className="flex-1 py-3 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition-colors flex items-center justify-center space-x-2"
-                  >
-                    <Download className="w-4 h-4" />
-                    <span>Télécharger</span>
-                  </button>
-                  <button
-                    onClick={() => cancelTicket(selectedTicket.id)}
-                    className="flex-1 py-3 border border-red-600 text-red-400 rounded-lg hover:bg-red-900 hover:bg-opacity-20 transition-colors"
-                  >
-                    Annuler
-                  </button>
-                </div>
+                <button
+                  onClick={downloadQRCode}
+                  className="w-full py-3 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition-colors flex items-center justify-center space-x-2"
+                >
+                  <Download className="w-4 h-4" />
+                  <span>Telecharger</span>
+                </button>
 
                 <p className="text-xs text-gray-500 text-center mt-4">
-                  Présentez ce QR code à l'entrée de l'événement
+                  Presentez ce QR code a l'entree de l'evenement
                 </p>
               </>
             )}
 
-            {selectedTicket.status === 'used' && (
+            {selectedTicket.check_in_status === 'checked_in' && (
               <div className="text-center">
                 <CheckCircle className="w-16 h-16 text-green-400 mx-auto mb-3" />
-                <p className="text-green-400 font-medium mb-2">Billet déjà utilisé</p>
+                <p className="text-green-400 font-medium mb-2">Billet deja utilise</p>
                 {selectedTicket.checked_in_at && (
                   <p className="text-sm text-gray-400">
-                    Scanné le {new Date(selectedTicket.checked_in_at).toLocaleDateString('fr-FR', {
+                    Scanne le {new Date(selectedTicket.checked_in_at).toLocaleDateString('fr-FR', {
                       day: 'numeric',
                       month: 'long',
                       year: 'numeric',
@@ -364,10 +348,10 @@ export function MyTickets({ onNavigate }: MyTicketsProps) {
               </div>
             )}
 
-            {selectedTicket.status === 'cancelled' && (
+            {selectedTicket.check_in_status === 'cancelled' && (
               <div className="text-center">
                 <XCircle className="w-16 h-16 text-red-400 mx-auto mb-3" />
-                <p className="text-red-400 font-medium">Billet annulé</p>
+                <p className="text-red-400 font-medium">Billet annule</p>
               </div>
             )}
           </div>
