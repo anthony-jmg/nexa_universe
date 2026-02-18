@@ -59,14 +59,19 @@ export function Account({ onNavigate }: AccountProps) {
   const [savingProfessorInfo, setSavingProfessorInfo] = useState(false);
   const [professorMessage, setProfessorMessage] = useState('');
 
+  const [profileLoaded, setProfileLoaded] = useState(false);
+
   useEffect(() => {
-    if (profile) {
+    if (profile && !profileLoaded) {
       setFullName(profile.full_name);
       setAvatarUrl(getAvatarUrl(profile.avatar_url));
+      setProfileLoaded(true);
       loadProfessorSubscriptions();
       if (profile.role === 'professor') {
         loadProfessorInfo();
       }
+    } else if (profile && profileLoaded) {
+      loadProfessorSubscriptions();
     }
   }, [profile]);
 
