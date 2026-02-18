@@ -298,7 +298,7 @@ export function Academy({ onNavigate }: AcademyProps) {
           </p>
         </div>
 
-        {!hasAccess && (
+        {!hasAccess && profile?.role !== 'professor' && (
           <div className="mb-5 sm:mb-7 lg:mb-5 p-4 sm:p-6 md:p-7 lg:p-5 bg-gradient-to-br from-[#B8913D] to-[#A07F35] rounded-xl sm:rounded-2xl text-white relative overflow-hidden shadow-xl">
             <div className="absolute top-0 right-0 w-32 h-32 sm:w-40 sm:h-40 bg-white opacity-5 rounded-full blur-2xl"></div>
             <div className="absolute bottom-0 left-0 w-32 h-32 sm:w-40 sm:h-40 bg-white opacity-5 rounded-full blur-2xl"></div>
