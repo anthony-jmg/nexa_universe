@@ -425,7 +425,7 @@ export function Shop({ onNavigate }: ShopProps) {
             </div>
           ) : (
             <>
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-8">
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4">
                 {(currentItems as EventWithTickets[]).map((event) => {
                 const minPrice = getMinEventPrice(event);
                 const minMemberPrice = getMinMemberPrice(event);
@@ -436,157 +436,127 @@ export function Shop({ onNavigate }: ShopProps) {
                 return (
                   <div
                     key={event.id}
-                    className="bg-gray-900 bg-opacity-60 backdrop-blur-sm rounded-xl sm:rounded-2xl shadow-xl hover:shadow-2xl hover:shadow-[#B8913D]/20 transition-all overflow-hidden group border border-[#B8913D] border-opacity-30"
+                    className="bg-gray-900 bg-opacity-60 backdrop-blur-sm rounded-xl shadow-lg hover:shadow-xl hover:shadow-[#B8913D]/20 transition-all overflow-hidden group border border-[#B8913D] border-opacity-30 flex flex-col"
                   >
-                    <div className="relative h-48 sm:h-64 bg-gray-800 overflow-hidden">
-                      {event.image_url ? (
+                    <div className="relative h-36 sm:h-40 bg-gray-800 overflow-hidden flex-shrink-0">
+                      {(event as any).thumbnail_url ? (
                         <img
-                          src={event.image_url}
+                          src={(event as any).thumbnail_url}
                           alt={event.title}
-                          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                         />
                       ) : (
-                        <div className="w-full h-full flex items-center justify-center">
-                          <Calendar className="w-12 h-12 sm:w-20 sm:h-20 text-[#B8913D] opacity-50" />
+                        <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-800 to-gray-900">
+                          <Calendar className="w-10 h-10 text-[#B8913D] opacity-40" />
                         </div>
                       )}
-                      <div className="absolute inset-0 bg-gradient-to-t from-gray-900 via-transparent to-transparent"></div>
+                      <div className="absolute inset-0 bg-gradient-to-t from-gray-900/80 via-transparent to-transparent"></div>
 
                       {isAlmostFull && (
-                        <div className="absolute top-2 right-2 sm:top-4 sm:right-4 px-2.5 py-1 sm:px-4 sm:py-2 bg-red-600 bg-opacity-90 text-white text-xs sm:text-sm font-bold rounded-full shadow-lg">
+                        <div className="absolute top-2 right-2 px-2 py-0.5 bg-red-600 bg-opacity-90 text-white text-[10px] font-bold rounded-full">
                           Places limitées
                         </div>
                       )}
+
+                      <div className="absolute bottom-2 left-3 right-3">
+                        <h3 className="text-sm sm:text-base font-semibold text-white leading-tight line-clamp-2 group-hover:text-[#B8913D] transition-colors">
+                          {event.title}
+                        </h3>
+                      </div>
                     </div>
 
-                    <div className="p-4 sm:p-6">
-                      <h3 className="text-lg sm:text-2xl font-medium text-white mb-2 sm:mb-3 group-hover:text-[#B8913D] transition-colors">
-                        {event.title}
-                      </h3>
-
-                      <p className="text-gray-300 text-xs sm:text-sm mb-3 sm:mb-4 line-clamp-2">
-                        {event.description}
-                      </p>
-
-                      <div className="space-y-2 sm:space-y-3 mb-4 sm:mb-6">
-                        <div className="flex items-center space-x-2 sm:space-x-3 text-gray-300">
-                          <Calendar className="w-3.5 h-3.5 sm:w-5 sm:h-5 text-[#B8913D] flex-shrink-0" />
-                          <span className="text-xs sm:text-sm">
+                    <div className="p-3 flex flex-col flex-1">
+                      <div className="space-y-1.5 mb-3">
+                        <div className="flex items-center space-x-2 text-gray-300">
+                          <Calendar className="w-3.5 h-3.5 text-[#B8913D] flex-shrink-0" />
+                          <span className="text-xs">
                             {eventDate.toLocaleDateString('fr-FR', {
-                              weekday: 'long',
-                              year: 'numeric',
-                              month: 'long',
-                              day: 'numeric'
-                            })}
-                          </span>
-                        </div>
-
-                        <div className="flex items-center space-x-2 sm:space-x-3 text-gray-300">
-                          <Clock className="w-3.5 h-3.5 sm:w-5 sm:h-5 text-[#B8913D] flex-shrink-0" />
-                          <span className="text-xs sm:text-sm">
-                            {eventDate.toLocaleTimeString('fr-FR', {
-                              hour: '2-digit',
-                              minute: '2-digit'
-                            })}
+                              weekday: 'short',
+                              day: 'numeric',
+                              month: 'short',
+                              year: 'numeric'
+                            })} · {eventDate.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
                           </span>
                         </div>
 
                         {event.location && (
-                          <div className="flex items-center space-x-2 sm:space-x-3 text-gray-300">
-                            <MapPin className="w-3.5 h-3.5 sm:w-5 sm:h-5 text-[#B8913D] flex-shrink-0" />
-                            <span className="text-xs sm:text-sm">{event.location}</span>
+                          <div className="flex items-center space-x-2 text-gray-300">
+                            <MapPin className="w-3.5 h-3.5 text-[#B8913D] flex-shrink-0" />
+                            <span className="text-xs truncate">{event.location}</span>
                           </div>
                         )}
 
-                        <div className="flex items-center space-x-2 sm:space-x-3 text-gray-300">
-                          <Users className="w-3.5 h-3.5 sm:w-5 sm:h-5 text-[#B8913D] flex-shrink-0" />
-                          <span className="text-xs sm:text-sm">
-                            {availableTickets > 0 ? `${availableTickets} places disponibles` : 'Complet'}
+                        <div className="flex items-center space-x-2 text-gray-300">
+                          <Users className="w-3.5 h-3.5 text-[#B8913D] flex-shrink-0" />
+                          <span className={`text-xs ${availableTickets === 0 ? 'text-red-400' : ''}`}>
+                            {availableTickets > 0 ? `${availableTickets} places dispo.` : 'Complet'}
                           </span>
                         </div>
                       </div>
 
-                      {event.event_ticket_types && event.event_ticket_types.length > 0 && (
-                        <div className="mb-3 sm:mb-4 space-y-1.5 sm:space-y-2">
-                          <p className="text-[10px] sm:text-xs text-gray-400 mb-1.5 sm:mb-2">Types de billets disponibles</p>
-                          {event.event_ticket_types.filter(ett => ett.is_active).map((ett) => {
+                      {event.event_ticket_types && event.event_ticket_types.filter(ett => ett.is_active).length > 0 && (
+                        <div className="mb-3 space-y-1">
+                          {event.event_ticket_types.filter(ett => ett.is_active).slice(0, 2).map((ett) => {
                             const hasDiscount = ett.member_price > 0 && ett.member_price < ett.price;
                             const ticketsLeft = ett.quantity_available === null ? 999 : ett.quantity_available - ett.quantity_sold;
 
                             return (
-                              <div key={ett.id} className="flex items-center justify-between p-2 sm:p-3 bg-gray-800 bg-opacity-50 rounded-lg border border-gray-700">
-                                <div>
-                                  <span className="text-xs sm:text-sm font-medium text-white">{ett.ticket_type.name}</span>
+                              <div key={ett.id} className="flex items-center justify-between px-2 py-1.5 bg-gray-800 bg-opacity-60 rounded-lg">
+                                <div className="flex items-center gap-1.5 min-w-0">
+                                  <span className="text-xs text-white truncate">{ett.ticket_type.name}</span>
                                   {ticketsLeft < 10 && ticketsLeft > 0 && (
-                                    <span className="ml-1 sm:ml-2 text-[10px] sm:text-xs text-red-400">({ticketsLeft} restants)</span>
+                                    <span className="text-[10px] text-red-400 flex-shrink-0">({ticketsLeft})</span>
                                   )}
                                 </div>
-                                <div className="flex flex-col items-end">
-                                  {hasDiscount ? (
-                                    <>
-                                      <span className="text-[10px] sm:text-xs text-gray-400 line-through">
-                                        {ett.price.toFixed(2)}€
-                                      </span>
-                                      <span className="text-sm sm:text-lg font-bold text-[#B8913D]">
-                                        {ett.member_price.toFixed(2)}€
-                                      </span>
-                                      <span className="text-[9px] sm:text-xs text-[#B8913D]">avec abonnement</span>
-                                    </>
-                                  ) : (
-                                    <span className="text-sm sm:text-lg font-bold text-[#B8913D]">
-                                      {ett.price.toFixed(2)}€
-                                    </span>
+                                <div className="flex items-baseline gap-1 flex-shrink-0 ml-2">
+                                  {hasDiscount && (
+                                    <span className="text-[10px] text-gray-400 line-through">{ett.price.toFixed(0)}€</span>
                                   )}
+                                  <span className="text-xs font-bold text-[#B8913D]">
+                                    {hasDiscount ? ett.member_price.toFixed(0) : ett.price.toFixed(0)}€
+                                  </span>
                                 </div>
                               </div>
                             );
                           })}
+                          {event.event_ticket_types.filter(ett => ett.is_active).length > 2 && (
+                            <p className="text-[10px] text-gray-500 text-center">+{event.event_ticket_types.filter(ett => ett.is_active).length - 2} autres types</p>
+                          )}
                         </div>
                       )}
 
-                      <div className="flex items-center justify-between pt-3 sm:pt-4 border-t border-gray-700">
+                      <div className="flex items-center justify-between mt-auto pt-2.5 border-t border-gray-700/50">
                         <div>
                           {minPrice !== null ? (
-                            <>
-                              {minMemberPrice && minMemberPrice < minPrice ? (
-                                <>
-                                  <div className="flex items-baseline space-x-1 sm:space-x-2">
-                                    <span className="text-[10px] sm:text-sm text-gray-400">Prix normal:</span>
-                                    <span className="text-xs sm:text-base font-medium text-gray-400 line-through">
-                                      {minPrice.toFixed(2)}€
-                                    </span>
-                                  </div>
-                                  <div className="flex items-baseline space-x-1 sm:space-x-2 mt-0.5 sm:mt-1">
-                                    <span className="text-lg sm:text-2xl font-bold text-[#B8913D]">
-                                      {minMemberPrice.toFixed(2)}€
-                                    </span>
-                                    <span className="text-[9px] sm:text-xs text-[#B8913D]">avec abo</span>
-                                  </div>
-                                </>
-                              ) : (
-                                <div className="flex flex-col sm:flex-row sm:items-baseline sm:space-x-2">
-                                  <span className="text-[10px] sm:text-sm text-gray-400">À partir de</span>
-                                  <span className="text-lg sm:text-2xl font-bold text-[#B8913D]">
-                                    {minPrice.toFixed(2)}€
-                                  </span>
+                            minMemberPrice && minMemberPrice < minPrice ? (
+                              <div>
+                                <div className="text-[10px] text-gray-400 line-through">{minPrice.toFixed(2)}€</div>
+                                <div className="flex items-baseline gap-1">
+                                  <span className="text-base font-bold text-[#B8913D]">{minMemberPrice.toFixed(2)}€</span>
+                                  <span className="text-[9px] text-[#B8913D]">abo</span>
                                 </div>
-                              )}
-                            </>
+                              </div>
+                            ) : (
+                              <div>
+                                <div className="text-[10px] text-gray-400">À partir de</div>
+                                <span className="text-base font-bold text-[#B8913D]">{minPrice.toFixed(2)}€</span>
+                              </div>
+                            )
                           ) : (
-                            <span className="text-xs sm:text-base text-gray-400">Prix à venir</span>
+                            <span className="text-xs text-gray-400">Prix à venir</span>
                           )}
                         </div>
 
                         <button
                           onClick={() => handleAddEventTicketToCart(event)}
                           disabled={availableTickets === 0}
-                          className={`px-3 py-2 sm:px-6 sm:py-3 rounded-lg text-xs sm:text-base font-medium transition-all flex items-center space-x-1 sm:space-x-2 ${
+                          className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center space-x-1 ${
                             availableTickets === 0
                               ? 'bg-gray-800 text-gray-500 cursor-not-allowed'
-                              : 'bg-gradient-to-r from-[#B8913D] to-[#A07F35] text-white hover:shadow-lg hover:shadow-[#B8913D]/50 hover:scale-105'
+                              : 'bg-gradient-to-r from-[#B8913D] to-[#A07F35] text-white hover:shadow-lg hover:shadow-[#B8913D]/40 hover:scale-105'
                           }`}
                         >
-                          <ShoppingBag className="w-3 h-3 sm:w-4 sm:h-4" />
+                          <ShoppingBag className="w-3 h-3" />
                           <span>{availableTickets === 0 ? 'Complet' : 'Réserver'}</span>
                         </button>
                       </div>
