@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react';
 import { supabase } from '../lib/supabase';
-import { Upload, X, Loader2, Image as ImageIcon } from 'lucide-react';
+import { X, Loader2, Image as ImageIcon } from 'lucide-react';
 
 interface ImageUploadProps {
   currentImageUrl?: string;
@@ -234,19 +234,6 @@ export function ImageUpload({
         <p className="text-sm text-red-400">{error}</p>
       )}
 
-      <div className="flex items-center space-x-2 text-xs text-gray-500">
-        <Upload className="w-3 h-3" />
-        <span>Or paste an image URL below</span>
-      </div>
-
-      <input
-        type="url"
-        value={currentImageUrl || ''}
-        onChange={(e) => onImageUrlChange(e.target.value)}
-        placeholder="https://example.com/image.jpg"
-        disabled={uploading}
-        className="w-full px-4 py-2 bg-gray-900/50 border border-gray-600 text-white rounded-lg focus:ring-2 focus:ring-[#B8913D] focus:border-transparent outline-none transition-all text-sm"
-      />
     </div>
   );
 }

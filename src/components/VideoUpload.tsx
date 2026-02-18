@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback } from 'react';
-import { Upload, X, Loader2, Film, Check, AlertCircle } from 'lucide-react';
+import { X, Loader2, Film, Check, AlertCircle } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 interface VideoUploadProps {
@@ -398,19 +398,6 @@ export function VideoUpload({
         </div>
       )}
 
-      <div className="flex items-center space-x-2 text-xs text-gray-500">
-        <Upload className="w-3 h-3" />
-        <span>Ou entrez un ID Cloudflare manuellement</span>
-      </div>
-
-      <input
-        type="text"
-        value={currentVideoId || ''}
-        onChange={(e) => onVideoIdChange(e.target.value)}
-        placeholder="abc123def456..."
-        disabled={uploading}
-        className="w-full px-4 py-2 bg-gray-900/50 border border-gray-600 text-white rounded-lg focus:ring-2 focus:ring-[#B8913D] focus:border-transparent outline-none transition-all text-sm font-mono"
-      />
     </div>
   );
 }
