@@ -13,11 +13,19 @@ export function useSubscription() {
     setError(null);
 
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error('You must be logged in to cancel your subscription');
+      }
+
       const { data, error } = await supabase.functions.invoke('manage-subscription', {
         body: {
           action: 'cancel',
           subscription_type: subscriptionType,
           professor_id: professorId,
+        },
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
         },
       });
 
@@ -43,11 +51,19 @@ export function useSubscription() {
     setError(null);
 
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error('You must be logged in to reactivate your subscription');
+      }
+
       const { data, error } = await supabase.functions.invoke('manage-subscription', {
         body: {
           action: 'reactivate',
           subscription_type: subscriptionType,
           professor_id: professorId,
+        },
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
         },
       });
 
