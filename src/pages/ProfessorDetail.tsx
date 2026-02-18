@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ArrowLeft, Award, PlayCircle, Lock, CheckCircle, Sparkles, BookOpen, ShoppingBag } from 'lucide-react';
+import { ArrowLeft, Award, PlayCircle, Lock, CheckCircle, Sparkles, BookOpen, ShoppingBag, Gift } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { BackgroundDecor } from '../components/BackgroundDecor';
@@ -137,17 +137,38 @@ export function ProfessorDetail({ professorId, onNavigate, onBack }: ProfessorDe
 
     if (subscribed) {
       onNavigate('account');
-    } else {
+      return;
+    }
+
+    if (professor.subscription_price === 0) {
       try {
-        await handleProfessorSubscriptionCheckout(
-          professor.id,
-          professor.profiles?.full_name || 'Professor',
-          professor.subscription_price
-        );
+        const { error } = await supabase
+          .from('professor_subscriptions')
+          .insert({
+            user_id: user.id,
+            professor_id: professor.id,
+            status: 'active',
+            price_paid: 0,
+          });
+
+        if (error) throw error;
+        setSubscribed(true);
       } catch (error) {
-        console.error('Failed to start checkout:', error);
-        alert('Échec du démarrage du paiement. Veuillez réessayer.');
+        console.error('Failed to subscribe:', error);
+        alert('Échec de l\'abonnement. Veuillez réessayer.');
       }
+      return;
+    }
+
+    try {
+      await handleProfessorSubscriptionCheckout(
+        professor.id,
+        professor.profiles?.full_name || 'Professor',
+        professor.subscription_price
+      );
+    } catch (error) {
+      console.error('Failed to start checkout:', error);
+      alert('Échec du démarrage du paiement. Veuillez réessayer.');
     }
   };
 
@@ -273,8 +294,8 @@ export function ProfessorDetail({ professorId, onNavigate, onBack }: ProfessorDe
                 {professor.bio || 'No biography available.'}
               </p>
 
-              {professor.subscription_price > 0 && (
-                <div className="bg-gradient-to-br from-gray-800/80 to-gray-900/80 border border-[#B8913D]/30 rounded-xl p-4 sm:p-6 backdrop-blur-sm">
+              {(subscriberPrograms.length > 0 || subscriberVideos.length > 0 || professor.subscription_price >= 0) && (
+                <div className={`rounded-xl p-4 sm:p-6 backdrop-blur-sm border ${professor.subscription_price === 0 ? 'bg-gradient-to-br from-green-900/30 to-emerald-900/20 border-green-500/30' : 'bg-gradient-to-br from-gray-800/80 to-gray-900/80 border-[#B8913D]/30'}`}>
                   {subscribed ? (
                     <div className="flex flex-col md:flex-row md:items-center md:justify-between space-y-3 md:space-y-0">
                       <div>
@@ -291,6 +312,28 @@ export function ProfessorDetail({ professorId, onNavigate, onBack }: ProfessorDe
                         className="w-full md:w-auto px-6 sm:px-8 py-2.5 sm:py-3 bg-gradient-to-r from-[#B8913D] to-[#A07F35] text-white text-sm sm:text-base font-medium rounded-full hover:shadow-lg hover:shadow-[#B8913D]/50 transition-all whitespace-nowrap"
                       >
                         Gérer l'abonnement
+                      </button>
+                    </div>
+                  ) : professor.subscription_price === 0 ? (
+                    <div className="flex flex-col md:flex-row md:items-center md:justify-between space-y-4 md:space-y-0 md:space-x-6">
+                      <div className="flex-1 text-center md:text-left">
+                        <div className="flex items-center justify-center md:justify-start space-x-2 mb-2">
+                          <Gift className="w-5 h-5 text-green-400" />
+                          <span className="text-base sm:text-lg font-medium text-green-400">Contenu entièrement gratuit</span>
+                        </div>
+                        <p className="text-xs sm:text-sm text-gray-300 leading-relaxed">
+                          Ce professeur partage son contenu exclusif sans frais. Abonnez-vous gratuitement pour y accéder.
+                        </p>
+                        <div className="mt-2 inline-flex items-center space-x-1.5 bg-green-500/10 border border-green-500/20 rounded-full px-3 py-1">
+                          <span className="text-xl sm:text-2xl font-bold text-green-400">0€</span>
+                          <span className="text-xs text-green-400/70">/mois</span>
+                        </div>
+                      </div>
+                      <button
+                        onClick={handleSubscribe}
+                        className="w-full md:w-auto px-6 sm:px-8 py-2.5 sm:py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white text-sm sm:text-base font-medium rounded-full hover:shadow-lg hover:shadow-green-500/40 transition-all whitespace-nowrap"
+                      >
+                        {user ? 'S\'abonner gratuitement' : 'Se connecter pour s\'abonner'}
                       </button>
                     </div>
                   ) : !showSubscriptionPrice ? (
