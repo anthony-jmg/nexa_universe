@@ -414,7 +414,7 @@ export function EventsManagement() {
                   Image
                 </label>
                 <ImageUpload
-                  onImageUploaded={(url) => setEventForm({ ...eventForm, thumbnail_url: url })}
+                  onImageUrlChange={(url) => setEventForm({ ...eventForm, thumbnail_url: url })}
                   currentImageUrl={eventForm.thumbnail_url}
                 />
               </div>
