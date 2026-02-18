@@ -48,7 +48,7 @@ export function Academy({ onNavigate }: AcademyProps) {
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [user?.id]);
 
   const fetchData = async () => {
     setLoading(true);
