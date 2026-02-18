@@ -37,16 +37,32 @@ export interface ValidatedOrderResponse {
 export async function validateAndCreateOrder(
   params: ValidateAndCreateOrderParams
 ): Promise<ValidatedOrderResponse> {
-  const { data, error } = await supabase.functions.invoke('validate-and-create-order', {
-    body: params,
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) {
+    throw new Error('Vous devez être connecté pour passer commande');
+  }
+
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+  const apiUrl = `${supabaseUrl}/functions/v1/validate-and-create-order`;
+
+  const response = await fetch(apiUrl, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${session.access_token}`,
+      'Content-Type': 'application/json',
+      'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
+    },
+    body: JSON.stringify(params),
   });
 
-  if (error) {
-    throw new Error(error.message || 'Failed to create order');
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.error || data.details?.join(', ') || 'Erreur lors de la création de la commande');
   }
 
   if (!data) {
-    throw new Error('No response received from order validation');
+    throw new Error('Aucune réponse reçue de la validation de commande');
   }
 
   return data;
