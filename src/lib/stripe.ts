@@ -17,7 +17,7 @@ export interface CreateCheckoutParams {
 
 export async function createStripeCheckout(params: CreateCheckoutParams): Promise<string> {
   const origin = window.location.origin;
-  const success_url = `${origin}/my-purchases?payment=success`;
+  const success_url = `${origin}/my-purchases?payment=success&session_id={CHECKOUT_SESSION_ID}`;
   const cancel_url = `${origin}/my-purchases?payment=cancelled`;
 
   const { data: { session: currentSession } } = await supabase.auth.getSession();

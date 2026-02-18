@@ -110,20 +110,61 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
   const [selectedTicket, setSelectedTicket] = useState<AttendeeWithDetails | null>(null);
   const [qrCodeUrl, setQrCodeUrl] = useState<string>('');
   const [loading, setLoading] = useState(true);
+  const [verifyingPayment, setVerifyingPayment] = useState(false);
 
   useEffect(() => {
     if (!user) {
       onNavigate('signin');
       return;
     }
-    loadData();
-  }, [user, onNavigate]);
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const payment = urlParams.get('payment');
+    const sessionId = urlParams.get('session_id');
+
+    if (payment === 'success' && sessionId) {
+      verifyPayment(sessionId);
+    } else {
+      loadData();
+    }
+
+    if (payment === 'success') {
+      setActiveTab('tickets');
+    }
+  }, [user]);
 
   useEffect(() => {
     if (selectedTicket) {
       generateQRCode(selectedTicket.qr_code);
     }
   }, [selectedTicket]);
+
+  const verifyPayment = async (sessionId: string) => {
+    setVerifyingPayment(true);
+    setLoading(true);
+    try {
+      const { data: { session: authSession } } = await supabase.auth.getSession();
+      if (!authSession) return;
+
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const response = await fetch(`${supabaseUrl}/functions/v1/verify-payment`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${authSession.access_token}`,
+          'Content-Type': 'application/json',
+          'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
+        },
+        body: JSON.stringify({ session_id: sessionId }),
+      });
+
+      await response.json();
+    } catch (err) {
+      console.error('Payment verification error:', err);
+    } finally {
+      setVerifyingPayment(false);
+      await loadData();
+    }
+  };
 
   const loadData = async () => {
     if (!user) return;
@@ -483,6 +524,9 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
         {loading ? (
           <div className="text-center py-16 sm:py-20">
             <div className="inline-block w-10 h-10 sm:w-12 sm:h-12 border-4 border-[#B8913D] border-t-transparent rounded-full animate-spin"></div>
+            {verifyingPayment && (
+              <p className="mt-4 text-gray-400 text-sm">Confirmation du paiement en cours...</p>
+            )}
           </div>
         ) : activeTab === 'subscriptions' ? (
           <div className="space-y-4">
