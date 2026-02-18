@@ -67,41 +67,65 @@ export function FavoritesProvider({ children }: { children: ReactNode }) {
   const addFavorite = async (type: FavoriteType, itemId: string) => {
     if (!user) return;
 
-    const favoriteData: any = {
+    const favoriteData: Omit<Favorite, 'id' | 'created_at'> = {
       user_id: user.id,
       favorite_type: type,
+      ...(type === 'professor' && { professor_id: itemId }),
+      ...(type === 'video' && { video_id: itemId }),
+      ...(type === 'program' && { program_id: itemId }),
     };
 
-    if (type === 'professor') favoriteData.professor_id = itemId;
-    if (type === 'video') favoriteData.video_id = itemId;
-    if (type === 'program') favoriteData.program_id = itemId;
+    const tempFavorite: Favorite = {
+      ...favoriteData,
+      id: `temp-${Date.now()}`,
+      created_at: new Date().toISOString(),
+    };
 
-    const { error } = await supabase
-      .from('favorites')
-      .insert([favoriteData]);
+    setFavorites(prev => [tempFavorite, ...prev]);
 
-    if (!error) {
-      await loadFavorites();
+    try {
+      const { data, error } = await supabase
+        .from('favorites')
+        .insert([favoriteData])
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      setFavorites(prev => prev.map(f => f.id === tempFavorite.id ? data : f));
+    } catch (error) {
+      console.error('Error adding favorite:', error);
+      setFavorites(prev => prev.filter(f => f.id !== tempFavorite.id));
     }
   };
 
   const removeFavorite = async (type: FavoriteType, itemId: string) => {
     if (!user) return;
 
-    let query = supabase
-      .from('favorites')
-      .delete()
-      .eq('user_id', user.id)
-      .eq('favorite_type', type);
+    const previous = favorites;
+    setFavorites(prev => prev.filter(fav => {
+      if (type === 'professor') return fav.professor_id !== itemId;
+      if (type === 'video') return fav.video_id !== itemId;
+      if (type === 'program') return fav.program_id !== itemId;
+      return true;
+    }));
 
-    if (type === 'professor') query = query.eq('professor_id', itemId);
-    if (type === 'video') query = query.eq('video_id', itemId);
-    if (type === 'program') query = query.eq('program_id', itemId);
+    try {
+      let query = supabase
+        .from('favorites')
+        .delete()
+        .eq('user_id', user.id)
+        .eq('favorite_type', type);
 
-    const { error } = await query;
+      if (type === 'professor') query = query.eq('professor_id', itemId);
+      if (type === 'video') query = query.eq('video_id', itemId);
+      if (type === 'program') query = query.eq('program_id', itemId);
 
-    if (!error) {
-      await loadFavorites();
+      const { error } = await query;
+      if (error) throw error;
+    } catch (error) {
+      console.error('Error removing favorite:', error);
+      setFavorites(previous);
     }
   };
 

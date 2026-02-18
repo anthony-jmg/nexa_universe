@@ -3,6 +3,7 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { supabase } from './lib/supabase';
 import { CartProvider } from './contexts/CartContext';
 import { FavoritesProvider } from './contexts/FavoritesContext';
+import { NotificationProvider } from './contexts/NotificationContext';
 import { LanguageProvider } from './contexts/LanguageContext';
 import { ToastProvider } from './contexts/ToastContext';
 import { ErrorBoundary } from './components/ErrorBoundary';
@@ -104,10 +105,8 @@ function AppContent() {
   };
 
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log('🔐 Auth state changed:', event, 'Session exists:', !!session);
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
       if (event === 'PASSWORD_RECOVERY') {
-        console.log('✅ PASSWORD_RECOVERY event detected - setting page to reset-password');
         setCurrentPage('reset-password');
       }
     });
@@ -345,7 +344,9 @@ function App() {
           <ToastProvider>
             <CartProvider>
               <FavoritesProvider>
-                <AppContent />
+                <NotificationProvider>
+                  <AppContent />
+                </NotificationProvider>
               </FavoritesProvider>
             </CartProvider>
           </ToastProvider>

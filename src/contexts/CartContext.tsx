@@ -135,38 +135,51 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   const addToCart = async (product: Product, quantity: number, size?: string) => {
     if (user) {
-      try {
-        const { data: existing } = await supabase
-          .from('cart_items')
-          .select('*')
-          .eq('user_id', user.id)
-          .eq('product_id', product.id)
-          .eq('selected_size', size || null)
-          .maybeSingle();
+      const existingIndex = cart.findIndex(
+        item => item.product.id === product.id && item.selectedSize === size
+      );
 
-        if (existing) {
+      if (existingIndex > -1) {
+        const newQuantity = cart[existingIndex].quantity + quantity;
+        const itemId = cart[existingIndex].id;
+        setCart(prev => prev.map((item, i) =>
+          i === existingIndex ? { ...item, quantity: newQuantity } : item
+        ));
+
+        try {
           const { error } = await supabase
             .from('cart_items')
-            .update({ quantity: existing.quantity + quantity })
-            .eq('id', existing.id);
-
+            .update({ quantity: newQuantity })
+            .eq('id', itemId);
           if (error) throw error;
-        } else {
-          const { error } = await supabase
+        } catch (error) {
+          console.error('Error updating cart:', error);
+          await loadCartFromDatabase();
+        }
+      } else {
+        const tempItem: CartItem = { product, quantity, selectedSize: size };
+        setCart(prev => [...prev, tempItem]);
+
+        try {
+          const { data, error } = await supabase
             .from('cart_items')
             .insert({
               user_id: user.id,
               product_id: product.id,
               quantity,
               selected_size: size || null,
-            });
+            })
+            .select()
+            .single();
 
           if (error) throw error;
+          setCart(prev => prev.map(item =>
+            item === tempItem ? { ...item, id: data.id } : item
+          ));
+        } catch (error) {
+          console.error('Error adding to cart:', error);
+          setCart(prev => prev.filter(item => item !== tempItem));
         }
-
-        await loadCartFromDatabase();
-      } catch (error) {
-        console.error('Error adding to cart:', error);
       }
     } else {
       setCart((prevCart) => {
@@ -187,6 +200,11 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   const removeFromCart = async (productId: string, size?: string) => {
     if (user) {
+      const previous = cart;
+      setCart(prev => prev.filter(
+        item => !(item.product.id === productId && item.selectedSize === size)
+      ));
+
       try {
         const { error } = await supabase
           .from('cart_items')
@@ -196,10 +214,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
           .eq('selected_size', size || null);
 
         if (error) throw error;
-
-        await loadCartFromDatabase();
       } catch (error) {
         console.error('Error removing from cart:', error);
+        setCart(previous);
       }
     } else {
       setCart((prevCart) =>
@@ -217,6 +234,13 @@ export function CartProvider({ children }: { children: ReactNode }) {
     }
 
     if (user) {
+      const previous = cart;
+      setCart(prev => prev.map(item =>
+        item.product.id === productId && item.selectedSize === size
+          ? { ...item, quantity }
+          : item
+      ));
+
       try {
         const { error } = await supabase
           .from('cart_items')
@@ -226,10 +250,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
           .eq('selected_size', size || null);
 
         if (error) throw error;
-
-        await loadCartFromDatabase();
       } catch (error) {
         console.error('Error updating quantity:', error);
+        setCart(previous);
       }
     } else {
       setCart((prevCart) =>
@@ -244,22 +267,41 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   const addEventTicketToCart = async (eventTicketTypeId: string, quantity: number) => {
     if (user) {
-      try {
-        const { data: existing } = await supabase
-          .from('cart_event_tickets')
-          .select('*')
-          .eq('user_id', user.id)
-          .eq('event_ticket_type_id', eventTicketTypeId)
-          .maybeSingle();
+      const existingIndex = eventTickets.findIndex(
+        item => item.eventTicketType.id === eventTicketTypeId
+      );
 
-        if (existing) {
+      if (existingIndex > -1) {
+        const newQuantity = eventTickets[existingIndex].quantity + quantity;
+        setEventTickets(prev => prev.map((item, i) =>
+          i === existingIndex ? { ...item, quantity: newQuantity } : item
+        ));
+
+        try {
           const { error } = await supabase
             .from('cart_event_tickets')
-            .update({ quantity: existing.quantity + quantity })
-            .eq('id', existing.id);
-
+            .update({ quantity: newQuantity })
+            .eq('user_id', user.id)
+            .eq('event_ticket_type_id', eventTicketTypeId);
           if (error) throw error;
-        } else {
+        } catch (error) {
+          console.error('Error updating event ticket:', error);
+          await loadEventTicketsFromDatabase();
+          throw error;
+        }
+      } else {
+        const { data: eventTicketData, error: fetchError } = await supabase
+          .from('event_ticket_types')
+          .select(`*, ticket_type:ticket_types (*), event:events (*)`)
+          .eq('id', eventTicketTypeId)
+          .single();
+
+        if (fetchError || !eventTicketData) throw fetchError;
+
+        const tempItem: EventTicketCartItem = { eventTicketType: eventTicketData as any, quantity };
+        setEventTickets(prev => [...prev, tempItem]);
+
+        try {
           const { error } = await supabase
             .from('cart_event_tickets')
             .insert({
@@ -269,21 +311,16 @@ export function CartProvider({ children }: { children: ReactNode }) {
             });
 
           if (error) throw error;
+        } catch (error) {
+          console.error('Error adding event ticket to cart:', error);
+          setEventTickets(prev => prev.filter(item => item !== tempItem));
+          throw error;
         }
-
-        await loadEventTicketsFromDatabase();
-      } catch (error) {
-        console.error('Error adding event ticket to cart:', error);
-        throw error;
       }
     } else {
       const { data: eventTicketData } = await supabase
         .from('event_ticket_types')
-        .select(`
-          *,
-          ticket_type:ticket_types (*),
-          event:events (*)
-        `)
+        .select(`*, ticket_type:ticket_types (*), event:events (*)`)
         .eq('id', eventTicketTypeId)
         .single();
 
@@ -307,6 +344,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   const removeEventTicketFromCart = async (eventTicketTypeId: string) => {
     if (user) {
+      const previous = eventTickets;
+      setEventTickets(prev => prev.filter(item => item.eventTicketType.id !== eventTicketTypeId));
+
       try {
         const { error } = await supabase
           .from('cart_event_tickets')
@@ -315,10 +355,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
           .eq('event_ticket_type_id', eventTicketTypeId);
 
         if (error) throw error;
-
-        await loadEventTicketsFromDatabase();
       } catch (error) {
         console.error('Error removing event ticket from cart:', error);
+        setEventTickets(previous);
       }
     } else {
       setEventTickets((prev) =>
@@ -334,6 +373,11 @@ export function CartProvider({ children }: { children: ReactNode }) {
     }
 
     if (user) {
+      const previous = eventTickets;
+      setEventTickets(prev => prev.map(item =>
+        item.eventTicketType.id === eventTicketTypeId ? { ...item, quantity } : item
+      ));
+
       try {
         const { error } = await supabase
           .from('cart_event_tickets')
@@ -342,10 +386,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
           .eq('event_ticket_type_id', eventTicketTypeId);
 
         if (error) throw error;
-
-        await loadEventTicketsFromDatabase();
       } catch (error) {
         console.error('Error updating event ticket quantity:', error);
+        setEventTickets(previous);
       }
     } else {
       setEventTickets((prev) =>

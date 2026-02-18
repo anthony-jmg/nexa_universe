@@ -1,36 +1,13 @@
 import { useState, useEffect, useRef } from 'react';
 import { Bell, Check, Trash2, X } from 'lucide-react';
-import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { useToast } from '../contexts/ToastContext';
-
-interface Notification {
-  id: string;
-  professor_id: string | null;
-  type: 'new_video' | 'new_program' | 'platform_subscription_expiring' | 'professor_subscription_expiring' | 'platform_subscription_expired' | 'professor_subscription_expired' | 'order_paid' | 'order_processing' | 'order_shipped' | 'order_completed' | 'order_cancelled';
-  title: string;
-  message: string;
-  link: string;
-  item_id: string;
-  is_read: boolean;
-  created_at: string;
-}
+import { useNotifications } from '../contexts/NotificationContext';
 
 export default function NotificationDropdown() {
   const { user } = useAuth();
-  const { showToast } = useToast();
-  const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [unreadCount, setUnreadCount] = useState(0);
+  const { notifications, unreadCount, loading, markAsRead, markAllAsRead, deleteNotification } = useNotifications();
   const [isOpen, setIsOpen] = useState(false);
-  const [loading, setLoading] = useState(true);
   const dropdownRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (user) {
-      fetchNotifications();
-      subscribeToNotifications();
-    }
-  }, [user]);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -43,118 +20,7 @@ export default function NotificationDropdown() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  async function fetchNotifications() {
-    if (!user) return;
-
-    try {
-      const { data, error } = await supabase
-        .from('notifications')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
-        .limit(20);
-
-      if (error) throw error;
-
-      setNotifications(data || []);
-      setUnreadCount(data?.filter(n => !n.is_read).length || 0);
-    } catch (error) {
-      console.error('Error fetching notifications:', error);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  function subscribeToNotifications() {
-    if (!user) return;
-
-    const subscription = supabase
-      .channel('notifications')
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'notifications',
-          filter: `user_id=eq.${user.id}`,
-        },
-        (payload) => {
-          const newNotification = payload.new as Notification;
-          setNotifications(prev => [newNotification, ...prev]);
-          setUnreadCount(prev => prev + 1);
-          showToast(newNotification.title, 'success');
-        }
-      )
-      .subscribe();
-
-    return () => {
-      subscription.unsubscribe();
-    };
-  }
-
-  async function markAsRead(notificationId: string) {
-    try {
-      const { error } = await supabase
-        .from('notifications')
-        .update({ is_read: true })
-        .eq('id', notificationId)
-        .eq('user_id', user?.id);
-
-      if (error) throw error;
-
-      setNotifications(prev =>
-        prev.map(n => (n.id === notificationId ? { ...n, is_read: true } : n))
-      );
-      setUnreadCount(prev => Math.max(0, prev - 1));
-    } catch (error) {
-      console.error('Error marking notification as read:', error);
-      showToast('Erreur lors de la mise à jour', 'error');
-    }
-  }
-
-  async function markAllAsRead() {
-    try {
-      const { error } = await supabase
-        .from('notifications')
-        .update({ is_read: true })
-        .eq('user_id', user?.id)
-        .eq('is_read', false);
-
-      if (error) throw error;
-
-      setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
-      setUnreadCount(0);
-      showToast('Toutes les notifications sont marquées comme lues', 'success');
-    } catch (error) {
-      console.error('Error marking all as read:', error);
-      showToast('Erreur lors de la mise à jour', 'error');
-    }
-  }
-
-  async function deleteNotification(notificationId: string) {
-    try {
-      const { error } = await supabase
-        .from('notifications')
-        .delete()
-        .eq('id', notificationId)
-        .eq('user_id', user?.id);
-
-      if (error) throw error;
-
-      const notification = notifications.find(n => n.id === notificationId);
-      if (notification && !notification.is_read) {
-        setUnreadCount(prev => Math.max(0, prev - 1));
-      }
-
-      setNotifications(prev => prev.filter(n => n.id !== notificationId));
-      showToast('Notification supprimée', 'success');
-    } catch (error) {
-      console.error('Error deleting notification:', error);
-      showToast('Erreur lors de la suppression', 'error');
-    }
-  }
-
-  function handleNotificationClick(notification: Notification) {
+  function handleNotificationClick(notification: { id: string; is_read: boolean; link: string }) {
     if (!notification.is_read) {
       markAsRead(notification.id);
     }
@@ -182,6 +48,8 @@ export default function NotificationDropdown() {
   }
 
   if (!user) return null;
+
+  const previewNotifications = notifications.slice(0, 20);
 
   return (
     <div className="relative" ref={dropdownRef}>
@@ -227,7 +95,7 @@ export default function NotificationDropdown() {
               <div className="p-8 text-center text-gray-500">
                 Chargement...
               </div>
-            ) : notifications.length === 0 ? (
+            ) : previewNotifications.length === 0 ? (
               <div className="p-8 text-center text-gray-500">
                 <Bell className="w-12 h-12 mx-auto mb-3 text-gray-300" />
                 <p>Aucune notification</p>
@@ -237,7 +105,7 @@ export default function NotificationDropdown() {
               </div>
             ) : (
               <div className="divide-y divide-gray-100">
-                {notifications.map((notification) => (
+                {previewNotifications.map((notification) => (
                   <div
                     key={notification.id}
                     className={`p-4 hover:bg-gray-50 transition-colors ${

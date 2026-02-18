@@ -1,21 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Bell, Check, CheckCheck, Trash2, Video, BookOpen, ArrowLeft, AlertTriangle, Clock, ShoppingBag, Package, Truck, CheckCircle, XCircle } from 'lucide-react';
-import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { useToast } from '../contexts/ToastContext';
+import { useNotifications } from '../contexts/NotificationContext';
+import type { Notification } from '../contexts/NotificationContext';
 import PageTransition from '../components/PageTransition';
-
-interface Notification {
-  id: string;
-  professor_id: string | null;
-  type: 'new_video' | 'new_program' | 'platform_subscription_expiring' | 'professor_subscription_expiring' | 'platform_subscription_expired' | 'professor_subscription_expired' | 'order_paid' | 'order_processing' | 'order_shipped' | 'order_completed' | 'order_cancelled';
-  title: string;
-  message: string;
-  link: string;
-  item_id: string;
-  is_read: boolean;
-  created_at: string;
-}
 
 interface NotificationsPageProps {
   onNavigate: (page: string) => void;
@@ -23,110 +11,8 @@ interface NotificationsPageProps {
 
 export default function NotificationsPage({ onNavigate }: NotificationsPageProps) {
   const { user } = useAuth();
-  const { showToast } = useToast();
-  const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { notifications, loading, markAsRead, markAllAsRead, deleteNotification, deleteAllRead } = useNotifications();
   const [filter, setFilter] = useState<'all' | 'unread'>('all');
-
-  useEffect(() => {
-    if (user) {
-      fetchNotifications();
-    }
-  }, [user]);
-
-  async function fetchNotifications() {
-    if (!user) return;
-
-    try {
-      const { data, error } = await supabase
-        .from('notifications')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-
-      setNotifications(data || []);
-    } catch (error) {
-      console.error('Error fetching notifications:', error);
-      showToast('Erreur lors du chargement des notifications', 'error');
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function markAsRead(notificationId: string) {
-    try {
-      const { error } = await supabase
-        .from('notifications')
-        .update({ is_read: true })
-        .eq('id', notificationId)
-        .eq('user_id', user?.id);
-
-      if (error) throw error;
-
-      setNotifications(prev =>
-        prev.map(n => (n.id === notificationId ? { ...n, is_read: true } : n))
-      );
-    } catch (error) {
-      console.error('Error marking notification as read:', error);
-      showToast('Erreur lors de la mise à jour', 'error');
-    }
-  }
-
-  async function markAllAsRead() {
-    try {
-      const { error } = await supabase
-        .from('notifications')
-        .update({ is_read: true })
-        .eq('user_id', user?.id)
-        .eq('is_read', false);
-
-      if (error) throw error;
-
-      setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
-      showToast('Toutes les notifications sont marquées comme lues', 'success');
-    } catch (error) {
-      console.error('Error marking all as read:', error);
-      showToast('Erreur lors de la mise à jour', 'error');
-    }
-  }
-
-  async function deleteNotification(notificationId: string) {
-    try {
-      const { error } = await supabase
-        .from('notifications')
-        .delete()
-        .eq('id', notificationId)
-        .eq('user_id', user?.id);
-
-      if (error) throw error;
-
-      setNotifications(prev => prev.filter(n => n.id !== notificationId));
-      showToast('Notification supprimée', 'success');
-    } catch (error) {
-      console.error('Error deleting notification:', error);
-      showToast('Erreur lors de la suppression', 'error');
-    }
-  }
-
-  async function deleteAllRead() {
-    try {
-      const { error } = await supabase
-        .from('notifications')
-        .delete()
-        .eq('user_id', user?.id)
-        .eq('is_read', true);
-
-      if (error) throw error;
-
-      setNotifications(prev => prev.filter(n => !n.is_read));
-      showToast('Notifications lues supprimées', 'success');
-    } catch (error) {
-      console.error('Error deleting read notifications:', error);
-      showToast('Erreur lors de la suppression', 'error');
-    }
-  }
 
   function handleNotificationClick(notification: Notification) {
     if (!notification.is_read) {
