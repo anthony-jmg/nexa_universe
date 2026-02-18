@@ -37,9 +37,20 @@ export interface ValidatedOrderResponse {
 export async function validateAndCreateOrder(
   params: ValidateAndCreateOrderParams
 ): Promise<ValidatedOrderResponse> {
-  const { data: { session } } = await supabase.auth.getSession();
+  const { data: { session: currentSession } } = await supabase.auth.getSession();
+  let session = currentSession;
+
   if (!session) {
     throw new Error('Vous devez être connecté pour passer commande');
+  }
+
+  const expiresAt = session.expires_at ? session.expires_at * 1000 : 0;
+  const isExpiringSoon = expiresAt - Date.now() < 60 * 1000;
+  if (isExpiringSoon) {
+    const { data: { session: refreshed } } = await supabase.auth.refreshSession();
+    if (refreshed) {
+      session = refreshed;
+    }
   }
 
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;

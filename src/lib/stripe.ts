@@ -20,16 +20,50 @@ export async function createStripeCheckout(params: CreateCheckoutParams): Promis
   const success_url = `${origin}/my-purchases?payment=success`;
   const cancel_url = `${origin}/my-purchases?payment=cancelled`;
 
-  const { data, error } = await supabase.functions.invoke('create-stripe-checkout', {
-    body: {
+  const { data: { session: currentSession } } = await supabase.auth.getSession();
+  let session = currentSession;
+
+  if (!session) {
+    throw new Error('You must be signed in to proceed with checkout');
+  }
+
+  const expiresAt = session.expires_at ? session.expires_at * 1000 : 0;
+  const isExpiringSoon = expiresAt - Date.now() < 60 * 1000;
+  if (isExpiringSoon) {
+    const { data: { session: refreshed } } = await supabase.auth.refreshSession();
+    if (refreshed) {
+      session = refreshed;
+    }
+  }
+
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+  const apiUrl = `${supabaseUrl}/functions/v1/create-stripe-checkout`;
+
+  const response = await fetch(apiUrl, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${session.access_token}`,
+      'Content-Type': 'application/json',
+      'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
+    },
+    body: JSON.stringify({
       ...params,
       success_url,
       cancel_url,
-    },
+    }),
   });
 
-  if (error) {
-    throw new Error(error.message || 'Failed to create checkout session');
+  const data = await response.json();
+
+  if (!response.ok) {
+    console.error('Checkout error response:', data);
+
+    // Handle specific Stripe errors
+    if (data.error && data.error.includes('No such price')) {
+      throw new Error('Configuration Stripe invalide. Veuillez vérifier que les Price IDs sont correctement configurés dans Stripe Dashboard.');
+    }
+
+    throw new Error(data.error || 'Failed to create checkout session');
   }
 
   if (!data?.url) {
@@ -104,6 +138,10 @@ export async function handlePlatformSubscriptionCheckout(
   const priceId = planType === 'monthly'
     ? import.meta.env.VITE_STRIPE_PLATFORM_MONTHLY_PRICE_ID
     : import.meta.env.VITE_STRIPE_PLATFORM_YEARLY_PRICE_ID;
+
+  if (!priceId) {
+    throw new Error(`Missing Stripe Price ID for ${planType} subscription. Please check environment variables.`);
+  }
 
   console.log('Platform Subscription Checkout:', {
     planType,
