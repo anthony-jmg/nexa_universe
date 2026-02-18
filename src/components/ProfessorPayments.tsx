@@ -98,31 +98,37 @@ export default function ProfessorPayments() {
     const revenueData: ProfessorRevenue[] = [];
 
     for (const prof of professors || []) {
-      const { data: videoSales } = await supabase
+      const profVideoIds = (await supabase
+        .from('videos')
+        .select('id')
+        .eq('professor_id', prof.id)
+      ).data?.map(v => v.id) || [];
+
+      const { data: rawVideoSales } = profVideoIds.length > 0 ? await supabase
         .from('order_items')
         .select('price_paid, orders!inner(status)')
         .eq('item_type', 'video')
-        .eq('orders.status', 'completed')
-        .in('item_id',
-          (await supabase
-            .from('videos')
-            .select('id')
-            .eq('professor_id', prof.id)
-          ).data?.map(v => v.id) || []
-        );
+        .in('item_id', profVideoIds) : { data: [] };
 
-      const { data: programSales } = await supabase
+      const videoSales = (rawVideoSales || []).filter(
+        item => (item.orders as any)?.status === 'completed'
+      );
+
+      const profProgramIds = (await supabase
+        .from('programs')
+        .select('id')
+        .eq('professor_id', prof.id)
+      ).data?.map(p => p.id) || [];
+
+      const { data: rawProgramSales } = profProgramIds.length > 0 ? await supabase
         .from('order_items')
         .select('price_paid, orders!inner(status)')
         .eq('item_type', 'program')
-        .eq('orders.status', 'completed')
-        .in('item_id',
-          (await supabase
-            .from('programs')
-            .select('id')
-            .eq('professor_id', prof.id)
-          ).data?.map(p => p.id) || []
-        );
+        .in('item_id', profProgramIds) : { data: [] };
+
+      const programSales = (rawProgramSales || []).filter(
+        item => (item.orders as any)?.status === 'completed'
+      );
 
       const { data: subscriptions } = await supabase
         .from('subscriptions')
@@ -215,35 +221,45 @@ export default function ProfessorPayments() {
 
       const { data: { user } } = await supabase.auth.getUser();
 
-      const { data: videoSales } = await supabase
+      const paymentVideoIds = (await supabase
+        .from('videos')
+        .select('id')
+        .eq('professor_id', selectedProfessor)
+      ).data?.map(v => v.id) || [];
+
+      const { data: rawVideoSalesPayment } = paymentVideoIds.length > 0 ? await supabase
         .from('order_items')
         .select('id, item_id, price_paid, orders!inner(created_at, status)')
         .eq('item_type', 'video')
-        .eq('orders.status', 'completed')
-        .gte('orders.created_at', newPayment.period_start)
-        .lte('orders.created_at', newPayment.period_end)
-        .in('item_id',
-          (await supabase
-            .from('videos')
-            .select('id')
-            .eq('professor_id', selectedProfessor)
-          ).data?.map(v => v.id) || []
-        );
+        .in('item_id', paymentVideoIds) : { data: [] };
 
-      const { data: programSales } = await supabase
+      const videoSales = (rawVideoSalesPayment || []).filter(item => {
+        const order = item.orders as any;
+        if (order?.status !== 'completed') return false;
+        const createdAt = order?.created_at;
+        if (!createdAt) return false;
+        return createdAt >= newPayment.period_start && createdAt <= newPayment.period_end;
+      });
+
+      const paymentProgramIds = (await supabase
+        .from('programs')
+        .select('id')
+        .eq('professor_id', selectedProfessor)
+      ).data?.map(p => p.id) || [];
+
+      const { data: rawProgramSalesPayment } = paymentProgramIds.length > 0 ? await supabase
         .from('order_items')
         .select('id, item_id, price_paid, orders!inner(created_at, status)')
         .eq('item_type', 'program')
-        .eq('orders.status', 'completed')
-        .gte('orders.created_at', newPayment.period_start)
-        .lte('orders.created_at', newPayment.period_end)
-        .in('item_id',
-          (await supabase
-            .from('programs')
-            .select('id')
-            .eq('professor_id', selectedProfessor)
-          ).data?.map(p => p.id) || []
-        );
+        .in('item_id', paymentProgramIds) : { data: [] };
+
+      const programSales = (rawProgramSalesPayment || []).filter(item => {
+        const order = item.orders as any;
+        if (order?.status !== 'completed') return false;
+        const createdAt = order?.created_at;
+        if (!createdAt) return false;
+        return createdAt >= newPayment.period_start && createdAt <= newPayment.period_end;
+      });
 
       const { data: subscriptions } = await supabase
         .from('subscriptions')

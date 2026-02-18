@@ -85,31 +85,37 @@ export default function ProfessorPaymentHistory() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    const { data: videoSales } = await supabase
+    const videoIds = (await supabase
+      .from('videos')
+      .select('id')
+      .eq('professor_id', user.id)
+    ).data?.map(v => v.id) || [];
+
+    const { data: rawVideoSales } = videoIds.length > 0 ? await supabase
       .from('order_items')
       .select('price_paid, orders!inner(status)')
       .eq('item_type', 'video')
-      .eq('orders.status', 'completed')
-      .in('item_id',
-        (await supabase
-          .from('videos')
-          .select('id')
-          .eq('professor_id', user.id)
-        ).data?.map(v => v.id) || []
-      );
+      .in('item_id', videoIds) : { data: [] };
 
-    const { data: programSales } = await supabase
+    const videoSales = (rawVideoSales || []).filter(
+      item => (item.orders as any)?.status === 'completed'
+    );
+
+    const programIds = (await supabase
+      .from('programs')
+      .select('id')
+      .eq('professor_id', user.id)
+    ).data?.map(p => p.id) || [];
+
+    const { data: rawProgramSales } = programIds.length > 0 ? await supabase
       .from('order_items')
       .select('price_paid, orders!inner(status)')
       .eq('item_type', 'program')
-      .eq('orders.status', 'completed')
-      .in('item_id',
-        (await supabase
-          .from('programs')
-          .select('id')
-          .eq('professor_id', user.id)
-        ).data?.map(p => p.id) || []
-      );
+      .in('item_id', programIds) : { data: [] };
+
+    const programSales = (rawProgramSales || []).filter(
+      item => (item.orders as any)?.status === 'completed'
+    );
 
     const { data: subscriptions } = await supabase
       .from('subscriptions')
