@@ -317,28 +317,29 @@ export function MyTickets({ onNavigate }: MyTicketsProps) {
                 <p className="text-xs text-gray-500 uppercase tracking-wide mb-2">Statut</p>
                 {getStatusBadge(selectedTicket.check_in_status)}
               </div>
+
+              {(selectedTicket.attendee_first_name || selectedTicket.attendee_last_name || selectedTicket.attendee_email || selectedTicket.attendee_phone) && (
+                <div className="pt-3 border-t border-gray-700">
+                  <p className="text-xs text-gray-500 uppercase tracking-wide mb-2">Participant</p>
+                  <div className="bg-gray-800 rounded-lg p-3 space-y-1">
+                    {(selectedTicket.attendee_first_name || selectedTicket.attendee_last_name) && (
+                      <p className="text-white font-medium text-base">
+                        {[selectedTicket.attendee_first_name, selectedTicket.attendee_last_name].filter(Boolean).join(' ')}
+                      </p>
+                    )}
+                    {selectedTicket.attendee_email && (
+                      <p className="text-gray-400 text-sm">{selectedTicket.attendee_email}</p>
+                    )}
+                    {selectedTicket.attendee_phone && (
+                      <p className="text-gray-400 text-sm">{selectedTicket.attendee_phone}</p>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
 
             {selectedTicket.check_in_status === 'not_checked_in' && qrCodeUrl && (
               <>
-                {(selectedTicket.attendee_first_name || selectedTicket.attendee_last_name || selectedTicket.attendee_email || selectedTicket.attendee_phone) && (
-                  <div className="mb-4 pt-3 border-t border-gray-700">
-                    <p className="text-xs text-gray-500 uppercase tracking-wide mb-2">Participant</p>
-                    <div className="bg-gray-800 rounded-lg p-3 space-y-1">
-                      {(selectedTicket.attendee_first_name || selectedTicket.attendee_last_name) && (
-                        <p className="text-white font-medium text-base">
-                          {[selectedTicket.attendee_first_name, selectedTicket.attendee_last_name].filter(Boolean).join(' ')}
-                        </p>
-                      )}
-                      {selectedTicket.attendee_email && (
-                        <p className="text-gray-400 text-sm">{selectedTicket.attendee_email}</p>
-                      )}
-                      {selectedTicket.attendee_phone && (
-                        <p className="text-gray-400 text-sm">{selectedTicket.attendee_phone}</p>
-                      )}
-                    </div>
-                  </div>
-                )}
 
                 <div className="bg-white p-4 rounded-xl mb-6">
                   <img src={qrCodeUrl} alt="QR Code" className="w-full" />
