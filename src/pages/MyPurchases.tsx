@@ -60,10 +60,11 @@ type ProgramPurchase = {
 
 type Order = Database['public']['Tables']['orders']['Row'] & {
   order_items: {
-    product_name: string;
+    id: string;
+    item_type: string;
     quantity: number;
     unit_price: number;
-    details: any;
+    selected_size: string | null;
   }[];
 };
 
@@ -264,7 +265,7 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
 
     const { data, error } = await supabase
       .from('orders')
-      .select('*, order_items(product_name, quantity, unit_price, details)')
+      .select('*, order_items(id, item_type, quantity, unit_price, selected_size)')
       .eq('user_id', user.id)
       .order('created_at', { ascending: false });
 
@@ -831,7 +832,7 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
                       {order.order_items.map((item, idx) => (
                         <div key={idx} className="flex justify-between items-center text-xs sm:text-sm gap-2">
                           <span className="text-white truncate">
-                            {item.product_name} x{item.quantity}
+                            {item.item_type}{item.selected_size ? ` (${item.selected_size})` : ''} x{item.quantity}
                           </span>
                           <span className="text-gray-400 flex-shrink-0">
                             {(item.unit_price * item.quantity).toFixed(2)}€
@@ -928,6 +929,11 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
                                   {ticket.event_ticket_types?.ticket_types && (
                                     <p className="text-xs sm:text-sm font-medium text-[#B8913D] mb-1 truncate">
                                       {ticket.event_ticket_types.ticket_types.name}
+                                    </p>
+                                  )}
+                                  {(ticket.attendee_first_name || ticket.attendee_last_name) && (
+                                    <p className="text-xs sm:text-sm text-white font-medium truncate">
+                                      {[ticket.attendee_first_name, ticket.attendee_last_name].filter(Boolean).join(' ')}
                                     </p>
                                   )}
                                   <p className="text-xs text-gray-400 mt-1">
