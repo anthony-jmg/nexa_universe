@@ -63,7 +63,19 @@ export function MyTickets({ onNavigate }: MyTicketsProps) {
     const { data, error } = await supabase
       .from('event_attendees')
       .select(`
-        *,
+        id,
+        event_id,
+        user_id,
+        event_ticket_type_id,
+        qr_code,
+        check_in_status,
+        checked_in_at,
+        purchased_at,
+        created_at,
+        attendee_first_name,
+        attendee_last_name,
+        attendee_email,
+        attendee_phone,
         event_ticket_types (
           id,
           price,
@@ -318,24 +330,20 @@ export function MyTickets({ onNavigate }: MyTicketsProps) {
                 {getStatusBadge(selectedTicket.check_in_status)}
               </div>
 
-              {(selectedTicket.attendee_first_name || selectedTicket.attendee_last_name || selectedTicket.attendee_email || selectedTicket.attendee_phone) && (
-                <div className="pt-3 border-t border-gray-700">
-                  <p className="text-xs text-gray-500 uppercase tracking-wide mb-2">Participant</p>
-                  <div className="bg-gray-800 rounded-lg p-3 space-y-1">
-                    {(selectedTicket.attendee_first_name || selectedTicket.attendee_last_name) && (
-                      <p className="text-white font-medium text-base">
-                        {[selectedTicket.attendee_first_name, selectedTicket.attendee_last_name].filter(Boolean).join(' ')}
-                      </p>
-                    )}
-                    {selectedTicket.attendee_email && (
-                      <p className="text-gray-400 text-sm">{selectedTicket.attendee_email}</p>
-                    )}
-                    {selectedTicket.attendee_phone && (
-                      <p className="text-gray-400 text-sm">{selectedTicket.attendee_phone}</p>
-                    )}
-                  </div>
+              <div className="pt-3 border-t border-gray-700">
+                <p className="text-xs text-gray-500 uppercase tracking-wide mb-2">Participant</p>
+                <div className="bg-gray-800 rounded-lg p-3 space-y-1">
+                  <p className="text-white font-medium text-base">
+                    {[selectedTicket.attendee_first_name, selectedTicket.attendee_last_name].filter(Boolean).join(' ') || 'Non renseigne'}
+                  </p>
+                  <p className="text-gray-400 text-sm">
+                    {selectedTicket.attendee_email || 'Email non renseigne'}
+                  </p>
+                  {selectedTicket.attendee_phone && (
+                    <p className="text-gray-400 text-sm">{selectedTicket.attendee_phone}</p>
+                  )}
                 </div>
-              )}
+              </div>
             </div>
 
             {selectedTicket.check_in_status === 'not_checked_in' && qrCodeUrl && (
