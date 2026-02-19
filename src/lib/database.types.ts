@@ -582,18 +582,24 @@ export interface Database {
           id: string
           name: string
           sizes: string[] | null
+          has_sizes: boolean
+          is_active: boolean
           created_at: string
         }
         Insert: {
           id?: string
           name: string
           sizes?: string[] | null
+          has_sizes?: boolean
+          is_active?: boolean
           created_at?: string
         }
         Update: {
           id?: string
           name?: string
           sizes?: string[] | null
+          has_sizes?: boolean
+          is_active?: boolean
           created_at?: string
         }
       }
