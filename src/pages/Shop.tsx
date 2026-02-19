@@ -9,6 +9,7 @@ import { Database } from '../lib/database.types';
 import { ShoppingBag, Calendar, MapPin, Shirt, Check, ShoppingCart, Search, X, Clock, Users, Ticket, AlertCircle, ChevronLeft, ChevronRight } from 'lucide-react';
 
 type Product = Database['public']['Tables']['products']['Row'];
+type ProductSize = Database['public']['Tables']['product_sizes']['Row'];
 type Event = Database['public']['Tables']['events']['Row'];
 type TicketType = Database['public']['Tables']['ticket_types']['Row'];
 type EventTicketType = Database['public']['Tables']['event_ticket_types']['Row'] & {
@@ -28,6 +29,7 @@ export function Shop({ onNavigate }: ShopProps) {
   const { addToCart, addEventTicketToCart, getCartCount } = useCart();
   const { t } = useLanguage();
   const [products, setProducts] = useState<Product[]>([]);
+  const [productSizesMap, setProductSizesMap] = useState<Record<string, ProductSize[]>>({});
   const [events, setEvents] = useState<EventWithTickets[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'merchandise' | 'events'>('merchandise');
@@ -80,6 +82,24 @@ export function Shop({ onNavigate }: ShopProps) {
     if (!productsResult.error && productsResult.data) {
       setProducts(productsResult.data);
       setTotalProductsCount(productsResult.count || 0);
+
+      const productIds = productsResult.data.map(p => p.id);
+      if (productIds.length > 0) {
+        const { data: sizes } = await supabase
+          .from('product_sizes')
+          .select('*')
+          .in('product_id', productIds)
+          .order('order_index');
+
+        if (sizes) {
+          const sizesMap: Record<string, ProductSize[]> = {};
+          sizes.forEach(size => {
+            if (!sizesMap[size.product_id]) sizesMap[size.product_id] = [];
+            sizesMap[size.product_id].push(size);
+          });
+          setProductSizesMap(sizesMap);
+        }
+      }
     }
 
     setLoading(false);
@@ -204,17 +224,17 @@ export function Shop({ onNavigate }: ShopProps) {
       return;
     }
 
-    const hasSizes = product.category === 'merchandise' &&
-                     product.details &&
-                     Array.isArray(product.details.sizes) &&
-                     product.details.sizes.length > 0;
+    const sizes = productSizesMap[product.id] || [];
+    const hasSizes = sizes.length > 1 || (sizes.length === 1 && sizes[0].name.toLowerCase() !== 'unique');
 
     if (hasSizes && !size) {
       setSelectedProduct(product);
+      setSelectedSize('');
       return;
     }
 
-    addToCart(product, quantity, size);
+    const sizeToUse = size || (sizes.length === 1 ? sizes[0].name : undefined);
+    addToCart(product, quantity, sizeToUse);
     setSuccess(t('shop.success.addedToCart'));
     setSelectedProduct(null);
     setSelectedSize('');
@@ -223,8 +243,8 @@ export function Shop({ onNavigate }: ShopProps) {
   };
 
   const handleQuickAdd = () => {
-    if (selectedProduct && selectedSize) {
-      addToCart(selectedProduct, quantity, selectedSize);
+    if (selectedProduct && (selectedSize || (productSizesMap[selectedProduct.id] || []).length === 0)) {
+      addToCart(selectedProduct, quantity, selectedSize || undefined);
       setSuccess(t('shop.success.addedToCart'));
       setSelectedProduct(null);
       setSelectedSize('');
@@ -631,7 +651,7 @@ export function Shop({ onNavigate }: ShopProps) {
                         {t('shop.product.memberBadge')}
                       </div>
                     )}
-                    {product.stock === 0 && (
+                    {(productSizesMap[product.id] || []).every(s => s.stock_quantity === 0) && (productSizesMap[product.id] || []).length > 0 && (
                       <div className="absolute inset-0 bg-black bg-opacity-70 flex items-center justify-center">
                         <span className="px-3 py-1.5 sm:px-4 sm:py-2 bg-red-600 text-white text-xs sm:text-base font-medium rounded-lg">
                           {t('shop.product.outOfStock')}
@@ -641,25 +661,23 @@ export function Shop({ onNavigate }: ShopProps) {
                   </div>
 
                   <div className="p-4 sm:p-6">
-                    <div className="mb-1.5 sm:mb-2">
-                      <span className="inline-block px-2 py-0.5 sm:px-3 sm:py-1 text-[10px] sm:text-xs font-medium rounded-full bg-gray-800 text-gray-300 border border-gray-700">
-                        {product.type}
-                      </span>
-                    </div>
-
                     <h3 className="text-base sm:text-xl font-medium text-white mb-1.5 sm:mb-2">{product.name}</h3>
                     <p className="text-gray-300 text-xs sm:text-sm mb-3 sm:mb-4 line-clamp-2">{product.description}</p>
 
-                    {product.details && Array.isArray(product.details.sizes) && product.details.sizes.length > 0 && (
+                    {(productSizesMap[product.id] || []).length > 0 && (
                       <div className="mb-3 sm:mb-4">
                         <p className="text-[10px] sm:text-xs text-gray-400 mb-1.5 sm:mb-2">{t('shop.product.availableSizes')}</p>
                         <div className="flex flex-wrap gap-1 sm:gap-2">
-                          {product.details.sizes.map((size: string) => (
+                          {(productSizesMap[product.id] || []).map((size) => (
                             <span
-                              key={size}
-                              className="px-1.5 py-0.5 sm:px-2 sm:py-1 bg-gray-800 text-gray-300 text-[10px] sm:text-xs rounded border border-gray-700"
+                              key={size.id}
+                              className={`px-1.5 py-0.5 sm:px-2 sm:py-1 text-[10px] sm:text-xs rounded border ${
+                                size.stock_quantity === 0
+                                  ? 'bg-gray-900 text-gray-600 border-gray-800 line-through'
+                                  : 'bg-gray-800 text-gray-300 border-gray-700'
+                              }`}
                             >
-                              {size}
+                              {size.name}
                             </span>
                           ))}
                         </div>
@@ -693,18 +711,24 @@ export function Shop({ onNavigate }: ShopProps) {
                       </div>
                     </div>
 
-                    <button
-                      onClick={() => handleAddToCart(product)}
-                      disabled={product.stock === 0}
-                      className={`w-full py-2 sm:py-3 rounded-lg text-xs sm:text-base font-medium transition-all flex items-center justify-center space-x-1.5 sm:space-x-2 ${
-                        product.stock === 0
-                          ? 'bg-gray-800 text-gray-500 cursor-not-allowed'
-                          : 'bg-gradient-to-r from-[#B8913D] to-[#A07F35] text-white hover:shadow-lg hover:shadow-[#B8913D]/50 hover:scale-105'
-                      }`}
-                    >
-                      <ShoppingBag className="w-3 h-3 sm:w-4 sm:h-4" />
-                      <span>{product.stock === 0 ? t('shop.product.outOfStock') : t('shop.product.addToCart')}</span>
-                    </button>
+                    {(() => {
+                      const sizes = productSizesMap[product.id] || [];
+                      const isOutOfStock = sizes.length > 0 && sizes.every(s => s.stock_quantity === 0);
+                      return (
+                        <button
+                          onClick={() => handleAddToCart(product)}
+                          disabled={isOutOfStock}
+                          className={`w-full py-2 sm:py-3 rounded-lg text-xs sm:text-base font-medium transition-all flex items-center justify-center space-x-1.5 sm:space-x-2 ${
+                            isOutOfStock
+                              ? 'bg-gray-800 text-gray-500 cursor-not-allowed'
+                              : 'bg-gradient-to-r from-[#B8913D] to-[#A07F35] text-white hover:shadow-lg hover:shadow-[#B8913D]/50 hover:scale-105'
+                          }`}
+                        >
+                          <ShoppingBag className="w-3 h-3 sm:w-4 sm:h-4" />
+                          <span>{isOutOfStock ? t('shop.product.outOfStock') : t('shop.product.addToCart')}</span>
+                        </button>
+                      );
+                    })()}
                   </div>
                 </div>
               );
@@ -909,23 +933,26 @@ export function Shop({ onNavigate }: ShopProps) {
             <h3 className="text-lg sm:text-2xl font-medium text-white mb-3 sm:mb-4">{selectedProduct.name}</h3>
 
             <div className="mb-4 sm:mb-6">
-              {selectedProduct.details && Array.isArray(selectedProduct.details.sizes) && selectedProduct.details.sizes.length > 0 && (
+              {(productSizesMap[selectedProduct.id] || []).length > 0 && (
                 <>
                   <label className="block text-xs sm:text-sm font-medium text-gray-300 mb-1.5 sm:mb-2">
                     {t('shop.modal.selectSize')}
                   </label>
                   <div className="grid grid-cols-4 gap-1.5 sm:gap-2">
-                    {selectedProduct.details.sizes.map((size: string) => (
+                    {(productSizesMap[selectedProduct.id] || []).map((size) => (
                       <button
-                        key={size}
-                        onClick={() => setSelectedSize(size)}
+                        key={size.id}
+                        onClick={() => size.stock_quantity > 0 && setSelectedSize(size.name)}
+                        disabled={size.stock_quantity === 0}
                         className={`py-2.5 sm:py-3 text-xs sm:text-base rounded-lg font-medium transition-all ${
-                          selectedSize === size
-                            ? 'bg-gradient-to-r from-[#B8913D] to-[#A07F35] text-white shadow-lg'
-                            : 'bg-gray-800 text-gray-300 hover:bg-gray-700 border border-gray-700'
+                          size.stock_quantity === 0
+                            ? 'bg-gray-900 text-gray-600 cursor-not-allowed line-through border border-gray-800'
+                            : selectedSize === size.name
+                              ? 'bg-gradient-to-r from-[#B8913D] to-[#A07F35] text-white shadow-lg'
+                              : 'bg-gray-800 text-gray-300 hover:bg-gray-700 border border-gray-700'
                         }`}
                       >
-                        {size}
+                        {size.name}
                       </button>
                     ))}
                   </div>
@@ -940,7 +967,7 @@ export function Shop({ onNavigate }: ShopProps) {
               <input
                 type="number"
                 min="1"
-                max={selectedProduct.stock}
+                max={selectedSize ? (productSizesMap[selectedProduct.id] || []).find(s => s.name === selectedSize)?.stock_quantity ?? 99 : 99}
                 value={quantity}
                 onChange={(e) => setQuantity(parseInt(e.target.value) || 1)}
                 className="w-full px-3 py-2.5 sm:px-4 sm:py-3 text-sm sm:text-base bg-gray-800 border border-gray-700 rounded-lg focus:ring-2 focus:ring-[#B8913D] focus:border-[#B8913D] outline-none text-white"
@@ -960,11 +987,11 @@ export function Shop({ onNavigate }: ShopProps) {
               </button>
               <button
                 onClick={handleQuickAdd}
-                disabled={!selectedSize}
+                disabled={!selectedSize && (productSizesMap[selectedProduct.id] || []).length > 0}
                 className={`flex-1 py-2.5 sm:py-3 text-xs sm:text-base rounded-lg font-medium transition-all ${
-                  selectedSize
-                    ? 'bg-gradient-to-r from-[#B8913D] to-[#A07F35] text-white hover:shadow-lg hover:shadow-[#B8913D]/50'
-                    : 'bg-gray-800 text-gray-500 cursor-not-allowed'
+                  !selectedSize && (productSizesMap[selectedProduct.id] || []).length > 0
+                    ? 'bg-gray-800 text-gray-500 cursor-not-allowed'
+                    : 'bg-gradient-to-r from-[#B8913D] to-[#A07F35] text-white hover:shadow-lg hover:shadow-[#B8913D]/50'
                 }`}
               >
                 {t('shop.product.addToCart')}

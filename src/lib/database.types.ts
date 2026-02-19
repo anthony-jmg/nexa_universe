@@ -545,10 +545,11 @@ export interface Database {
           name: string
           description: string | null
           price: number
+          member_price: number
           product_type_id: string | null
           image_url: string | null
-          stock_quantity: number | null
           is_active: boolean | null
+          order_index: number
           created_at: string | null
           updated_at: string | null
         }
@@ -557,10 +558,11 @@ export interface Database {
           name: string
           description?: string | null
           price?: number
+          member_price?: number
           product_type_id?: string | null
           image_url?: string | null
-          stock_quantity?: number | null
           is_active?: boolean | null
+          order_index?: number
           created_at?: string | null
           updated_at?: string | null
         }
@@ -569,37 +571,61 @@ export interface Database {
           name?: string
           description?: string | null
           price?: number
+          member_price?: number
           product_type_id?: string | null
           image_url?: string | null
-          stock_quantity?: number | null
           is_active?: boolean | null
+          order_index?: number
           created_at?: string | null
           updated_at?: string | null
+        }
+      }
+      product_sizes: {
+        Row: {
+          id: string
+          product_id: string
+          name: string
+          stock_quantity: number
+          order_index: number
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          product_id: string
+          name: string
+          stock_quantity?: number
+          order_index?: number
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          product_id?: string
+          name?: string
+          stock_quantity?: number
+          order_index?: number
+          created_at?: string
         }
       }
       product_types: {
         Row: {
           id: string
           name: string
-          sizes: string[] | null
-          has_sizes: boolean
           is_active: boolean
+          order_index: number
           created_at: string
         }
         Insert: {
           id?: string
           name: string
-          sizes?: string[] | null
-          has_sizes?: boolean
           is_active?: boolean
+          order_index?: number
           created_at?: string
         }
         Update: {
           id?: string
           name?: string
-          sizes?: string[] | null
-          has_sizes?: boolean
           is_active?: boolean
+          order_index?: number
           created_at?: string
         }
       }

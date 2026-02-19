@@ -20,11 +20,7 @@ export function ProductTypesManagement({
 }: ProductTypesManagementProps) {
   const [showTypeForm, setShowTypeForm] = useState(false);
   const [editingType, setEditingType] = useState<ProductType | null>(null);
-  const [typeForm, setTypeForm] = useState({
-    name: '',
-    sizes: [] as string[],
-  });
-  const [newSize, setNewSize] = useState('');
+  const [typeForm, setTypeForm] = useState({ name: '' });
 
   const handleTypeSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -35,7 +31,7 @@ export function ProductTypesManagement({
       if (editingType) {
         const { error } = await supabase
           .from('product_types')
-          .update(typeForm)
+          .update({ name: typeForm.name })
           .eq('id', editingType.id);
 
         if (error) throw error;
@@ -43,7 +39,7 @@ export function ProductTypesManagement({
       } else {
         const { error } = await supabase
           .from('product_types')
-          .insert([typeForm]);
+          .insert([{ name: typeForm.name }]);
 
         if (error) throw error;
         setSuccess('Type de produit créé avec succès');
@@ -76,38 +72,14 @@ export function ProductTypesManagement({
 
   const handleEditType = (productType: ProductType) => {
     setEditingType(productType);
-    setTypeForm({
-      name: productType.name,
-      sizes: productType.sizes || [],
-    });
+    setTypeForm({ name: productType.name });
     setShowTypeForm(true);
   };
 
   const resetTypeForm = () => {
-    setTypeForm({
-      name: '',
-      sizes: [],
-    });
-    setNewSize('');
+    setTypeForm({ name: '' });
     setEditingType(null);
     setShowTypeForm(false);
-  };
-
-  const handleAddSize = () => {
-    if (newSize.trim()) {
-      setTypeForm({
-        ...typeForm,
-        sizes: [...typeForm.sizes, newSize.trim()]
-      });
-      setNewSize('');
-    }
-  };
-
-  const handleRemoveSize = (index: number) => {
-    setTypeForm({
-      ...typeForm,
-      sizes: typeForm.sizes.filter((_, i) => i !== index)
-    });
   };
 
   return (
@@ -133,51 +105,11 @@ export function ProductTypesManagement({
               <input
                 type="text"
                 value={typeForm.name}
-                onChange={(e) => setTypeForm({ ...typeForm, name: e.target.value })}
+                onChange={(e) => setTypeForm({ name: e.target.value })}
                 required
                 placeholder="Ex: T-Shirt, Hoodie, Sticker..."
                 className="w-full px-4 py-3 bg-gray-900/50 border border-gray-600 text-white rounded-lg focus:ring-2 focus:ring-[#B8913D] focus:border-transparent outline-none transition-all"
               />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
-                Tailles disponibles
-              </label>
-              <div className="flex space-x-2 mb-3">
-                <input
-                  type="text"
-                  value={newSize}
-                  onChange={(e) => setNewSize(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddSize())}
-                  placeholder="Ex: S, M, L, XL..."
-                  className="flex-1 px-4 py-3 bg-gray-900/50 border border-gray-600 text-white rounded-lg focus:ring-2 focus:ring-[#B8913D] focus:border-transparent outline-none transition-all"
-                />
-                <button
-                  type="button"
-                  onClick={handleAddSize}
-                  className="px-4 py-3 bg-[#B8913D] text-white rounded-lg hover:bg-[#A07F35] transition-colors"
-                >
-                  <Plus className="w-5 h-5" />
-                </button>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {typeForm.sizes.map((size, index) => (
-                  <div
-                    key={index}
-                    className="group flex items-center space-x-1 px-3 py-1 bg-gray-800 border border-gray-700 rounded-full"
-                  >
-                    <span className="text-sm text-gray-300">{size}</span>
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveSize(index)}
-                      className="text-red-400 hover:text-red-300 transition-colors"
-                    >
-                      <X className="w-3 h-3" />
-                    </button>
-                  </div>
-                ))}
-              </div>
             </div>
 
             <div className="flex justify-end space-x-3">
@@ -205,7 +137,7 @@ export function ProductTypesManagement({
             key={type.id}
             className="bg-gradient-to-br from-gray-800/60 to-gray-900/60 backdrop-blur-sm border border-gray-700/50 rounded-2xl p-6 shadow-xl hover:shadow-2xl transition-all"
           >
-            <div className="flex justify-between items-start mb-4">
+            <div className="flex justify-between items-start">
               <div className="flex items-center space-x-3">
                 <div className="w-12 h-12 bg-[#B8913D]/10 rounded-full flex items-center justify-center">
                   <Tag className="w-6 h-6 text-[#B8913D]" />
@@ -213,7 +145,7 @@ export function ProductTypesManagement({
                 <div>
                   <h3 className="text-lg font-semibold text-white">{type.name}</h3>
                   <p className="text-sm text-gray-400">
-                    {type.sizes && type.sizes.length > 0 ? `${type.sizes.length} tailles` : 'Sans taille'}
+                    {type.is_active ? 'Actif' : 'Inactif'}
                   </p>
                 </div>
               </div>
@@ -233,22 +165,6 @@ export function ProductTypesManagement({
                 </button>
               </div>
             </div>
-
-            {type.sizes && type.sizes.length > 0 && (
-              <div className="mt-4 pt-4 border-t border-gray-700">
-                <span className="text-sm font-medium text-gray-300 mb-2 block">Tailles disponibles</span>
-                <div className="flex flex-wrap gap-2">
-                  {type.sizes.map((size, index) => (
-                    <div
-                      key={index}
-                      className="px-3 py-1 bg-gray-800 border border-gray-700 rounded-full"
-                    >
-                      <span className="text-sm text-gray-300">{size}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
           </div>
         ))}
       </div>

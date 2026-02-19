@@ -39,9 +39,17 @@ interface ProductFormData {
   description: string;
   product_type_id: string;
   price: number;
+  member_price: number;
   image_url: string;
-  stock_quantity: number;
   is_active: boolean;
+  order_index: number;
+}
+
+interface ProductSizeFormData {
+  id?: string;
+  name: string;
+  stock_quantity: number;
+  order_index: number;
 }
 
 interface TicketCategory {
@@ -97,11 +105,14 @@ export function Admin({ onNavigate }: AdminProps) {
     description: '',
     product_type_id: '',
     price: 0,
+    member_price: 0,
     image_url: '',
-    stock_quantity: 0,
     is_active: true,
+    order_index: 0,
   });
 
+  const [productSizes, setProductSizes] = useState<ProductSizeFormData[]>([]);
+  const [newProductSize, setNewProductSize] = useState<ProductSizeFormData>({ name: '', stock_quantity: 0, order_index: 0 });
 
   const [ticketCategories, setTicketCategories] = useState<TicketCategory[]>([]);
   const [newTicketCategory, setNewTicketCategory] = useState<TicketCategory>({
@@ -482,15 +493,7 @@ export function Admin({ onNavigate }: AdminProps) {
 
     try {
       const productData = { ...productForm, updated_at: new Date().toISOString() };
-
-      if (productForm.category === 'event_pass' && ticketCategories.length > 0) {
-        productData.price = 0;
-        productData.member_price = 0;
-        (productData as any).details = {
-          ...((editingProduct?.details as any) || {}),
-          ticket_categories: ticketCategories
-        };
-      }
+      let productId: string;
 
       if (editingProduct) {
         const { error } = await supabase
@@ -499,14 +502,46 @@ export function Admin({ onNavigate }: AdminProps) {
           .eq('id', editingProduct.id);
 
         if (error) throw error;
+        productId = editingProduct.id;
         setSuccess('Product updated successfully');
       } else {
-        const { error } = await supabase
+        const { data, error } = await supabase
           .from('products')
-          .insert([productData]);
+          .insert([productData])
+          .select('id')
+          .single();
 
         if (error) throw error;
+        productId = data.id;
         setSuccess('Product added successfully');
+      }
+
+      const existingSizeIds = productSizes.filter(s => s.id).map(s => s.id!);
+
+      if (editingProduct) {
+        const { data: currentSizes } = await supabase
+          .from('product_sizes')
+          .select('id')
+          .eq('product_id', productId);
+
+        const toDelete = (currentSizes || [])
+          .filter(s => !existingSizeIds.includes(s.id))
+          .map(s => s.id);
+
+        if (toDelete.length > 0) {
+          await supabase.from('product_sizes').delete().in('id', toDelete);
+        }
+      }
+
+      for (let i = 0; i < productSizes.length; i++) {
+        const size = productSizes[i];
+        const sizeData = { name: size.name, stock_quantity: size.stock_quantity, order_index: i };
+
+        if (size.id) {
+          await supabase.from('product_sizes').update(sizeData).eq('id', size.id);
+        } else {
+          await supabase.from('product_sizes').insert([{ ...sizeData, product_id: productId }]);
+        }
       }
 
       await loadProducts();
@@ -534,28 +569,31 @@ export function Admin({ onNavigate }: AdminProps) {
     }
   };
 
-  const handleEditProduct = (product: Product) => {
+  const handleEditProduct = async (product: Product) => {
     setEditingProduct(product);
     setProductForm({
       name: product.name,
-      description: product.description,
-      category: product.category,
-      type: product.type,
+      description: product.description || '',
       product_type_id: product.product_type_id || '',
-      product_size_id: product.product_size_id || '',
       price: product.price,
       member_price: product.member_price,
-      image_url: product.image_url,
-      stock: product.stock,
-      is_active: product.is_active,
+      image_url: product.image_url || '',
+      is_active: product.is_active ?? true,
       order_index: product.order_index,
     });
 
-    if (product.category === 'event_pass' && product.details && (product.details as any).ticket_categories) {
-      setTicketCategories((product.details as any).ticket_categories || []);
-    } else {
-      setTicketCategories([]);
-    }
+    const { data: sizes } = await supabase
+      .from('product_sizes')
+      .select('*')
+      .eq('product_id', product.id)
+      .order('order_index');
+
+    setProductSizes((sizes || []).map(s => ({
+      id: s.id,
+      name: s.name,
+      stock_quantity: s.stock_quantity,
+      order_index: s.order_index,
+    })));
 
     setShowProductForm(true);
   };
@@ -564,17 +602,15 @@ export function Admin({ onNavigate }: AdminProps) {
     setProductForm({
       name: '',
       description: '',
-      category: 'merchandise',
-      type: '',
       product_type_id: '',
-      product_size_id: '',
       price: 0,
       member_price: 0,
       image_url: '',
-      stock: 0,
       is_active: true,
       order_index: 0,
     });
+    setProductSizes([]);
+    setNewProductSize({ name: '', stock_quantity: 0, order_index: 0 });
     setTicketCategories([]);
     setNewTicketCategory({ name: '', price: 0, member_price: 0 });
     setEditingProduct(null);
@@ -1190,180 +1226,40 @@ export function Admin({ onNavigate }: AdminProps) {
                   )}
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="bg-gray-900/50 border border-gray-700/50 rounded-2xl p-2">
-                    <p className="text-xs text-gray-400 mb-2 px-3">Catégorie</p>
-                    <div className="flex flex-col space-y-1">
-                      <button
-                        onClick={() => setProductCategoryFilter('all')}
-                        className={`px-3 py-2 rounded-xl font-medium transition-all text-sm text-left ${
-                          productCategoryFilter === 'all'
-                            ? 'bg-gradient-to-r from-[#B8913D] to-[#D4AC5B] text-white shadow-lg'
-                            : 'text-gray-400 hover:text-white hover:bg-gray-800/50'
-                        }`}
-                      >
-                        Tous
-                      </button>
-                      <button
-                        onClick={() => setProductCategoryFilter('merchandise')}
-                        className={`px-3 py-2 rounded-xl font-medium transition-all text-sm text-left ${
-                          productCategoryFilter === 'merchandise'
-                            ? 'bg-gradient-to-r from-[#B8913D] to-[#D4AC5B] text-white shadow-lg'
-                            : 'text-gray-400 hover:text-white hover:bg-gray-800/50'
-                        }`}
-                      >
-                        Merchandise
-                      </button>
-                      <button
-                        onClick={() => setProductCategoryFilter('event_pass')}
-                        className={`px-3 py-2 rounded-xl font-medium transition-all text-sm text-left ${
-                          productCategoryFilter === 'event_pass'
-                            ? 'bg-gradient-to-r from-[#B8913D] to-[#D4AC5B] text-white shadow-lg'
-                            : 'text-gray-400 hover:text-white hover:bg-gray-800/50'
-                        }`}
-                      >
-                        Event Pass
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="bg-gray-900/50 border border-gray-700/50 rounded-2xl p-2">
-                    <p className="text-xs text-gray-400 mb-2 px-3">Statut</p>
-                    <div className="flex flex-col space-y-1">
-                      <button
-                        onClick={() => setProductStatusFilter('all')}
-                        className={`px-3 py-2 rounded-xl font-medium transition-all text-sm text-left ${
-                          productStatusFilter === 'all'
-                            ? 'bg-gradient-to-r from-[#B8913D] to-[#D4AC5B] text-white shadow-lg'
-                            : 'text-gray-400 hover:text-white hover:bg-gray-800/50'
-                        }`}
-                      >
-                        Tous
-                      </button>
-                      <button
-                        onClick={() => setProductStatusFilter('active')}
-                        className={`px-3 py-2 rounded-xl font-medium transition-all text-sm text-left ${
-                          productStatusFilter === 'active'
-                            ? 'bg-gradient-to-r from-[#B8913D] to-[#D4AC5B] text-white shadow-lg'
-                            : 'text-gray-400 hover:text-white hover:bg-gray-800/50'
-                        }`}
-                      >
-                        Actifs
-                      </button>
-                      <button
-                        onClick={() => setProductStatusFilter('inactive')}
-                        className={`px-3 py-2 rounded-xl font-medium transition-all text-sm text-left ${
-                          productStatusFilter === 'inactive'
-                            ? 'bg-gradient-to-r from-[#B8913D] to-[#D4AC5B] text-white shadow-lg'
-                            : 'text-gray-400 hover:text-white hover:bg-gray-800/50'
-                        }`}
-                      >
-                        Inactifs
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="bg-gray-900/50 border border-gray-700/50 rounded-2xl p-2">
-                    <p className="text-xs text-gray-400 mb-2 px-3">Stock</p>
-                    <div className="flex flex-col space-y-1">
-                      <button
-                        onClick={() => setProductStockFilter('all')}
-                        className={`px-3 py-2 rounded-xl font-medium transition-all text-sm text-left ${
-                          productStockFilter === 'all'
-                            ? 'bg-gradient-to-r from-[#B8913D] to-[#D4AC5B] text-white shadow-lg'
-                            : 'text-gray-400 hover:text-white hover:bg-gray-800/50'
-                        }`}
-                      >
-                        Tous
-                      </button>
-                      <button
-                        onClick={() => setProductStockFilter('in_stock')}
-                        className={`px-3 py-2 rounded-xl font-medium transition-all text-sm text-left ${
-                          productStockFilter === 'in_stock'
-                            ? 'bg-gradient-to-r from-[#B8913D] to-[#D4AC5B] text-white shadow-lg'
-                            : 'text-gray-400 hover:text-white hover:bg-gray-800/50'
-                        }`}
-                      >
-                        En stock
-                      </button>
-                      <button
-                        onClick={() => setProductStockFilter('out_of_stock')}
-                        className={`px-3 py-2 rounded-xl font-medium transition-all text-sm text-left ${
-                          productStockFilter === 'out_of_stock'
-                            ? 'bg-gradient-to-r from-[#B8913D] to-[#D4AC5B] text-white shadow-lg'
-                            : 'text-gray-400 hover:text-white hover:bg-gray-800/50'
-                        }`}
-                      >
-                        Rupture de stock
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                {(productSearch || productCategoryFilter !== 'all' || productStatusFilter !== 'all' || productStockFilter !== 'all') && (
-                  <div className="flex flex-wrap gap-2 pt-2 border-t border-gray-700/50">
-                    <span className="text-sm text-gray-400 mr-2">Filtres actifs:</span>
-                    {productSearch && (
-                      <span className="inline-flex items-center px-3 py-1 bg-gold-500/20 text-gold-300 rounded-full text-sm border border-gold-500/30">
-                        <Search className="w-3 h-3 mr-1.5" />
-                        {productSearch}
-                        <button
-                          onClick={() => setProductSearch('')}
-                          className="ml-2 hover:text-white"
-                        >
-                          <X className="w-3 h-3" />
-                        </button>
-                      </span>
-                    )}
-                    {productCategoryFilter !== 'all' && (
-                      <span className="inline-flex items-center px-3 py-1 bg-gold-500/20 text-gold-300 rounded-full text-sm border border-gold-500/30">
-                        <Filter className="w-3 h-3 mr-1.5" />
-                        {productCategoryFilter === 'merchandise' ? 'Merchandise' : 'Event Pass'}
-                        <button
-                          onClick={() => setProductCategoryFilter('all')}
-                          className="ml-2 hover:text-white"
-                        >
-                          <X className="w-3 h-3" />
-                        </button>
-                      </span>
-                    )}
-                    {productStatusFilter !== 'all' && (
-                      <span className="inline-flex items-center px-3 py-1 bg-gold-500/20 text-gold-300 rounded-full text-sm border border-gold-500/30">
-                        <Filter className="w-3 h-3 mr-1.5" />
-                        {productStatusFilter === 'active' ? 'Actifs' : 'Inactifs'}
-                        <button
-                          onClick={() => setProductStatusFilter('all')}
-                          className="ml-2 hover:text-white"
-                        >
-                          <X className="w-3 h-3" />
-                        </button>
-                      </span>
-                    )}
-                    {productStockFilter !== 'all' && (
-                      <span className="inline-flex items-center px-3 py-1 bg-gold-500/20 text-gold-300 rounded-full text-sm border border-gold-500/30">
-                        <Filter className="w-3 h-3 mr-1.5" />
-                        {productStockFilter === 'in_stock' ? 'En stock' : 'Rupture de stock'}
-                        <button
-                          onClick={() => setProductStockFilter('all')}
-                          className="ml-2 hover:text-white"
-                        >
-                          <X className="w-3 h-3" />
-                        </button>
-                      </span>
-                    )}
+                <div className="flex gap-4">
+                  <div className="bg-gray-900/50 border border-gray-700/50 rounded-2xl p-2 flex space-x-1">
                     <button
-                      onClick={() => {
-                        setProductSearch('');
-                        setProductCategoryFilter('all');
-                        setProductStatusFilter('all');
-                        setProductStockFilter('all');
-                      }}
-                      className="inline-flex items-center px-3 py-1 text-gray-400 hover:text-white text-sm transition-colors"
+                      onClick={() => setProductStatusFilter('all')}
+                      className={`px-3 py-2 rounded-xl font-medium transition-all text-sm ${
+                        productStatusFilter === 'all'
+                          ? 'bg-gradient-to-r from-[#B8913D] to-[#D4AC5B] text-white shadow-lg'
+                          : 'text-gray-400 hover:text-white hover:bg-gray-800/50'
+                      }`}
                     >
-                      Réinitialiser tout
+                      Tous
+                    </button>
+                    <button
+                      onClick={() => setProductStatusFilter('active')}
+                      className={`px-3 py-2 rounded-xl font-medium transition-all text-sm ${
+                        productStatusFilter === 'active'
+                          ? 'bg-gradient-to-r from-[#B8913D] to-[#D4AC5B] text-white shadow-lg'
+                          : 'text-gray-400 hover:text-white hover:bg-gray-800/50'
+                      }`}
+                    >
+                      Actifs
+                    </button>
+                    <button
+                      onClick={() => setProductStatusFilter('inactive')}
+                      className={`px-3 py-2 rounded-xl font-medium transition-all text-sm ${
+                        productStatusFilter === 'inactive'
+                          ? 'bg-gradient-to-r from-[#B8913D] to-[#D4AC5B] text-white shadow-lg'
+                          : 'text-gray-400 hover:text-white hover:bg-gray-800/50'
+                      }`}
+                    >
+                      Inactifs
                     </button>
                   </div>
-                )}
+                </div>
               </div>
             </div>
 
@@ -1389,106 +1285,43 @@ export function Admin({ onNavigate }: AdminProps) {
 
                     <div>
                       <label className="block text-sm font-medium text-gray-300 mb-2">
-                        Category *
-                      </label>
-                      <select
-                        value={productForm.category}
-                        onChange={(e) => setProductForm({ ...productForm, category: e.target.value as any })}
-                        className="w-full px-4 py-3 bg-gray-900/50 border border-gray-600 text-white rounded-lg focus:ring-2 focus:ring-[#B8913D] focus:border-transparent outline-none transition-all"
-                      >
-                        <option value="merchandise">Merchandise</option>
-                        <option value="event_pass">Event Pass</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-300 mb-2">
                         Type de produit
                       </label>
                       <select
                         value={productForm.product_type_id}
-                        onChange={(e) => {
-                          const selectedType = (productTypes || []).find(t => t.id === e.target.value);
-                          setProductForm({
-                            ...productForm,
-                            product_type_id: e.target.value,
-                            type: selectedType?.name || '',
-                            product_size_id: selectedType?.has_sizes ? productForm.product_size_id : ''
-                          });
-                        }}
+                        onChange={(e) => setProductForm({ ...productForm, product_type_id: e.target.value })}
                         className="w-full px-4 py-3 bg-gray-900/50 border border-gray-600 text-white rounded-lg focus:ring-2 focus:ring-[#B8913D] focus:border-transparent outline-none transition-all"
                       >
                         <option value="">Sélectionner un type</option>
                         {(productTypes || []).filter(t => t.is_active).map((type) => (
-                          <option key={type.id} value={type.id}>
-                            {type.name} {type.has_sizes ? '(avec tailles)' : ''}
-                          </option>
+                          <option key={type.id} value={type.id}>{type.name}</option>
                         ))}
                       </select>
                     </div>
 
-                    {productForm.product_type_id && (productTypes || []).find(t => t.id === productForm.product_type_id)?.has_sizes && (
-                      <div>
-                        <label className="block text-sm font-medium text-gray-300 mb-2">
-                          Taille *
-                        </label>
-                        <select
-                          value={productForm.product_size_id}
-                          onChange={(e) => setProductForm({ ...productForm, product_size_id: e.target.value })}
-                          required
-                          className="w-full px-4 py-3 bg-gray-900/50 border border-gray-600 text-white rounded-lg focus:ring-2 focus:ring-[#B8913D] focus:border-transparent outline-none transition-all"
-                        >
-                          <option value="">Sélectionner une taille</option>
-                          {((productTypes || []).find(t => t.id === productForm.product_type_id)?.sizes || [])
-                            .map((size) => (
-                              <option key={size} value={size}>
-                                {size}
-                              </option>
-                            ))}
-                        </select>
-                      </div>
-                    )}
-
-                    {productForm.category === 'merchandise' && (
-                      <>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-300 mb-2">
-                            Price (€) *
-                          </label>
-                          <input
-                            type="number"
-                            step="0.01"
-                            value={productForm.price}
-                            onChange={(e) => setProductForm({ ...productForm, price: parseFloat(e.target.value) || 0 })}
-                            required
-                            className="w-full px-4 py-3 bg-gray-900/50 border border-gray-600 text-white rounded-lg focus:ring-2 focus:ring-[#B8913D] focus:border-transparent outline-none transition-all"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-sm font-medium text-gray-300 mb-2">
-                            Member Price (€) *
-                          </label>
-                          <input
-                            type="number"
-                            step="0.01"
-                            value={productForm.member_price}
-                            onChange={(e) => setProductForm({ ...productForm, member_price: parseFloat(e.target.value) || 0 })}
-                            required
-                            className="w-full px-4 py-3 bg-gray-900/50 border border-gray-600 text-white rounded-lg focus:ring-2 focus:ring-[#B8913D] focus:border-transparent outline-none transition-all"
-                          />
-                        </div>
-                      </>
-                    )}
-
                     <div>
                       <label className="block text-sm font-medium text-gray-300 mb-2">
-                        Stock (-1 for unlimited)
+                        Price (€) *
                       </label>
                       <input
                         type="number"
-                        value={productForm.stock}
-                        onChange={(e) => setProductForm({ ...productForm, stock: parseInt(e.target.value) || 0 })}
+                        step="0.01"
+                        value={productForm.price}
+                        onChange={(e) => setProductForm({ ...productForm, price: parseFloat(e.target.value) || 0 })}
+                        required
+                        className="w-full px-4 py-3 bg-gray-900/50 border border-gray-600 text-white rounded-lg focus:ring-2 focus:ring-[#B8913D] focus:border-transparent outline-none transition-all"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-300 mb-2">
+                        Member Price (€)
+                      </label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={productForm.member_price}
+                        onChange={(e) => setProductForm({ ...productForm, member_price: parseFloat(e.target.value) || 0 })}
                         className="w-full px-4 py-3 bg-gray-900/50 border border-gray-600 text-white rounded-lg focus:ring-2 focus:ring-[#B8913D] focus:border-transparent outline-none transition-all"
                       />
                     </div>
@@ -1519,86 +1352,70 @@ export function Admin({ onNavigate }: AdminProps) {
                     </div>
                   </div>
 
-                  {productForm.category === 'event_pass' && (
-                    <div className="space-y-4 p-6 bg-gray-900/50 border border-[#B8913D]/30 rounded-xl">
-                      <h4 className="text-lg font-medium text-[#B8913D] mb-4">Catégories de Prix</h4>
+                  <div className="space-y-4 p-6 bg-gray-900/50 border border-gray-700/50 rounded-xl">
+                    <h4 className="text-base font-medium text-white">Tailles et stock</h4>
+                    <p className="text-sm text-gray-400">Chaque taille a sa propre quantité en stock. Utilisez "Unique" si le produit n'a pas de taille.</p>
 
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                        <div>
-                          <label className="block text-sm font-medium text-gray-300 mb-2">
-                            Nom de la catégorie *
-                          </label>
-                          <input
-                            type="text"
-                            value={newTicketCategory.name}
-                            onChange={(e) => setNewTicketCategory({ ...newTicketCategory, name: e.target.value })}
-                            className="w-full px-4 py-2 bg-gray-800 border border-gray-600 text-white rounded-lg focus:ring-2 focus:ring-[#B8913D] focus:border-transparent outline-none"
-                            placeholder="e.g., VIP, Standard"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-300 mb-2">
-                            Prix (€) *
-                          </label>
-                          <input
-                            type="number"
-                            step="0.01"
-                            value={newTicketCategory.price}
-                            onChange={(e) => setNewTicketCategory({ ...newTicketCategory, price: parseFloat(e.target.value) || 0 })}
-                            className="w-full px-4 py-2 bg-gray-800 border border-gray-600 text-white rounded-lg focus:ring-2 focus:ring-[#B8913D] focus:border-transparent outline-none"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-300 mb-2">
-                            Prix Membre (€)
-                          </label>
-                          <input
-                            type="number"
-                            step="0.01"
-                            value={newTicketCategory.member_price}
-                            onChange={(e) => setNewTicketCategory({ ...newTicketCategory, member_price: parseFloat(e.target.value) || 0 })}
-                            className="w-full px-4 py-2 bg-gray-800 border border-gray-600 text-white rounded-lg focus:ring-2 focus:ring-[#B8913D] focus:border-transparent outline-none"
-                          />
-                        </div>
-                      </div>
-
+                    <div className="grid grid-cols-3 gap-3">
+                      <input
+                        type="text"
+                        value={newProductSize.name}
+                        onChange={(e) => setNewProductSize({ ...newProductSize, name: e.target.value })}
+                        placeholder="Taille (ex: S, M, L, Unique)"
+                        className="px-3 py-2 bg-gray-800 border border-gray-600 text-white rounded-lg focus:ring-2 focus:ring-[#B8913D] focus:border-transparent outline-none text-sm"
+                      />
+                      <input
+                        type="number"
+                        value={newProductSize.stock_quantity}
+                        onChange={(e) => setNewProductSize({ ...newProductSize, stock_quantity: parseInt(e.target.value) || 0 })}
+                        placeholder="Stock"
+                        className="px-3 py-2 bg-gray-800 border border-gray-600 text-white rounded-lg focus:ring-2 focus:ring-[#B8913D] focus:border-transparent outline-none text-sm"
+                      />
                       <button
                         type="button"
-                        onClick={handleAddTicketCategory}
-                        className="flex items-center space-x-2 px-4 py-2 bg-[#B8913D] text-white rounded-lg hover:bg-[#A07F35] transition-colors"
+                        onClick={() => {
+                          if (!newProductSize.name.trim()) return;
+                          setProductSizes([...productSizes, { ...newProductSize, order_index: productSizes.length }]);
+                          setNewProductSize({ name: '', stock_quantity: 0, order_index: 0 });
+                        }}
+                        className="flex items-center justify-center space-x-1 px-3 py-2 bg-[#B8913D] text-white rounded-lg hover:bg-[#A07F35] transition-colors text-sm"
                       >
                         <Plus className="w-4 h-4" />
-                        <span>Ajouter cette catégorie</span>
+                        <span>Ajouter</span>
                       </button>
-
-                      {ticketCategories.length > 0 && (
-                        <div className="space-y-2 mt-4">
-                          <p className="text-sm font-medium text-gray-300">Catégories ajoutées:</p>
-                          {ticketCategories.map((category, index) => (
-                            <div
-                              key={index}
-                              className="flex items-center justify-between p-3 bg-gray-800 border border-gray-700 rounded-lg"
-                            >
-                              <div className="flex-1">
-                                <span className="text-white font-medium">{category.name}</span>
-                                <span className="text-gray-400 ml-4">
-                                  Prix: {category.price}€
-                                  {category.member_price > 0 && ` | Membre: ${category.member_price}€`}
-                                </span>
-                              </div>
-                              <button
-                                type="button"
-                                onClick={() => handleRemoveTicketCategory(index)}
-                                className="p-2 text-red-400 hover:text-red-300 hover:bg-red-400/10 rounded-lg transition-colors"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
-                            </div>
-                          ))}
-                        </div>
-                      )}
                     </div>
-                  )}
+
+                    {productSizes.length > 0 && (
+                      <div className="space-y-2">
+                        {productSizes.map((size, index) => (
+                          <div key={index} className="flex items-center space-x-3 p-3 bg-gray-800 border border-gray-700 rounded-lg">
+                            <span className="flex-1 text-white text-sm font-medium">{size.name}</span>
+                            <div className="flex items-center space-x-2">
+                              <span className="text-xs text-gray-400">Stock:</span>
+                              <input
+                                type="number"
+                                value={size.stock_quantity}
+                                onChange={(e) => {
+                                  const updated = [...productSizes];
+                                  updated[index] = { ...updated[index], stock_quantity: parseInt(e.target.value) || 0 };
+                                  setProductSizes(updated);
+                                }}
+                                className="w-20 px-2 py-1 bg-gray-700 border border-gray-600 text-white rounded text-sm"
+                              />
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => setProductSizes(productSizes.filter((_, i) => i !== index))}
+                              className="p-1.5 text-red-400 hover:text-red-300 hover:bg-red-400/10 rounded transition-colors"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
 
                   <div>
                     <label className="block text-sm font-medium text-gray-300 mb-2">
@@ -1645,16 +1462,13 @@ export function Admin({ onNavigate }: AdminProps) {
                     product.name.toLowerCase().includes(query) ||
                     product.description.toLowerCase().includes(query);
 
-                  const matchesCategory = productCategoryFilter === 'all' ||
-                    product.category === productCategoryFilter;
+                  const matchesCategory = true;
 
                   const matchesStatus = productStatusFilter === 'all' ||
                     (productStatusFilter === 'active' && product.is_active) ||
                     (productStatusFilter === 'inactive' && !product.is_active);
 
-                  const matchesStock = productStockFilter === 'all' ||
-                    (productStockFilter === 'in_stock' && (product.stock > 0 || product.stock === -1)) ||
-                    (productStockFilter === 'out_of_stock' && product.stock === 0);
+                  const matchesStock = true;
 
                   return matchesSearch && matchesCategory && matchesStatus && matchesStock;
                 })
@@ -1681,12 +1495,6 @@ export function Admin({ onNavigate }: AdminProps) {
                     <div className="flex-1">
                       <div className="flex items-center space-x-3 mb-2">
                         <h3 className="text-lg font-medium text-white">{product.name}</h3>
-                        <span className={`px-3 py-1 rounded-full text-xs font-medium border ${
-                          product.category === 'event_pass' ? 'bg-amber-500/20 text-amber-300 border-amber-500/30' :
-                          'bg-blue-500/20 text-blue-300 border-blue-500/30'
-                        }`}>
-                          {product.category}
-                        </span>
                         {!product.is_active && (
                           <span className="px-3 py-1 bg-red-500/20 text-red-300 rounded-full text-xs font-medium border border-red-500/30">
                             Inactive
@@ -1694,32 +1502,19 @@ export function Admin({ onNavigate }: AdminProps) {
                         )}
                       </div>
                       <p className="text-gray-300 text-sm mb-2">{product.description}</p>
-                      {product.category === 'event_pass' && product.details && (product.details as any).ticket_categories && ((product.details as any).ticket_categories as any[]).length > 0 ? (
-                        <div className="space-y-1 mb-2">
-                          <p className="text-xs text-gray-400 mb-1">Catégories de prix:</p>
-                          {((product.details as any).ticket_categories as any[]).map((cat: any, idx: number) => (
-                            <div key={idx} className="flex items-center space-x-2 text-xs">
-                              <span className="text-white font-medium">{cat.name}:</span>
-                              <span className="text-gray-300">{cat.price}€</span>
-                              {cat.member_price > 0 && (
-                                <span className="text-[#B8913D]">(Membre: {cat.member_price}€)</span>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <div className="flex items-center space-x-4 text-sm">
-                          <span className="font-medium text-white">
-                            Price: {product.price.toFixed(2)}€
-                          </span>
+                      <div className="flex items-center space-x-4 text-sm">
+                        <span className="font-medium text-white">
+                          {product.price.toFixed(2)}€
+                        </span>
+                        {product.member_price > 0 && (
                           <span className="text-[#B8913D]">
-                            Member: {product.member_price.toFixed(2)}€
+                            Membre: {product.member_price.toFixed(2)}€
                           </span>
-                        </div>
-                      )}
+                        )}
+                      </div>
                       <div className="flex items-center space-x-4 text-sm mt-2">
-                        <span className={product.stock === 0 ? 'text-red-300' : 'text-gray-300'}>
-                          Stock: {product.stock === -1 ? 'Unlimited' : product.stock}
+                        <span className="text-gray-400 text-xs">
+                          {productTypes.find(t => t.id === product.product_type_id)?.name || 'Sans type'}
                         </span>
                       </div>
                     </div>
