@@ -77,6 +77,10 @@ interface AttendeeWithDetails {
   checked_in_at: string | null;
   purchased_at: string | null;
   created_at: string | null;
+  attendee_first_name: string | null;
+  attendee_last_name: string | null;
+  attendee_email: string | null;
+  attendee_phone: string | null;
   event_ticket_types: {
     id: string;
     price: number;
@@ -994,6 +998,25 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
                 <p className="text-xs sm:text-sm text-gray-400 mb-2">Statut</p>
                 {getStatusBadge(selectedTicket.check_in_status)}
               </div>
+
+              {(selectedTicket.attendee_first_name || selectedTicket.attendee_last_name || selectedTicket.attendee_email || selectedTicket.attendee_phone) && (
+                <div className="pt-3 border-t border-gray-700">
+                  <p className="text-xs sm:text-sm text-gray-400 mb-2">Participant</p>
+                  <div className="bg-gray-800 rounded-lg p-3 space-y-1">
+                    {(selectedTicket.attendee_first_name || selectedTicket.attendee_last_name) && (
+                      <p className="text-white font-medium text-sm sm:text-base">
+                        {[selectedTicket.attendee_first_name, selectedTicket.attendee_last_name].filter(Boolean).join(' ')}
+                      </p>
+                    )}
+                    {selectedTicket.attendee_email && (
+                      <p className="text-gray-400 text-xs sm:text-sm">{selectedTicket.attendee_email}</p>
+                    )}
+                    {selectedTicket.attendee_phone && (
+                      <p className="text-gray-400 text-xs sm:text-sm">{selectedTicket.attendee_phone}</p>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
 
             {selectedTicket.check_in_status === 'not_checked_in' && qrCodeUrl && (
