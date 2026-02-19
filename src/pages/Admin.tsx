@@ -1408,7 +1408,7 @@ export function Admin({ onNavigate }: AdminProps) {
                       <select
                         value={productForm.product_type_id}
                         onChange={(e) => {
-                          const selectedType = productTypes.find(t => t.id === e.target.value);
+                          const selectedType = (productTypes || []).find(t => t.id === e.target.value);
                           setProductForm({
                             ...productForm,
                             product_type_id: e.target.value,
@@ -1419,7 +1419,7 @@ export function Admin({ onNavigate }: AdminProps) {
                         className="w-full px-4 py-3 bg-gray-900/50 border border-gray-600 text-white rounded-lg focus:ring-2 focus:ring-[#B8913D] focus:border-transparent outline-none transition-all"
                       >
                         <option value="">Sélectionner un type</option>
-                        {productTypes.filter(t => t.is_active).map((type) => (
+                        {(productTypes || []).filter(t => t.is_active).map((type) => (
                           <option key={type.id} value={type.id}>
                             {type.name} {type.has_sizes ? '(avec tailles)' : ''}
                           </option>
@@ -1427,7 +1427,7 @@ export function Admin({ onNavigate }: AdminProps) {
                       </select>
                     </div>
 
-                    {productForm.product_type_id && productTypes.find(t => t.id === productForm.product_type_id)?.has_sizes && (
+                    {productForm.product_type_id && (productTypes || []).find(t => t.id === productForm.product_type_id)?.has_sizes && (
                       <div>
                         <label className="block text-sm font-medium text-gray-300 mb-2">
                           Taille *
@@ -1439,7 +1439,7 @@ export function Admin({ onNavigate }: AdminProps) {
                           className="w-full px-4 py-3 bg-gray-900/50 border border-gray-600 text-white rounded-lg focus:ring-2 focus:ring-[#B8913D] focus:border-transparent outline-none transition-all"
                         >
                           <option value="">Sélectionner une taille</option>
-                          {(productTypes.find(t => t.id === productForm.product_type_id)?.sizes || [])
+                          {((productTypes || []).find(t => t.id === productForm.product_type_id)?.sizes || [])
                             .map((size) => (
                               <option key={size} value={size}>
                                 {size}
@@ -1839,7 +1839,7 @@ export function Admin({ onNavigate }: AdminProps) {
           </div>
         ) : activeTab === 'product-types' ? (
           <ProductTypesManagement
-            productTypes={productTypes}
+            productTypes={productTypes || []}
             onRefresh={loadProductTypes}
             setError={setError}
             setSuccess={setSuccess}
