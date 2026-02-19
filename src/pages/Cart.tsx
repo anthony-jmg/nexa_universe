@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useCart } from '../contexts/CartContext';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -45,6 +45,16 @@ export function Cart({ onNavigate }: CartProps) {
     address: '',
     notes: '',
   });
+
+  useEffect(() => {
+    if (profile) {
+      setShippingInfo(prev => ({
+        ...prev,
+        name: prev.name || profile.full_name || '',
+        email: prev.email || profile.email || '',
+      }));
+    }
+  }, [profile]);
 
   const [attendees, setAttendees] = useState<AttendeeInfo[]>([]);
 

@@ -45,12 +45,14 @@ export async function validateAndCreateOrder(
   }
 
   const expiresAt = session.expires_at ? session.expires_at * 1000 : 0;
-  const isExpiringSoon = expiresAt - Date.now() < 60 * 1000;
-  if (isExpiringSoon) {
-    const { data: { session: refreshed } } = await supabase.auth.refreshSession();
-    if (refreshed) {
-      session = refreshed;
+  const isExpired = expiresAt < Date.now();
+  const isExpiringSoon = expiresAt - Date.now() < 5 * 60 * 1000;
+  if (isExpired || isExpiringSoon) {
+    const { data: { session: refreshed }, error: refreshError } = await supabase.auth.refreshSession();
+    if (refreshError || !refreshed) {
+      throw new Error('Votre session a expiré. Veuillez vous reconnecter.');
     }
+    session = refreshed;
   }
 
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
@@ -69,7 +71,10 @@ export async function validateAndCreateOrder(
   const data = await response.json();
 
   if (!response.ok) {
-    throw new Error(data.error || data.details?.join(', ') || 'Erreur lors de la création de la commande');
+    const errorMsg = data.error === 'Validation failed' && data.details?.length
+      ? data.details.join(', ')
+      : data.error || 'Erreur lors de la création de la commande';
+    throw new Error(errorMsg);
   }
 
   if (!data) {

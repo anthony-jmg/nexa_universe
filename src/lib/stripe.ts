@@ -28,12 +28,14 @@ export async function createStripeCheckout(params: CreateCheckoutParams): Promis
   }
 
   const expiresAt = session.expires_at ? session.expires_at * 1000 : 0;
-  const isExpiringSoon = expiresAt - Date.now() < 60 * 1000;
-  if (isExpiringSoon) {
-    const { data: { session: refreshed } } = await supabase.auth.refreshSession();
-    if (refreshed) {
-      session = refreshed;
+  const isExpired = expiresAt < Date.now();
+  const isExpiringSoon = expiresAt - Date.now() < 5 * 60 * 1000;
+  if (isExpired || isExpiringSoon) {
+    const { data: { session: refreshed }, error: refreshError } = await supabase.auth.refreshSession();
+    if (refreshError || !refreshed) {
+      throw new Error('Votre session a expiré. Veuillez vous reconnecter.');
     }
+    session = refreshed;
   }
 
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
