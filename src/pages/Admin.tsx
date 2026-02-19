@@ -310,31 +310,19 @@ export function Admin({ onNavigate }: AdminProps) {
   };
 
   const handleToggleFounderStatus = async (userId: string, currentStatus: boolean) => {
-    const professor = professors.find(p => p.id === userId);
+    const { error } = await supabase
+      .from('professors')
+      .upsert({
+        id: userId,
+        is_founder: !currentStatus,
+      }, {
+        onConflict: 'id',
+        ignoreDuplicates: false
+      });
 
-    if (!professor) {
-      const { error: createError } = await supabase
-        .from('professors')
-        .insert({
-          id: userId,
-          is_founder: !currentStatus,
-          experience_years: 0
-        });
-
-      if (createError) {
-        setError(createError.message);
-        return;
-      }
-    } else {
-      const { error } = await supabase
-        .from('professors')
-        .update({ is_founder: !currentStatus })
-        .eq('id', userId);
-
-      if (error) {
-        setError(error.message);
-        return;
-      }
+    if (error) {
+      setError(error.message);
+      return;
     }
 
     await loadProfessors();
@@ -1451,11 +1439,10 @@ export function Admin({ onNavigate }: AdminProps) {
                           className="w-full px-4 py-3 bg-gray-900/50 border border-gray-600 text-white rounded-lg focus:ring-2 focus:ring-[#B8913D] focus:border-transparent outline-none transition-all"
                         >
                           <option value="">Sélectionner une taille</option>
-                          {productSizes
-                            .filter(size => size.product_type_id === productForm.product_type_id)
+                          {(productTypes.find(t => t.id === productForm.product_type_id)?.sizes || [])
                             .map((size) => (
-                              <option key={size.id} value={size.id}>
-                                {size.name}
+                              <option key={size} value={size}>
+                                {size}
                               </option>
                             ))}
                         </select>
