@@ -15,9 +15,17 @@ export interface ShippingInfo {
   notes?: string;
 }
 
+export interface AttendeeInfo {
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone?: string;
+}
+
 export interface ValidateAndCreateOrderParams {
   items: OrderItem[];
   shipping_info: ShippingInfo;
+  attendees_by_ticket?: Record<string, AttendeeInfo[]>;
 }
 
 export interface ValidatedOrderResponse {

@@ -195,7 +195,6 @@ export function Cart({ onNavigate }: CartProps) {
         ...eventTickets.map((ticket) => ({
           event_ticket_type_id: ticket.eventTicketType.id,
           quantity: ticket.quantity,
-          attendees: buildAttendeesForTicket(ticket.eventTicketType.id, ticket.quantity),
         })),
       ];
 
@@ -209,7 +208,7 @@ export function Cart({ onNavigate }: CartProps) {
           notes: shippingInfo.notes,
         },
         attendees_by_ticket: buildAttendeesByTicket(),
-      } as any);
+      });
 
       const checkoutItems = orderResponse.validated_items.map((item) => ({
         id: item.product_id || item.event_ticket_type_id || '',
@@ -229,17 +228,6 @@ export function Cart({ onNavigate }: CartProps) {
       setError(err.message);
       setLoading(false);
     }
-  };
-
-  const buildAttendeesForTicket = (ticketTypeId: string, quantity: number) => {
-    let offset = 0;
-    for (const ticket of eventTickets) {
-      if (ticket.eventTicketType.id === ticketTypeId) {
-        return attendees.slice(offset, offset + quantity);
-      }
-      offset += ticket.quantity;
-    }
-    return [];
   };
 
   const buildAttendeesByTicket = () => {
