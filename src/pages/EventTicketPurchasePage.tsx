@@ -103,57 +103,47 @@ export function EventTicketPurchasePage({ onNavigate }: EventTicketPurchasePageP
     setError('');
 
     try {
+      const { data: existingAttendees, error: fetchError } = await supabase
+        .from('event_attendees')
+        .select('id, event_ticket_type_id, attendee_first_name')
+        .eq('user_id', user!.id)
+        .in('event_ticket_type_id', eventTickets.map(t => t.eventTicketType.id))
+        .is('attendee_first_name', null)
+        .order('created_at', { ascending: true });
+
+      if (fetchError) throw fetchError;
+
       let attendeeIndex = 0;
+      const attendeesByTicketType: Record<string, string[]> = {};
+
+      for (const ea of existingAttendees || []) {
+        if (!attendeesByTicketType[ea.event_ticket_type_id]) {
+          attendeesByTicketType[ea.event_ticket_type_id] = [];
+        }
+        attendeesByTicketType[ea.event_ticket_type_id].push(ea.id);
+      }
 
       for (const ticket of eventTickets) {
+        const ids = attendeesByTicketType[ticket.eventTicketType.id] || [];
         for (let i = 0; i < ticket.quantity; i++) {
-          const qrCode = `EVT-${orderId}-${ticket.eventTicketType.id}-${crypto.randomUUID()}`;
-
-          const { data: ticketTypeData } = await supabase
-            .from('event_ticket_types')
-            .select('event_id')
-            .eq('id', ticket.eventTicketType.id)
-            .maybeSingle();
-
-          if (!ticketTypeData) throw new Error('Ticket type not found');
-
           const currentAttendee = attendees[attendeeIndex];
+          const attendeeId = ids[i];
 
-          const { error: attendeeError } = await supabase
-            .from('event_attendees')
-            .insert({
-              event_id: ticketTypeData.event_id,
-              user_id: user!.id,
-              event_ticket_type_id: ticket.eventTicketType.id,
-              qr_code: qrCode,
-              check_in_status: 'not_checked_in',
-              attendee_first_name: currentAttendee?.firstName || null,
-              attendee_last_name: currentAttendee?.lastName || null,
-              attendee_email: currentAttendee?.email || null,
-              attendee_phone: currentAttendee?.phone || null,
-            });
-
-          if (attendeeError) throw attendeeError;
-
-          const { error: updateError } = await supabase
-            .from('event_ticket_types')
-            .update({
-              quantity_sold: ticket.eventTicketType.quantity_sold + 1
-            })
-            .eq('id', ticket.eventTicketType.id);
-
-          if (updateError) throw updateError;
+          if (attendeeId && currentAttendee) {
+            await supabase
+              .from('event_attendees')
+              .update({
+                attendee_first_name: currentAttendee.firstName || null,
+                attendee_last_name: currentAttendee.lastName || null,
+                attendee_email: currentAttendee.email || null,
+                attendee_phone: currentAttendee.phone || null,
+              })
+              .eq('id', attendeeId);
+          }
 
           attendeeIndex++;
         }
       }
-
-      const { error: orderUpdateError } = await supabase
-        .from('orders')
-        .update({ status: 'paid' })
-        .eq('id', orderId);
-
-      if (orderUpdateError) throw orderUpdateError;
 
       localStorage.removeItem('pendingOrderId');
       localStorage.removeItem('pendingEventTickets');
