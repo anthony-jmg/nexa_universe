@@ -28,6 +28,7 @@ export function EventTicketPurchasePage({ onNavigate }: EventTicketPurchasePageP
   useEffect(() => {
     const pendingOrderId = localStorage.getItem('pendingOrderId');
     const pendingEventTickets = localStorage.getItem('pendingEventTickets');
+    const pendingAttendees = localStorage.getItem('pendingAttendees');
 
     if (!pendingOrderId || !pendingEventTickets) {
       onNavigate('cart');
@@ -39,6 +40,19 @@ export function EventTicketPurchasePage({ onNavigate }: EventTicketPurchasePageP
     setEventTickets(tickets);
 
     const totalQuantity = tickets.reduce((sum, ticket) => sum + ticket.quantity, 0);
+
+    if (pendingAttendees) {
+      try {
+        const parsed = JSON.parse(pendingAttendees) as AttendeeInfo[];
+        if (parsed.length === totalQuantity) {
+          setAttendees(parsed);
+          setUseMyInfo(Array(totalQuantity).fill(false));
+          return;
+        }
+      } catch {
+      }
+    }
+
     setAttendees(Array(totalQuantity).fill({ firstName: '', lastName: '', email: '', phone: '' }));
     setUseMyInfo(Array(totalQuantity).fill(false));
   }, []);
@@ -103,6 +117,8 @@ export function EventTicketPurchasePage({ onNavigate }: EventTicketPurchasePageP
 
           if (!ticketTypeData) throw new Error('Ticket type not found');
 
+          const currentAttendee = attendees[attendeeIndex];
+
           const { error: attendeeError } = await supabase
             .from('event_attendees')
             .insert({
@@ -111,6 +127,10 @@ export function EventTicketPurchasePage({ onNavigate }: EventTicketPurchasePageP
               event_ticket_type_id: ticket.eventTicketType.id,
               qr_code: qrCode,
               check_in_status: 'not_checked_in',
+              attendee_first_name: currentAttendee?.firstName || null,
+              attendee_last_name: currentAttendee?.lastName || null,
+              attendee_email: currentAttendee?.email || null,
+              attendee_phone: currentAttendee?.phone || null,
             });
 
           if (attendeeError) throw attendeeError;
@@ -137,6 +157,7 @@ export function EventTicketPurchasePage({ onNavigate }: EventTicketPurchasePageP
 
       localStorage.removeItem('pendingOrderId');
       localStorage.removeItem('pendingEventTickets');
+      localStorage.removeItem('pendingAttendees');
 
       onNavigate('my-tickets');
     } catch (err: any) {

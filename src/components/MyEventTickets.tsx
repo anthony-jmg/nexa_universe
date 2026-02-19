@@ -14,6 +14,10 @@ interface EventTicketWithDetails {
   checked_in_at: string | null;
   purchased_at: string | null;
   created_at: string | null;
+  attendee_first_name: string | null;
+  attendee_last_name: string | null;
+  attendee_email: string | null;
+  attendee_phone: string | null;
   event_ticket_types: {
     id: string;
     event_id: string;
@@ -187,10 +191,15 @@ export function MyEventTickets() {
                     onClick={() => setSelectedTicket(ticket)}
                   >
                     <div className="flex items-start justify-between mb-3">
-                      <div>
+                      <div className="flex-1 mr-2">
                         {ticket.event_ticket_types?.ticket_types && (
                           <p className="text-white font-medium">
                             {ticket.event_ticket_types.ticket_types.name}
+                          </p>
+                        )}
+                        {(ticket.attendee_first_name || ticket.attendee_last_name) && (
+                          <p className="text-sm text-[#B8913D]">
+                            {[ticket.attendee_first_name, ticket.attendee_last_name].filter(Boolean).join(' ')}
                           </p>
                         )}
                         <p className="text-sm text-gray-400">
@@ -238,73 +247,97 @@ export function MyEventTickets() {
 
       {selectedTicket && (
         <div
-          className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+          className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-end sm:items-center justify-center z-50"
           onClick={() => setSelectedTicket(null)}
         >
           <div
-            className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl p-8 max-w-md w-full border border-gray-700/50"
+            className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-t-3xl sm:rounded-2xl w-full sm:max-w-md border border-gray-700/50 max-h-[92vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="text-center mb-6">
-              <h3 className="text-2xl font-light text-white mb-2">Votre Billet</h3>
-              <p className="text-gray-400">
-                {selectedTicket.events.title}
-              </p>
-            </div>
-
-            <div className="bg-white rounded-xl p-6 mb-6">
-              {qrCodeUrl ? (
-                <img
-                  src={qrCodeUrl}
-                  alt="QR Code"
-                  className="w-full h-auto"
-                />
-              ) : (
-                <div className="aspect-square flex items-center justify-center">
-                  <div className="w-8 h-8 border-4 border-[#B8913D] border-t-transparent rounded-full animate-spin"></div>
-                </div>
-              )}
-            </div>
-
-            <div className="space-y-3 mb-6">
-              {selectedTicket.event_ticket_types?.ticket_types && (
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-400">Type de billet:</span>
-                  <span className="text-white">
-                    {selectedTicket.event_ticket_types.ticket_types.name}
-                  </span>
-                </div>
-              )}
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-400">Statut:</span>
-                {selectedTicket.check_in_status === 'checked_in' ? (
-                  <span className="flex items-center text-green-400">
-                    <Check className="w-4 h-4 mr-1" />
-                    Valide le {selectedTicket.checked_in_at ? new Date(selectedTicket.checked_in_at).toLocaleDateString('fr-FR') : ''}
-                  </span>
-                ) : (
-                  <span className="flex items-center text-gray-400">
-                    <X className="w-4 h-4 mr-1" />
-                    Non valide
-                  </span>
-                )}
+            <div className="sticky top-0 bg-gradient-to-b from-gray-800 to-gray-800/95 pt-3 pb-2 px-5 flex items-center justify-between border-b border-gray-700/50 z-10">
+              <div className="w-10 h-1 bg-gray-600 rounded-full mx-auto absolute left-1/2 -translate-x-1/2 top-2 sm:hidden" />
+              <div className="pt-2 sm:pt-0">
+                <h3 className="text-lg font-semibold text-white leading-tight">Votre Billet</h3>
+                <p className="text-xs text-gray-400 mt-0.5 truncate max-w-[220px]">{selectedTicket.events.title}</p>
               </div>
-            </div>
-
-            <div className="flex space-x-3">
-              <button
-                onClick={downloadQRCode}
-                className="flex-1 flex items-center justify-center space-x-2 py-3 bg-[#B8913D]/20 text-[#B8913D] rounded-lg hover:bg-[#B8913D]/30 transition-colors"
-              >
-                <Download className="w-4 h-4" />
-                <span>Telecharger</span>
-              </button>
               <button
                 onClick={() => setSelectedTicket(null)}
-                className="flex-1 py-3 border border-gray-600 text-gray-300 rounded-lg hover:bg-gray-700 transition-colors"
+                className="p-2 rounded-full bg-gray-700/60 hover:bg-gray-700 transition-colors text-gray-400 hover:text-white ml-2 flex-shrink-0"
               >
-                Fermer
+                <X className="w-4 h-4" />
               </button>
+            </div>
+
+            <div className="p-5 space-y-4">
+              <div className="bg-white rounded-2xl p-4 mx-auto max-w-[240px]">
+                {qrCodeUrl ? (
+                  <img src={qrCodeUrl} alt="QR Code" className="w-full h-auto" />
+                ) : (
+                  <div className="aspect-square flex items-center justify-center">
+                    <div className="w-8 h-8 border-4 border-[#B8913D] border-t-transparent rounded-full animate-spin"></div>
+                  </div>
+                )}
+              </div>
+
+              {(selectedTicket.attendee_first_name || selectedTicket.attendee_last_name) && (
+                <div className="bg-gray-700/40 rounded-xl p-4 border border-gray-600/40">
+                  <p className="text-[10px] text-gray-500 uppercase tracking-widest mb-2">Participant</p>
+                  <p className="text-white font-semibold text-base">
+                    {[selectedTicket.attendee_first_name, selectedTicket.attendee_last_name].filter(Boolean).join(' ')}
+                  </p>
+                  {selectedTicket.attendee_email && (
+                    <p className="text-gray-400 text-sm mt-1 break-all">{selectedTicket.attendee_email}</p>
+                  )}
+                  {selectedTicket.attendee_phone && (
+                    <p className="text-gray-400 text-sm mt-1">{selectedTicket.attendee_phone}</p>
+                  )}
+                </div>
+              )}
+
+              <div className="bg-gray-700/30 rounded-xl p-4 space-y-3">
+                {selectedTicket.event_ticket_types?.ticket_types && (
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-gray-400">Type</span>
+                    <span className="text-white font-medium">{selectedTicket.event_ticket_types.ticket_types.name}</span>
+                  </div>
+                )}
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-gray-400">Statut</span>
+                  {selectedTicket.check_in_status === 'checked_in' ? (
+                    <span className="flex items-center gap-1 text-green-400 font-medium">
+                      <Check className="w-3.5 h-3.5" />
+                      Utilise
+                    </span>
+                  ) : (
+                    <span className="flex items-center gap-1 text-[#B8913D] font-medium">
+                      <Ticket className="w-3.5 h-3.5" />
+                      Valide
+                    </span>
+                  )}
+                </div>
+                {selectedTicket.check_in_status === 'checked_in' && selectedTicket.checked_in_at && (
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-gray-400">Scanne le</span>
+                    <span className="text-gray-300">{new Date(selectedTicket.checked_in_at).toLocaleDateString('fr-FR')}</span>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex gap-3 pb-2">
+                <button
+                  onClick={downloadQRCode}
+                  className="flex-1 flex items-center justify-center gap-2 py-3 bg-[#B8913D]/20 text-[#B8913D] rounded-xl hover:bg-[#B8913D]/30 transition-colors text-sm font-medium"
+                >
+                  <Download className="w-4 h-4" />
+                  Telecharger
+                </button>
+                <button
+                  onClick={() => setSelectedTicket(null)}
+                  className="flex-1 py-3 border border-gray-600 text-gray-300 rounded-xl hover:bg-gray-700 transition-colors text-sm font-medium"
+                >
+                  Fermer
+                </button>
+              </div>
             </div>
           </div>
         </div>

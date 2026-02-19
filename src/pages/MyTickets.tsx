@@ -15,6 +15,10 @@ interface AttendeeWithDetails {
   checked_in_at: string | null;
   purchased_at: string | null;
   created_at: string | null;
+  attendee_first_name: string | null;
+  attendee_last_name: string | null;
+  attendee_email: string | null;
+  attendee_phone: string | null;
   event_ticket_types: {
     id: string;
     price: number;
@@ -242,6 +246,11 @@ export function MyTickets({ onNavigate }: MyTicketsProps) {
                                   {ticket.event_ticket_types.ticket_types.name}
                                 </p>
                               )}
+                              {(ticket.attendee_first_name || ticket.attendee_last_name) && (
+                                <p className="text-sm text-white font-medium">
+                                  {[ticket.attendee_first_name, ticket.attendee_last_name].filter(Boolean).join(' ')}
+                                </p>
+                              )}
                               <p className="text-xs text-gray-400 mt-1">
                                 {ticket.purchased_at
                                   ? `Achete le ${new Date(ticket.purchased_at).toLocaleDateString('fr-FR')}`
@@ -291,21 +300,38 @@ export function MyTickets({ onNavigate }: MyTicketsProps) {
 
             <h3 className="text-2xl font-medium text-white mb-6 text-center">Billet d'entree</h3>
 
-            <div className="space-y-4 mb-6">
+            <div className="space-y-3 mb-6">
               <div>
-                <p className="text-sm text-gray-400">Evenement</p>
+                <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">Evenement</p>
                 <p className="text-white font-medium">{selectedTicket.events.title}</p>
               </div>
 
               {selectedTicket.event_ticket_types?.ticket_types && (
                 <div>
-                  <p className="text-sm text-gray-400">Type de billet</p>
+                  <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">Type de billet</p>
                   <p className="text-[#B8913D] font-medium">{selectedTicket.event_ticket_types.ticket_types.name}</p>
                 </div>
               )}
 
+              {(selectedTicket.attendee_first_name || selectedTicket.attendee_last_name) && (
+                <div className="pt-3 border-t border-gray-700">
+                  <p className="text-xs text-gray-500 uppercase tracking-wide mb-2">Participant</p>
+                  <div className="bg-gray-800 rounded-lg p-3 space-y-2">
+                    <p className="text-white font-medium text-lg">
+                      {[selectedTicket.attendee_first_name, selectedTicket.attendee_last_name].filter(Boolean).join(' ')}
+                    </p>
+                    {selectedTicket.attendee_email && (
+                      <p className="text-gray-400 text-sm">{selectedTicket.attendee_email}</p>
+                    )}
+                    {selectedTicket.attendee_phone && (
+                      <p className="text-gray-400 text-sm">{selectedTicket.attendee_phone}</p>
+                    )}
+                  </div>
+                </div>
+              )}
+
               <div>
-                <p className="text-sm text-gray-400 mb-2">Statut</p>
+                <p className="text-xs text-gray-500 uppercase tracking-wide mb-2">Statut</p>
                 {getStatusBadge(selectedTicket.check_in_status)}
               </div>
             </div>
