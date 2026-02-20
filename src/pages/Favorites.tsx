@@ -204,47 +204,49 @@ export function Favorites({ onNavigate }: FavoritesProps) {
                   <User className="w-5 h-5 sm:w-6 sm:h-6 text-[#B8913D]" />
                   <span>{t('favorites.sections.professors')}</span>
                 </h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                   {filteredProfessors.map((professor) => (
                     <div
                       key={professor.id}
-                      className="bg-gray-900 bg-opacity-60 backdrop-blur-sm rounded-xl sm:rounded-2xl overflow-hidden border border-[#B8913D] border-opacity-30 hover:shadow-2xl hover:shadow-[#B8913D]/20 transition-all group"
+                      className="bg-gray-900 bg-opacity-60 backdrop-blur-sm rounded-xl border border-[#B8913D] border-opacity-30 hover:shadow-lg hover:shadow-[#B8913D]/10 transition-all group flex items-center gap-3 p-3"
                     >
-                      <div className="relative h-40 sm:h-48 bg-gray-800 overflow-hidden">
+                      <div className="w-12 h-12 rounded-full overflow-hidden bg-gray-800 shrink-0 ring-2 ring-[#B8913D] ring-opacity-40">
                         {professor.profile_image_url ? (
                           <img
                             src={professor.profile_image_url}
                             alt={professor.profiles?.full_name}
-                            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
                           />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center">
-                            <User className="w-12 h-12 sm:w-16 sm:h-16 text-[#B8913D] opacity-50" />
+                            <User className="w-5 h-5 text-[#B8913D] opacity-60" />
                           </div>
                         )}
                       </div>
-                      <div className="p-4 sm:p-6">
-                        <h3 className="text-lg sm:text-xl font-medium text-white mb-2">
+                      <div className="flex-1 min-w-0">
+                        <h3 className="text-sm font-medium text-white truncate">
                           {professor.profiles?.full_name}
                         </h3>
-                        <p className="text-gray-400 text-xs sm:text-sm mb-4 line-clamp-2">
-                          {professor.bio}
-                        </p>
-                        <div className="flex space-x-2">
-                          <button
-                            onClick={() => onNavigate(`professor-${professor.id}`)}
-                            className="flex-1 px-3 sm:px-4 py-2 bg-gradient-to-r from-[#B8913D] to-[#A07F35] text-white text-sm sm:text-base rounded-lg hover:shadow-lg transition-all"
-                          >
-                            {t('favorites.cards.viewProfile')}
-                          </button>
-                          <button
-                            onClick={() => handleRemoveFavorite('professor', professor.id)}
-                            className="px-3 sm:px-4 py-2 bg-red-900 bg-opacity-40 text-red-400 rounded-lg hover:bg-opacity-60 transition-all"
-                            title={t('favorites.cards.removeTitle')}
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
+                        {professor.bio && (
+                          <p className="text-gray-400 text-xs line-clamp-1 mt-0.5">
+                            {professor.bio}
+                          </p>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <button
+                          onClick={() => onNavigate(`professor-${professor.id}`)}
+                          className="px-3 py-1.5 bg-gradient-to-r from-[#B8913D] to-[#A07F35] text-white text-xs rounded-lg hover:shadow-md transition-all"
+                        >
+                          {t('favorites.cards.viewProfile')}
+                        </button>
+                        <button
+                          onClick={() => handleRemoveFavorite('professor', professor.id)}
+                          className="p-1.5 bg-red-900 bg-opacity-40 text-red-400 rounded-lg hover:bg-opacity-60 transition-all"
+                          title={t('favorites.cards.removeTitle')}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
                       </div>
                     </div>
                   ))}
