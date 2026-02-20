@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useCart } from '../contexts/CartContext';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -33,6 +33,8 @@ export function Shop({ onNavigate }: ShopProps) {
   const [productSizesMap, setProductSizesMap] = useState<Record<string, ProductSize[]>>({});
   const [productImagesMap, setProductImagesMap] = useState<Record<string, ProductImage[]>>({});
   const [activeImageIndex, setActiveImageIndex] = useState<Record<string, number>>({});
+  const [lightbox, setLightbox] = useState<{ images: { image_url: string }[]; index: number } | null>(null);
+  const lightboxTouchX = useRef<number | null>(null);
   const [events, setEvents] = useState<EventWithTickets[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'merchandise' | 'events'>('merchandise');
@@ -669,7 +671,8 @@ export function Shop({ onNavigate }: ShopProps) {
                           <img
                             src={currentImage.image_url}
                             alt={product.name}
-                            className="w-full h-full object-contain transition-transform duration-500 group-hover:scale-105"
+                            className="w-full h-full object-contain transition-transform duration-500 group-hover:scale-105 cursor-zoom-in"
+                            onClick={(e) => { e.stopPropagation(); setLightbox({ images: displayImages, index: safeIdx }); }}
                           />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center">
@@ -1150,7 +1153,12 @@ export function Shop({ onNavigate }: ShopProps) {
 
               return (
                 <div className="relative mb-4 rounded-lg overflow-hidden bg-gray-800 aspect-square">
-                  <img src={currentModalImage.image_url} alt={selectedProduct.name} className="w-full h-full object-cover" />
+                  <img
+                    src={currentModalImage.image_url}
+                    alt={selectedProduct.name}
+                    className="w-full h-full object-contain cursor-zoom-in"
+                    onClick={() => setLightbox({ images: displayImages, index: safeModalIdx })}
+                  />
                   {displayImages.length > 1 && (
                     <>
                       <button
@@ -1245,6 +1253,85 @@ export function Shop({ onNavigate }: ShopProps) {
                 {t('shop.product.addToCart')}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {lightbox && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-95 z-[100] flex items-center justify-center touch-none"
+          onClick={() => setLightbox(null)}
+          onTouchStart={(e) => { lightboxTouchX.current = e.touches[0].clientX; }}
+          onTouchEnd={(e) => {
+            if (lightboxTouchX.current === null) return;
+            const diff = lightboxTouchX.current - e.changedTouches[0].clientX;
+            if (Math.abs(diff) > 40) {
+              if (diff > 0) {
+                setLightbox(prev => prev ? { ...prev, index: prev.index === prev.images.length - 1 ? 0 : prev.index + 1 } : null);
+              } else {
+                setLightbox(prev => prev ? { ...prev, index: prev.index === 0 ? prev.images.length - 1 : prev.index - 1 } : null);
+              }
+            }
+            lightboxTouchX.current = null;
+          }}
+        >
+          <button
+            className="absolute top-4 right-4 p-2.5 text-white bg-black bg-opacity-60 rounded-full hover:bg-opacity-90 transition-all z-10"
+            onClick={(e) => { e.stopPropagation(); setLightbox(null); }}
+          >
+            <X className="w-5 h-5" />
+          </button>
+
+          {lightbox.images.length > 1 && (
+            <button
+              className="absolute left-3 sm:left-6 top-1/2 -translate-y-1/2 p-2.5 sm:p-3 text-white bg-black bg-opacity-60 rounded-full hover:bg-opacity-90 transition-all z-10"
+              onClick={(e) => {
+                e.stopPropagation();
+                setLightbox(prev => prev ? { ...prev, index: prev.index === 0 ? prev.images.length - 1 : prev.index - 1 } : null);
+              }}
+            >
+              <ChevronLeft className="w-5 h-5 sm:w-6 sm:h-6" />
+            </button>
+          )}
+
+          <div
+            className="w-full h-full flex items-center justify-center px-14 sm:px-20 py-16"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <img
+              src={lightbox.images[lightbox.index].image_url}
+              alt=""
+              className="max-w-full max-h-full object-contain rounded-lg select-none"
+              draggable={false}
+            />
+          </div>
+
+          {lightbox.images.length > 1 && (
+            <button
+              className="absolute right-3 sm:right-6 top-1/2 -translate-y-1/2 p-2.5 sm:p-3 text-white bg-black bg-opacity-60 rounded-full hover:bg-opacity-90 transition-all z-10"
+              onClick={(e) => {
+                e.stopPropagation();
+                setLightbox(prev => prev ? { ...prev, index: prev.index === prev.images.length - 1 ? 0 : prev.index + 1 } : null);
+              }}
+            >
+              <ChevronRight className="w-5 h-5 sm:w-6 sm:h-6" />
+            </button>
+          )}
+
+          {lightbox.images.length > 1 && (
+            <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-2 z-10">
+              {lightbox.images.map((_, i) => (
+                <button
+                  key={i}
+                  onClick={(e) => { e.stopPropagation(); setLightbox(prev => prev ? { ...prev, index: i } : null); }}
+                  className={`h-2 rounded-full transition-all ${i === lightbox.index ? 'bg-[#B8913D] w-6' : 'bg-white bg-opacity-50 w-2 hover:bg-opacity-80'}`}
+                />
+              ))}
+            </div>
+          )}
+
+          <div className="absolute bottom-5 right-4 text-white text-xs bg-black bg-opacity-60 px-2.5 py-1 rounded-full">
+            {lightbox.index + 1} / {lightbox.images.length}
           </div>
         </div>
       )}
