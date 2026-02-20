@@ -580,6 +580,29 @@ export interface Database {
           updated_at?: string | null
         }
       }
+      product_images: {
+        Row: {
+          id: string
+          product_id: string
+          image_url: string
+          order_index: number
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          product_id: string
+          image_url: string
+          order_index?: number
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          product_id?: string
+          image_url?: string
+          order_index?: number
+          created_at?: string
+        }
+      }
       product_sizes: {
         Row: {
           id: string

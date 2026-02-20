@@ -3,6 +3,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { BackgroundDecor } from '../components/BackgroundDecor';
 import { ImageUpload } from '../components/ImageUpload';
+import { ProductImagesUpload } from '../components/ProductImagesUpload';
 import { VideoUpload } from '../components/VideoUpload';
 import { ProductTypesManagement } from '../components/ProductTypesManagement';
 import { EventsManagement } from '../components/EventsManagement';
@@ -50,6 +51,13 @@ interface ProductSizeFormData {
   name: string;
   stock_quantity: number;
   order_index: number;
+}
+
+interface ProductImageFormData {
+  id?: string;
+  image_url: string;
+  order_index: number;
+  isNew?: boolean;
 }
 
 interface TicketCategory {
@@ -113,6 +121,7 @@ export function Admin({ onNavigate }: AdminProps) {
 
   const [productSizes, setProductSizes] = useState<ProductSizeFormData[]>([]);
   const [newProductSize, setNewProductSize] = useState<ProductSizeFormData>({ name: '', stock_quantity: 0, order_index: 0 });
+  const [productImages, setProductImages] = useState<ProductImageFormData[]>([]);
 
   const [ticketCategories, setTicketCategories] = useState<TicketCategory[]>([]);
   const [newTicketCategory, setNewTicketCategory] = useState<TicketCategory>({
@@ -544,6 +553,36 @@ export function Admin({ onNavigate }: AdminProps) {
         }
       }
 
+      const existingImageIds = productImages.filter(img => img.id).map(img => img.id!);
+      if (editingProduct) {
+        const { data: currentImages } = await supabase
+          .from('product_images')
+          .select('id')
+          .eq('product_id', productId);
+
+        const toDeleteImages = (currentImages || [])
+          .filter(img => !existingImageIds.includes(img.id))
+          .map(img => img.id);
+
+        if (toDeleteImages.length > 0) {
+          await supabase.from('product_images').delete().in('id', toDeleteImages);
+        }
+      }
+
+      for (let i = 0; i < productImages.length; i++) {
+        const img = productImages[i];
+        const imgData = { image_url: img.image_url, order_index: i };
+
+        if (img.id) {
+          await supabase.from('product_images').update(imgData).eq('id', img.id);
+        } else {
+          await supabase.from('product_images').insert([{ ...imgData, product_id: productId }]);
+        }
+      }
+
+      const mainImageUrl = productImages.length > 0 ? productImages[0].image_url : (productForm.image_url || null);
+      await supabase.from('products').update({ image_url: mainImageUrl }).eq('id', productId);
+
       await loadProducts();
       resetProductForm();
       setTimeout(() => setSuccess(''), 3000);
@@ -595,6 +634,24 @@ export function Admin({ onNavigate }: AdminProps) {
       order_index: s.order_index,
     })));
 
+    const { data: imgs } = await supabase
+      .from('product_images')
+      .select('*')
+      .eq('product_id', product.id)
+      .order('order_index');
+
+    if (imgs && imgs.length > 0) {
+      setProductImages(imgs.map(img => ({
+        id: img.id,
+        image_url: img.image_url,
+        order_index: img.order_index,
+      })));
+    } else if (product.image_url) {
+      setProductImages([{ image_url: product.image_url, order_index: 0 }]);
+    } else {
+      setProductImages([]);
+    }
+
     setShowProductForm(true);
   };
 
@@ -611,6 +668,7 @@ export function Admin({ onNavigate }: AdminProps) {
     });
     setProductSizes([]);
     setNewProductSize({ name: '', stock_quantity: 0, order_index: 0 });
+    setProductImages([]);
     setTicketCategories([]);
     setNewTicketCategory({ name: '', price: 0, member_price: 0 });
     setEditingProduct(null);
@@ -1429,10 +1487,9 @@ export function Admin({ onNavigate }: AdminProps) {
                     />
                   </div>
 
-                  <ImageUpload
-                    currentImageUrl={productForm.image_url}
-                    onImageUrlChange={(url) => setProductForm({ ...productForm, image_url: url })}
-                    label="Product Image"
+                  <ProductImagesUpload
+                    images={productImages}
+                    onChange={setProductImages}
                   />
 
                   <div className="flex justify-end space-x-3">

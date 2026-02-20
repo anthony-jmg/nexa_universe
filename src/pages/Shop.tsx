@@ -6,10 +6,11 @@ import { useDebounce } from '../hooks/useDebounce';
 import { supabase } from '../lib/supabase';
 import { BackgroundDecor } from '../components/BackgroundDecor';
 import { Database } from '../lib/database.types';
-import { ShoppingBag, Calendar, MapPin, Shirt, Check, ShoppingCart, Search, X, Clock, Users, Ticket, AlertCircle, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ShoppingBag, Calendar, MapPin, Shirt, Check, ShoppingCart, Search, X, Clock, Users, Ticket, AlertCircle, ChevronLeft, ChevronRight, Images, Info } from 'lucide-react';
 
 type Product = Database['public']['Tables']['products']['Row'];
 type ProductSize = Database['public']['Tables']['product_sizes']['Row'];
+type ProductImage = Database['public']['Tables']['product_images']['Row'];
 type Event = Database['public']['Tables']['events']['Row'];
 type TicketType = Database['public']['Tables']['ticket_types']['Row'];
 type EventTicketType = Database['public']['Tables']['event_ticket_types']['Row'] & {
@@ -30,6 +31,8 @@ export function Shop({ onNavigate }: ShopProps) {
   const { t } = useLanguage();
   const [products, setProducts] = useState<Product[]>([]);
   const [productSizesMap, setProductSizesMap] = useState<Record<string, ProductSize[]>>({});
+  const [productImagesMap, setProductImagesMap] = useState<Record<string, ProductImage[]>>({});
+  const [activeImageIndex, setActiveImageIndex] = useState<Record<string, number>>({});
   const [events, setEvents] = useState<EventWithTickets[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'merchandise' | 'events'>('merchandise');
@@ -39,6 +42,7 @@ export function Shop({ onNavigate }: ShopProps) {
   const [quantity, setQuantity] = useState(1);
   const [ticketQuantities, setTicketQuantities] = useState<Record<string, number>>({});
   const [success, setSuccess] = useState('');
+  const [detailEvent, setDetailEvent] = useState<EventWithTickets | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
   const [priceRange, setPriceRange] = useState<'all' | 'under25' | '25to50' | 'over50'>('all');
@@ -85,19 +89,27 @@ export function Shop({ onNavigate }: ShopProps) {
 
       const productIds = productsResult.data.map(p => p.id);
       if (productIds.length > 0) {
-        const { data: sizes } = await supabase
-          .from('product_sizes')
-          .select('*')
-          .in('product_id', productIds)
-          .order('order_index');
+        const [sizesResult, imagesResult] = await Promise.all([
+          supabase.from('product_sizes').select('*').in('product_id', productIds).order('order_index'),
+          supabase.from('product_images').select('*').in('product_id', productIds).order('order_index'),
+        ]);
 
-        if (sizes) {
+        if (sizesResult.data) {
           const sizesMap: Record<string, ProductSize[]> = {};
-          sizes.forEach(size => {
+          sizesResult.data.forEach(size => {
             if (!sizesMap[size.product_id]) sizesMap[size.product_id] = [];
             sizesMap[size.product_id].push(size);
           });
           setProductSizesMap(sizesMap);
+        }
+
+        if (imagesResult.data) {
+          const imagesMap: Record<string, ProductImage[]> = {};
+          imagesResult.data.forEach(img => {
+            if (!imagesMap[img.product_id]) imagesMap[img.product_id] = [];
+            imagesMap[img.product_id].push(img);
+          });
+          setProductImagesMap(imagesMap);
         }
       }
     }
@@ -566,18 +578,27 @@ export function Shop({ onNavigate }: ShopProps) {
                           )}
                         </div>
 
-                        <button
-                          onClick={() => handleAddEventTicketToCart(event)}
-                          disabled={availableTickets === 0}
-                          className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center space-x-1 ${
-                            availableTickets === 0
-                              ? 'bg-gray-800 text-gray-500 cursor-not-allowed'
-                              : 'bg-gradient-to-r from-[#B8913D] to-[#A07F35] text-white hover:shadow-lg hover:shadow-[#B8913D]/40 hover:scale-105'
-                          }`}
-                        >
-                          <ShoppingBag className="w-3 h-3" />
-                          <span>{availableTickets === 0 ? 'Complet' : 'Réserver'}</span>
-                        </button>
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            onClick={() => setDetailEvent(event)}
+                            className="px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center space-x-1 bg-gray-800 text-gray-300 border border-gray-700 hover:border-[#B8913D] hover:text-[#B8913D] hover:bg-gray-700"
+                          >
+                            <Info className="w-3 h-3" />
+                            <span>Détails</span>
+                          </button>
+                          <button
+                            onClick={() => handleAddEventTicketToCart(event)}
+                            disabled={availableTickets === 0}
+                            className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center space-x-1 ${
+                              availableTickets === 0
+                                ? 'bg-gray-800 text-gray-500 cursor-not-allowed'
+                                : 'bg-gradient-to-r from-[#B8913D] to-[#A07F35] text-white hover:shadow-lg hover:shadow-[#B8913D]/40 hover:scale-105'
+                            }`}
+                          >
+                            <ShoppingBag className="w-3 h-3" />
+                            <span>{availableTickets === 0 ? 'Complet' : 'Réserver'}</span>
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -634,31 +655,79 @@ export function Shop({ onNavigate }: ShopProps) {
                   key={product.id}
                   className="bg-gray-900 bg-opacity-60 backdrop-blur-sm rounded-xl sm:rounded-2xl shadow-lg hover:shadow-2xl hover:shadow-[#B8913D]/20 transition-all overflow-hidden group border border-[#B8913D] border-opacity-30"
                 >
-                  <div className="relative h-48 sm:h-64 bg-gray-800 overflow-hidden">
-                    {product.image_url ? (
-                      <img
-                        src={product.image_url}
-                        alt={product.name}
-                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center">
-                        <Shirt className="w-12 h-12 sm:w-16 sm:h-16 text-[#B8913D] opacity-50" />
+                  {(() => {
+                    const imgs = productImagesMap[product.id] || [];
+                    const hasImages = imgs.length > 0;
+                    const displayImages = hasImages ? imgs : (product.image_url ? [{ id: 'fallback', image_url: product.image_url, product_id: product.id, order_index: 0, created_at: '' }] : []);
+                    const currentIdx = activeImageIndex[product.id] || 0;
+                    const safeIdx = Math.min(currentIdx, Math.max(0, displayImages.length - 1));
+                    const currentImage = displayImages[safeIdx];
+
+                    return (
+                      <div className="relative h-48 sm:h-64 bg-gray-800 overflow-hidden">
+                        {currentImage ? (
+                          <img
+                            src={currentImage.image_url}
+                            alt={product.name}
+                            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center">
+                            <Shirt className="w-12 h-12 sm:w-16 sm:h-16 text-[#B8913D] opacity-50" />
+                          </div>
+                        )}
+
+                        {displayImages.length > 1 && (
+                          <>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setActiveImageIndex(prev => ({ ...prev, [product.id]: safeIdx === 0 ? displayImages.length - 1 : safeIdx - 1 }));
+                              }}
+                              className="absolute left-1.5 top-1/2 -translate-y-1/2 p-1 bg-black bg-opacity-50 text-white rounded-full hover:bg-opacity-75 transition-all opacity-0 group-hover:opacity-100 z-10"
+                            >
+                              <ChevronLeft className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setActiveImageIndex(prev => ({ ...prev, [product.id]: safeIdx === displayImages.length - 1 ? 0 : safeIdx + 1 }));
+                              }}
+                              className="absolute right-1.5 top-1/2 -translate-y-1/2 p-1 bg-black bg-opacity-50 text-white rounded-full hover:bg-opacity-75 transition-all opacity-0 group-hover:opacity-100 z-10"
+                            >
+                              <ChevronRight className="w-3.5 h-3.5" />
+                            </button>
+                            <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1 z-10">
+                              {displayImages.map((_, i) => (
+                                <button
+                                  key={i}
+                                  onClick={(e) => { e.stopPropagation(); setActiveImageIndex(prev => ({ ...prev, [product.id]: i })); }}
+                                  className={`w-1.5 h-1.5 rounded-full transition-all ${i === safeIdx ? 'bg-[#B8913D] w-3' : 'bg-white bg-opacity-60 hover:bg-opacity-90'}`}
+                                />
+                              ))}
+                            </div>
+                            <div className="absolute top-2 left-2 flex items-center gap-1 px-1.5 py-0.5 bg-black bg-opacity-50 rounded-full">
+                              <Images className="w-3 h-3 text-white opacity-70" />
+                              <span className="text-[10px] text-white opacity-70">{displayImages.length}</span>
+                            </div>
+                          </>
+                        )}
+
+                        {discount && (
+                          <div className="absolute top-2 right-2 sm:top-4 sm:right-4 px-2 py-0.5 sm:px-3 sm:py-1 bg-gradient-to-r from-[#B8913D] to-[#A07F35] text-white text-[10px] sm:text-xs font-bold rounded-full shadow-lg">
+                            {t('shop.product.memberBadge')}
+                          </div>
+                        )}
+                        {(productSizesMap[product.id] || []).every(s => s.stock_quantity === 0) && (productSizesMap[product.id] || []).length > 0 && (
+                          <div className="absolute inset-0 bg-black bg-opacity-70 flex items-center justify-center">
+                            <span className="px-3 py-1.5 sm:px-4 sm:py-2 bg-red-600 text-white text-xs sm:text-base font-medium rounded-lg">
+                              {t('shop.product.outOfStock')}
+                            </span>
+                          </div>
+                        )}
                       </div>
-                    )}
-                    {discount && (
-                      <div className="absolute top-2 right-2 sm:top-4 sm:right-4 px-2 py-0.5 sm:px-3 sm:py-1 bg-gradient-to-r from-[#B8913D] to-[#A07F35] text-white text-[10px] sm:text-xs font-bold rounded-full shadow-lg">
-                        {t('shop.product.memberBadge')}
-                      </div>
-                    )}
-                    {(productSizesMap[product.id] || []).every(s => s.stock_quantity === 0) && (productSizesMap[product.id] || []).length > 0 && (
-                      <div className="absolute inset-0 bg-black bg-opacity-70 flex items-center justify-center">
-                        <span className="px-3 py-1.5 sm:px-4 sm:py-2 bg-red-600 text-white text-xs sm:text-base font-medium rounded-lg">
-                          {t('shop.product.outOfStock')}
-                        </span>
-                      </div>
-                    )}
-                  </div>
+                    );
+                  })()}
 
                   <div className="p-4 sm:p-6">
                     <h3 className="text-base sm:text-xl font-medium text-white mb-1.5 sm:mb-2">{product.name}</h3>
@@ -763,6 +832,144 @@ export function Shop({ onNavigate }: ShopProps) {
           </>
         )}
       </div>
+
+      {detailEvent && (
+        <div className="fixed inset-0 bg-black bg-opacity-70 backdrop-blur-sm flex items-center justify-center z-50 p-3 sm:p-4">
+          <div className="bg-gray-900 bg-opacity-95 backdrop-blur-sm rounded-xl sm:rounded-2xl max-w-lg w-full border border-[#B8913D] border-opacity-30 shadow-2xl max-h-[90vh] overflow-y-auto">
+            {(detailEvent as any).thumbnail_url && (
+              <div className="relative h-48 sm:h-56 overflow-hidden rounded-t-xl sm:rounded-t-2xl">
+                <img
+                  src={(detailEvent as any).thumbnail_url}
+                  alt={detailEvent.title}
+                  className="w-full h-full object-cover"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-gray-900 via-gray-900/40 to-transparent"></div>
+                <button
+                  onClick={() => setDetailEvent(null)}
+                  className="absolute top-3 right-3 p-1.5 bg-black bg-opacity-50 text-white rounded-full hover:bg-opacity-75 transition-all"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+                <h3 className="absolute bottom-3 left-4 right-4 text-lg sm:text-2xl font-semibold text-white leading-tight">
+                  {detailEvent.title}
+                </h3>
+              </div>
+            )}
+
+            <div className="p-4 sm:p-6">
+              {!(detailEvent as any).thumbnail_url && (
+                <div className="flex items-start justify-between mb-4">
+                  <h3 className="text-lg sm:text-2xl font-semibold text-white leading-tight flex-1 pr-4">{detailEvent.title}</h3>
+                  <button
+                    onClick={() => setDetailEvent(null)}
+                    className="p-1.5 bg-gray-800 text-gray-400 rounded-full hover:bg-gray-700 hover:text-white transition-all flex-shrink-0"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
+
+              <div className="space-y-2 mb-4">
+                <div className="flex items-center space-x-2 text-gray-300">
+                  <Calendar className="w-4 h-4 text-[#B8913D] flex-shrink-0" />
+                  <span className="text-sm">
+                    {new Date(detailEvent.start_date).toLocaleDateString('fr-FR', {
+                      weekday: 'long',
+                      day: 'numeric',
+                      month: 'long',
+                      year: 'numeric'
+                    })} à {new Date(detailEvent.start_date).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                  </span>
+                </div>
+                {detailEvent.location && (
+                  <div className="flex items-center space-x-2 text-gray-300">
+                    <MapPin className="w-4 h-4 text-[#B8913D] flex-shrink-0" />
+                    <span className="text-sm">{detailEvent.location}</span>
+                  </div>
+                )}
+                <div className="flex items-center space-x-2 text-gray-300">
+                  <Users className="w-4 h-4 text-[#B8913D] flex-shrink-0" />
+                  <span className="text-sm">
+                    {getAvailableTickets(detailEvent) > 0
+                      ? `${getAvailableTickets(detailEvent)} places disponibles`
+                      : 'Complet'}
+                  </span>
+                </div>
+              </div>
+
+              {detailEvent.description && (
+                <div className="mb-5">
+                  <h4 className="text-xs font-semibold text-[#B8913D] uppercase tracking-wider mb-2">Description</h4>
+                  <p className="text-sm text-gray-300 leading-relaxed whitespace-pre-line">{detailEvent.description}</p>
+                </div>
+              )}
+
+              {detailEvent.event_ticket_types && detailEvent.event_ticket_types.filter(ett => ett.is_active).length > 0 && (
+                <div className="mb-5">
+                  <h4 className="text-xs font-semibold text-[#B8913D] uppercase tracking-wider mb-2">Tarifs</h4>
+                  <div className="space-y-2">
+                    {detailEvent.event_ticket_types.filter(ett => ett.is_active).map((ett) => {
+                      const hasDiscount = ett.member_price > 0 && ett.member_price < ett.price;
+                      const ticketsLeft = ett.quantity_available === null ? null : ett.quantity_available - ett.quantity_sold;
+                      return (
+                        <div key={ett.id} className="flex items-center justify-between px-3 py-2 bg-gray-800 bg-opacity-60 rounded-lg">
+                          <div>
+                            <span className="text-sm text-white font-medium">{ett.ticket_type.name}</span>
+                            {ett.ticket_type.description && (
+                              <p className="text-xs text-gray-400 mt-0.5">{ett.ticket_type.description}</p>
+                            )}
+                            {ticketsLeft !== null && ticketsLeft < 10 && ticketsLeft > 0 && (
+                              <p className="text-xs text-red-400 mt-0.5">Plus que {ticketsLeft} disponibles</p>
+                            )}
+                            {ticketsLeft !== null && ticketsLeft <= 0 && (
+                              <p className="text-xs text-gray-500 mt-0.5">Épuisé</p>
+                            )}
+                          </div>
+                          <div className="text-right ml-4">
+                            {hasDiscount ? (
+                              <>
+                                <div className="text-xs text-gray-400 line-through">{ett.price.toFixed(2)}€</div>
+                                <div className="text-base font-bold text-[#B8913D]">{ett.member_price.toFixed(2)}€</div>
+                                <div className="text-[10px] text-[#B8913D]">avec abo</div>
+                              </>
+                            ) : (
+                              <div className="text-base font-bold text-[#B8913D]">{ett.price.toFixed(2)}€</div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              <div className="flex space-x-2 sm:space-x-3">
+                <button
+                  onClick={() => setDetailEvent(null)}
+                  className="flex-1 py-2.5 text-sm border border-gray-700 text-gray-300 rounded-lg hover:bg-gray-800 transition-colors font-medium"
+                >
+                  Fermer
+                </button>
+                <button
+                  onClick={() => {
+                    handleAddEventTicketToCart(detailEvent);
+                    setDetailEvent(null);
+                  }}
+                  disabled={getAvailableTickets(detailEvent) === 0}
+                  className={`flex-1 py-2.5 text-sm rounded-lg font-medium transition-all flex items-center justify-center space-x-2 ${
+                    getAvailableTickets(detailEvent) === 0
+                      ? 'bg-gray-800 text-gray-500 cursor-not-allowed'
+                      : 'bg-gradient-to-r from-[#B8913D] to-[#A07F35] text-white hover:shadow-lg hover:shadow-[#B8913D]/40'
+                  }`}
+                >
+                  <ShoppingBag className="w-4 h-4" />
+                  <span>{getAvailableTickets(detailEvent) === 0 ? 'Complet' : 'Réserver'}</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {selectedEvent && (
         <div className="fixed inset-0 bg-black bg-opacity-70 backdrop-blur-sm flex items-center justify-center z-50 p-3 sm:p-4">
@@ -929,8 +1136,49 @@ export function Shop({ onNavigate }: ShopProps) {
 
       {selectedProduct && (
         <div className="fixed inset-0 bg-black bg-opacity-70 backdrop-blur-sm flex items-center justify-center z-50 p-3 sm:p-4">
-          <div className="bg-gray-900 bg-opacity-95 backdrop-blur-sm rounded-xl sm:rounded-2xl max-w-md w-full p-4 sm:p-8 border border-[#B8913D] border-opacity-30 shadow-2xl">
+          <div className="bg-gray-900 bg-opacity-95 backdrop-blur-sm rounded-xl sm:rounded-2xl max-w-md w-full p-4 sm:p-8 border border-[#B8913D] border-opacity-30 shadow-2xl max-h-[90vh] overflow-y-auto">
             <h3 className="text-lg sm:text-2xl font-medium text-white mb-3 sm:mb-4">{selectedProduct.name}</h3>
+
+            {(() => {
+              const imgs = productImagesMap[selectedProduct.id] || [];
+              const displayImages = imgs.length > 0 ? imgs : (selectedProduct.image_url ? [{ id: 'fallback', image_url: selectedProduct.image_url, product_id: selectedProduct.id, order_index: 0, created_at: '' }] : []);
+              const modalIdx = activeImageIndex[`modal_${selectedProduct.id}`] || 0;
+              const safeModalIdx = Math.min(modalIdx, Math.max(0, displayImages.length - 1));
+              const currentModalImage = displayImages[safeModalIdx];
+
+              if (!currentModalImage) return null;
+
+              return (
+                <div className="relative mb-4 rounded-lg overflow-hidden bg-gray-800 aspect-square">
+                  <img src={currentModalImage.image_url} alt={selectedProduct.name} className="w-full h-full object-cover" />
+                  {displayImages.length > 1 && (
+                    <>
+                      <button
+                        onClick={() => setActiveImageIndex(prev => ({ ...prev, [`modal_${selectedProduct.id}`]: safeModalIdx === 0 ? displayImages.length - 1 : safeModalIdx - 1 }))}
+                        className="absolute left-2 top-1/2 -translate-y-1/2 p-1.5 bg-black bg-opacity-50 text-white rounded-full hover:bg-opacity-75 transition-all"
+                      >
+                        <ChevronLeft className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => setActiveImageIndex(prev => ({ ...prev, [`modal_${selectedProduct.id}`]: safeModalIdx === displayImages.length - 1 ? 0 : safeModalIdx + 1 }))}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 bg-black bg-opacity-50 text-white rounded-full hover:bg-opacity-75 transition-all"
+                      >
+                        <ChevronRight className="w-4 h-4" />
+                      </button>
+                      <div className="absolute bottom-2 left-0 right-0 flex justify-center gap-1.5">
+                        {displayImages.map((_, i) => (
+                          <button
+                            key={i}
+                            onClick={() => setActiveImageIndex(prev => ({ ...prev, [`modal_${selectedProduct.id}`]: i }))}
+                            className={`h-1.5 rounded-full transition-all ${i === safeModalIdx ? 'bg-[#B8913D] w-4' : 'bg-white bg-opacity-50 w-1.5 hover:bg-opacity-80'}`}
+                          />
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </div>
+              );
+            })()}
 
             <div className="mb-4 sm:mb-6">
               {(productSizesMap[selectedProduct.id] || []).length > 0 && (
