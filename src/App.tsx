@@ -75,6 +75,7 @@ function AppContent() {
   const [currentProfessorId, setCurrentProfessorId] = useState<string>('');
   const [currentProgramId, setCurrentProgramId] = useState<string>('');
   const [currentEventId, setCurrentEventId] = useState<string>('');
+  const [currentProductId, setCurrentProductId] = useState<string>('');
   const { user, loading } = useAuth();
 
   // Build URL path from current state
@@ -206,6 +207,12 @@ function AppContent() {
       newPage = 'video';
     } else if (page === 'professor-dashboard') {
       newPage = 'professor-dashboard';
+    } else if (page.startsWith('shop-')) {
+      newPage = 'shop';
+      setCurrentProductId(page.replace('shop-', ''));
+    } else if (page === 'shop') {
+      newPage = 'shop';
+      setCurrentProductId('');
     } else if (page.startsWith('professor-')) {
       newProfessorId = page.replace('professor-', '');
       newPage = 'professor-detail';
@@ -297,7 +304,7 @@ function AppContent() {
       case 'admin':
         return <Admin onNavigate={handleNavigate} />;
       case 'shop':
-        return <Shop onNavigate={handleNavigate} />;
+        return <Shop onNavigate={handleNavigate} initialProductId={currentProductId || undefined} />;
       case 'cart':
         return <Cart onNavigate={handleNavigate} />;
       case 'favorites':

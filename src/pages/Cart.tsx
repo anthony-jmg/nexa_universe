@@ -347,6 +347,7 @@ export function Cart({ onNavigate }: CartProps) {
                 removeFromCart={removeFromCart}
                 removeEventTicketFromCart={removeEventTicketFromCart}
                 onNext={goToAttendees}
+                onNavigate={onNavigate}
                 t={t}
               />
             )}
@@ -388,7 +389,7 @@ export function Cart({ onNavigate }: CartProps) {
 
 function StepCart({
   cart, eventTickets, isMember, getItemPrice, productsTotal, eventTicketsTotal, total, savings,
-  updateQuantity, updateEventTicketQuantity, removeFromCart, removeEventTicketFromCart, onNext, t
+  updateQuantity, updateEventTicketQuantity, removeFromCart, removeEventTicketFromCart, onNext, onNavigate, t
 }: any) {
   return (
     <div className="space-y-6">
@@ -460,14 +461,22 @@ function StepCart({
           return (
             <div key={item.id || `cart-item-${index}`} className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl p-5 border border-gray-700/50">
               <div className="flex items-start gap-4">
-                <div className="w-14 h-14 bg-gray-700 rounded-lg overflow-hidden flex-shrink-0">
+                <button
+                  onClick={() => onNavigate(`shop-${item.product.id}`)}
+                  className="w-14 h-14 bg-gray-700 rounded-lg overflow-hidden flex-shrink-0 hover:opacity-80 transition-opacity"
+                >
                   {item.product.image_url
                     ? <img src={item.product.image_url} alt={item.product.name} className="w-full h-full object-cover" />
                     : <div className="w-full h-full flex items-center justify-center"><ShoppingBag className="w-6 h-6 text-gray-400" /></div>
                   }
-                </div>
+                </button>
                 <div className="flex-1 min-w-0">
-                  <h3 className="text-base font-medium text-white">{item.product.name}</h3>
+                  <button
+                    onClick={() => onNavigate(`shop-${item.product.id}`)}
+                    className="text-base font-medium text-white hover:text-[#B8913D] transition-colors text-left"
+                  >
+                    {item.product.name}
+                  </button>
                   {item.selectedSize && (
                     <p className="text-sm text-gray-400 mt-0.5">
                       {item.product.category === 'event_pass' ? t('cart.item.category') : t('cart.item.size')}: {item.selectedSize}

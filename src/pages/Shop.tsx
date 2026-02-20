@@ -23,9 +23,10 @@ interface EventWithTickets extends Event {
 
 interface ShopProps {
   onNavigate: (page: string) => void;
+  initialProductId?: string;
 }
 
-export function Shop({ onNavigate }: ShopProps) {
+export function Shop({ onNavigate, initialProductId }: ShopProps) {
   const { user, profile } = useAuth();
   const { addToCart, addEventTicketToCart, getCartCount } = useCart();
   const { t } = useLanguage();
@@ -64,6 +65,28 @@ export function Shop({ onNavigate }: ShopProps) {
       loadEvents();
     }
   }, [filter, currentPage, debouncedSearchQuery, priceRange]);
+
+  useEffect(() => {
+    if (!initialProductId) return;
+    const openInitialProduct = async () => {
+      const { data: product } = await supabase.from('products').select('*').eq('id', initialProductId).maybeSingle();
+      if (!product) return;
+      const [sizesResult, imagesResult] = await Promise.all([
+        supabase.from('product_sizes').select('*').eq('product_id', initialProductId).order('order_index'),
+        supabase.from('product_images').select('*').eq('product_id', initialProductId).order('order_index'),
+      ]);
+      if (sizesResult.data) {
+        setProductSizesMap(prev => ({ ...prev, [initialProductId]: sizesResult.data! }));
+      }
+      if (imagesResult.data) {
+        setProductImagesMap(prev => ({ ...prev, [initialProductId]: imagesResult.data! }));
+      }
+      setSelectedProduct(product);
+      setSelectedSize('');
+      setQuantity(1);
+    };
+    openInitialProduct();
+  }, [initialProductId]);
 
   const loadProducts = async () => {
     setLoading(true);
