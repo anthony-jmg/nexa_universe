@@ -664,12 +664,12 @@ export function Shop({ onNavigate }: ShopProps) {
                     const currentImage = displayImages[safeIdx];
 
                     return (
-                      <div className="relative h-48 sm:h-64 bg-gray-800 overflow-hidden">
+                      <div className="relative h-48 sm:h-64 bg-gray-900 overflow-hidden">
                         {currentImage ? (
                           <img
                             src={currentImage.image_url}
                             alt={product.name}
-                            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                            className="w-full h-full object-contain transition-transform duration-500 group-hover:scale-105"
                           />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center">
