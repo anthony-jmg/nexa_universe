@@ -149,7 +149,7 @@ export function EventDetail({ eventId, onNavigate }: EventDetailProps) {
   const eventDate = new Date(event.start_date);
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-950 via-gray-900 to-gray-950 pt-20 pb-12 relative overflow-hidden">
+    <div className="min-h-screen bg-gradient-to-b from-gray-950 via-gray-900 to-gray-950 pt-20 pb-12 relative overflow-x-hidden">
       <BackgroundDecor />
 
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
@@ -173,8 +173,8 @@ export function EventDetail({ eventId, onNavigate }: EventDetailProps) {
                 </div>
               )}
 
-              <div className="p-8">
-                <h1 className="text-3xl sm:text-4xl font-light text-white mb-6">{event.title}</h1>
+              <div className="p-4 sm:p-8">
+                <h1 className="text-2xl sm:text-4xl font-light text-white mb-6">{event.title}</h1>
 
                 <div className="space-y-3 mb-6">
                   <div className="flex items-center space-x-3 text-gray-300">
@@ -211,8 +211,8 @@ export function EventDetail({ eventId, onNavigate }: EventDetailProps) {
               </div>
             </div>
 
-            <div className="bg-gray-900 bg-opacity-60 backdrop-blur-sm rounded-2xl border border-[#B8913D] border-opacity-30 p-8">
-              <h2 className="text-2xl font-light text-white mb-6">Sélectionnez vos billets</h2>
+            <div className="bg-gray-900 bg-opacity-60 backdrop-blur-sm rounded-2xl border border-[#B8913D] border-opacity-30 p-4 sm:p-8">
+              <h2 className="text-xl sm:text-2xl font-light text-white mb-6">Sélectionnez vos billets</h2>
 
               <div className="space-y-4">
                 {event.event_ticket_types
@@ -229,10 +229,10 @@ export function EventDetail({ eventId, onNavigate }: EventDetailProps) {
                     return (
                       <div
                         key={ett.id}
-                        className="flex items-center justify-between p-6 bg-gray-800 bg-opacity-50 rounded-xl border border-gray-700 hover:border-[#B8913D] transition-all"
+                        className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-4 sm:p-6 bg-gray-800 bg-opacity-50 rounded-xl border border-gray-700 hover:border-[#B8913D] transition-all gap-4"
                       >
-                        <div className="flex-1">
-                          <h3 className="text-xl font-medium text-white mb-2">
+                        <div className="flex-1 min-w-0">
+                          <h3 className="text-lg sm:text-xl font-medium text-white mb-2">
                             {ett.ticket_type.name}
                           </h3>
                           {ett.ticket_type.description && (
@@ -242,7 +242,7 @@ export function EventDetail({ eventId, onNavigate }: EventDetailProps) {
                             <ul className="space-y-1">
                               {(ett.features as string[]).map((feature, idx) => (
                                 <li key={idx} className="flex items-center space-x-2 text-sm text-gray-300">
-                                  <Check className="w-4 h-4 text-[#B8913D]" />
+                                  <Check className="w-4 h-4 text-[#B8913D] shrink-0" />
                                   <span>{feature}</span>
                                 </li>
                               ))}
@@ -251,16 +251,16 @@ export function EventDetail({ eventId, onNavigate }: EventDetailProps) {
                           <p className="text-xs text-gray-500 mt-2">{available} places disponibles</p>
                         </div>
 
-                        <div className="flex items-center space-x-6 ml-6">
-                          <div className="text-right">
+                        <div className="flex items-center justify-between sm:justify-end gap-4 sm:gap-6">
+                          <div className="text-left sm:text-right">
                             {ett.member_price > 0 && ett.member_price < ett.price ? (
                               <>
                                 <div className="text-sm text-gray-400">{ett.price.toFixed(2)}€</div>
-                                <div className="text-2xl font-bold text-[#B8913D]">{ett.member_price.toFixed(2)}€</div>
+                                <div className="text-xl font-bold text-[#B8913D]">{ett.member_price.toFixed(2)}€</div>
                                 <div className="text-xs text-[#B8913D]">avec abonnement</div>
                               </>
                             ) : (
-                              <div className="text-2xl font-bold text-[#B8913D]">{ett.price.toFixed(2)}€</div>
+                              <div className="text-xl font-bold text-[#B8913D]">{ett.price.toFixed(2)}€</div>
                             )}
                           </div>
 
