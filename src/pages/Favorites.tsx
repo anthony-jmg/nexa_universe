@@ -8,7 +8,7 @@ import { Heart, Video, User, BookOpen, Trash2, Play } from 'lucide-react';
 import { Database } from '../lib/database.types';
 
 type Professor = Database['public']['Tables']['professors']['Row'] & {
-  profiles?: { full_name: string };
+  profiles?: { full_name: string; avatar_url: string | null };
 };
 type VideoType = Database['public']['Tables']['videos']['Row'];
 type Program = Database['public']['Tables']['programs']['Row'];
@@ -52,7 +52,7 @@ export function Favorites({ onNavigate }: FavoritesProps) {
     if (professorIds.length > 0) {
       const { data: profData } = await supabase
         .from('professors')
-        .select('*, profiles!inner(full_name)')
+        .select('*, profiles!inner(full_name, avatar_url)')
         .in('id', professorIds);
       if (profData) setProfessors(profData);
     } else {
@@ -211,9 +211,9 @@ export function Favorites({ onNavigate }: FavoritesProps) {
                       className="bg-gray-900 bg-opacity-60 backdrop-blur-sm rounded-xl border border-[#B8913D] border-opacity-30 hover:shadow-lg hover:shadow-[#B8913D]/10 transition-all group flex items-center gap-3 p-3"
                     >
                       <div className="w-12 h-12 rounded-full overflow-hidden bg-gray-800 shrink-0 ring-2 ring-[#B8913D] ring-opacity-40">
-                        {professor.profile_image_url ? (
+                        {professor.profiles?.avatar_url ? (
                           <img
-                            src={professor.profile_image_url}
+                            src={professor.profiles.avatar_url}
                             alt={professor.profiles?.full_name}
                             className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
                           />
@@ -227,11 +227,6 @@ export function Favorites({ onNavigate }: FavoritesProps) {
                         <h3 className="text-sm font-medium text-white truncate">
                           {professor.profiles?.full_name}
                         </h3>
-                        {professor.bio && (
-                          <p className="text-gray-400 text-xs line-clamp-1 mt-0.5">
-                            {professor.bio}
-                          </p>
-                        )}
                       </div>
                       <div className="flex items-center gap-1.5 shrink-0">
                         <button
