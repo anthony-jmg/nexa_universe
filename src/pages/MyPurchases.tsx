@@ -478,6 +478,13 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
             >
               <User className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               <span>Professeurs</span>
+              {!loading && professorSubscriptions.length > 0 && (
+                <span className={`ml-1 min-w-[18px] h-[18px] flex items-center justify-center rounded-full text-[10px] font-bold px-1 ${
+                  activeTab === 'subscriptions' ? 'bg-white/25 text-white' : 'bg-[#B8913D]/20 text-[#B8913D]'
+                }`}>
+                  {professorSubscriptions.length}
+                </span>
+              )}
             </button>
             <button
               onClick={() => setActiveTab('programs')}
@@ -489,6 +496,13 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
             >
               <Package className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               <span>Programmes</span>
+              {!loading && programPurchases.length > 0 && (
+                <span className={`ml-1 min-w-[18px] h-[18px] flex items-center justify-center rounded-full text-[10px] font-bold px-1 ${
+                  activeTab === 'programs' ? 'bg-white/25 text-white' : 'bg-[#B8913D]/20 text-[#B8913D]'
+                }`}>
+                  {programPurchases.length}
+                </span>
+              )}
             </button>
             <button
               onClick={() => setActiveTab('videos')}
@@ -500,6 +514,13 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
             >
               <Video className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               <span>Vidéos</span>
+              {!loading && videoPurchases.length > 0 && (
+                <span className={`ml-1 min-w-[18px] h-[18px] flex items-center justify-center rounded-full text-[10px] font-bold px-1 ${
+                  activeTab === 'videos' ? 'bg-white/25 text-white' : 'bg-[#B8913D]/20 text-[#B8913D]'
+                }`}>
+                  {videoPurchases.length}
+                </span>
+              )}
             </button>
             <button
               onClick={() => setActiveTab('orders')}
@@ -511,6 +532,13 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
             >
               <ShoppingBag className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               <span>Commandes</span>
+              {!loading && orders.length > 0 && (
+                <span className={`ml-1 min-w-[18px] h-[18px] flex items-center justify-center rounded-full text-[10px] font-bold px-1 ${
+                  activeTab === 'orders' ? 'bg-white/25 text-white' : 'bg-[#B8913D]/20 text-[#B8913D]'
+                }`}>
+                  {orders.length}
+                </span>
+              )}
             </button>
             <button
               onClick={() => setActiveTab('tickets')}
@@ -522,6 +550,13 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
             >
               <Ticket className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               <span>Billets</span>
+              {!loading && tickets.length > 0 && (
+                <span className={`ml-1 min-w-[18px] h-[18px] flex items-center justify-center rounded-full text-[10px] font-bold px-1 ${
+                  activeTab === 'tickets' ? 'bg-white/25 text-white' : 'bg-[#B8913D]/20 text-[#B8913D]'
+                }`}>
+                  {tickets.length}
+                </span>
+              )}
             </button>
           </div>
         </div>

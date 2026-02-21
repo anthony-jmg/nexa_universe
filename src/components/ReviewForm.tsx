@@ -56,8 +56,8 @@ export default function ReviewForm({ itemType, itemId, onReviewSubmitted, existi
           .from('reviews')
           .insert({
             user_id: user.id,
-            item_type: itemType,
-            item_id: itemId,
+            reviewable_type: itemType,
+            reviewable_id: itemId,
             rating,
             comment
           });

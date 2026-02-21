@@ -594,6 +594,9 @@ function VideoCard({ video, hasAccess, subscribed, onClick, showPrice, onToggleP
           )}
         </div>
         {getCategoryBadge()}
+        <div className="absolute top-2 sm:top-3 right-2 sm:right-3 z-10">
+          <FavoriteButton type="video" itemId={video.id} size="sm" />
+        </div>
       </div>
 
       <div className="p-3.5 sm:p-5">
@@ -670,6 +673,9 @@ function ProgramCard({ program, hasAccess, subscribed, onClick, showPrice, onTog
             <span>Accès</span>
           </div>
         )}
+        <div className="absolute top-2 sm:top-3 right-2 sm:right-3 z-10">
+          <FavoriteButton type="program" itemId={program.id} size="sm" />
+        </div>
       </div>
 
       <div className="p-3.5 sm:p-5">
