@@ -7,7 +7,10 @@ export function useSubscription() {
 
   const cancelSubscription = async (
     subscriptionType: 'platform' | 'professor',
-    professorId?: string
+    professorId?: string,
+    cancellationReason?: string,
+    cancellationFeedback?: string,
+    requestRefund?: boolean
   ) => {
     setLoading(true);
     setError(null);
@@ -23,6 +26,9 @@ export function useSubscription() {
           action: 'cancel',
           subscription_type: subscriptionType,
           professor_id: professorId,
+          cancellation_reason: cancellationReason,
+          cancellation_feedback: cancellationFeedback,
+          request_refund: requestRefund,
         },
         headers: {
           Authorization: `Bearer ${session.access_token}`,
@@ -31,6 +37,10 @@ export function useSubscription() {
 
       if (error) {
         throw new Error(error.message || 'Failed to cancel subscription');
+      }
+
+      if (data?.error) {
+        throw new Error(data.error);
       }
 
       return data;

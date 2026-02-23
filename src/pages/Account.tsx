@@ -695,12 +695,30 @@ export function Account({ onNavigate }: AccountProps) {
                                 </p>
                               </div>
                             )}
-                            <button
-                              onClick={() => handleOpenCancelModal('professor', sub.id, sub.professor.profiles.full_name)}
-                              className="w-full px-4 py-2 bg-red-900/30 border border-red-500/50 text-red-400 text-sm font-medium rounded-lg hover:bg-red-900/50 transition-colors"
-                            >
-                              {t('account.subscription.cancelProfessorSubscription')}
-                            </button>
+                            {sub.cancel_at_period_end ? (
+                              <div className="space-y-2">
+                                <div className="p-3 bg-yellow-900/30 border border-yellow-500/50 rounded-lg flex items-start space-x-2">
+                                  <AlertTriangle className="w-4 h-4 text-yellow-500 flex-shrink-0 mt-0.5" />
+                                  <p className="text-xs text-yellow-200">
+                                    Subscription will be cancelled on {formatDate(sub.expires_at)}
+                                  </p>
+                                </div>
+                                <button
+                                  onClick={() => handleReactivateSubscription('professor', sub.professor_id)}
+                                  className="w-full flex items-center justify-center space-x-2 px-4 py-2 bg-gray-700/50 border border-gray-600 text-gray-300 text-sm font-medium rounded-lg hover:bg-gray-700 transition-colors"
+                                >
+                                  <RefreshCw className="w-4 h-4" />
+                                  <span>Reactivate Subscription</span>
+                                </button>
+                              </div>
+                            ) : (
+                              <button
+                                onClick={() => handleOpenCancelModal('professor', sub.id, sub.professor.profiles.full_name)}
+                                className="w-full px-4 py-2 bg-red-900/30 border border-red-500/50 text-red-400 text-sm font-medium rounded-lg hover:bg-red-900/50 transition-colors"
+                              >
+                                {t('account.subscription.cancelProfessorSubscription')}
+                              </button>
+                            )}
                           </div>
                         ))}
                         <button
