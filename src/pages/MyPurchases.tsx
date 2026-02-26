@@ -132,6 +132,8 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
     if (payment === 'success' && sessionId) {
       clearCart();
       verifyPayment(sessionId);
+    } else if (payment === 'cancelled') {
+      cancelPendingOrder();
     } else {
       loadData();
     }
@@ -146,6 +148,27 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
       generateQRCode(selectedTicket.qr_code);
     }
   }, [selectedTicket]);
+
+  const cancelPendingOrder = async () => {
+    const pendingOrderId = localStorage.getItem('pendingOrderId');
+    localStorage.removeItem('pendingOrderId');
+    localStorage.removeItem('pendingEventTickets');
+    localStorage.removeItem('pendingAttendees');
+
+    if (pendingOrderId) {
+      await supabase
+        .from('orders')
+        .update({ status: 'cancelled' })
+        .eq('id', pendingOrderId)
+        .eq('user_id', user!.id)
+        .eq('status', 'pending');
+
+      await supabase.rpc('release_stock_reservation', { p_order_id: pendingOrderId });
+    }
+
+    await loadData();
+    window.history.replaceState({}, '', window.location.pathname);
+  };
 
   const verifyPayment = async (sessionId: string) => {
     setVerifyingPayment(true);
