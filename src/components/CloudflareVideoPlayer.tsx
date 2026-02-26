@@ -135,7 +135,7 @@ export default function CloudflareVideoPlayer({
       params.append('controls', 'true');
       params.append('preload', 'auto');
       params.append('loop', 'false');
-      params.append('muted', 'false');
+      params.append('muted', '0');
       params.append('autoplay', 'false');
       params.append('defaultTextTrack', 'off');
       if (startTime > 0) {
