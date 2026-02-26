@@ -5,7 +5,7 @@ import { useLanguage } from '../contexts/LanguageContext';
 import { BackgroundDecor } from '../components/BackgroundDecor';
 import {
   ShoppingCart, Trash2, Plus, Minus, ShoppingBag,
-  Ticket, Calendar, AlertCircle, ChevronRight, User, CreditCard, ArrowLeft
+  Ticket, Calendar, AlertCircle, ChevronRight, User, CreditCard, ArrowLeft, Loader2
 } from 'lucide-react';
 import { handleOrderCheckout } from '../lib/stripe';
 import { validateAndCreateOrder } from '../lib/orderService';
@@ -222,7 +222,6 @@ export function Cart({ onNavigate }: CartProps) {
       localStorage.setItem('pendingEventTickets', JSON.stringify(eventTickets));
       localStorage.setItem('pendingAttendees', JSON.stringify(attendees));
 
-      clearCart();
       await handleOrderCheckout(orderResponse.order_id, checkoutItems);
     } catch (err: any) {
       setError(err.message);
@@ -255,6 +254,18 @@ export function Cart({ onNavigate }: CartProps) {
           >
             {t('cart.notSignedIn.button')}
           </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="fixed inset-0 bg-gray-950 z-50 flex flex-col items-center justify-center gap-6">
+        <Loader2 className="w-12 h-12 text-[#B8913D] animate-spin" />
+        <div className="text-center">
+          <p className="text-white text-lg font-medium mb-1">Redirection vers le paiement...</p>
+          <p className="text-gray-400 text-sm">Veuillez ne pas fermer cette page</p>
         </div>
       </div>
     );

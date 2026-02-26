@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
+import { useCart } from '../contexts/CartContext';
 import { supabase } from '../lib/supabase';
 import { Database } from '../lib/database.types';
 import { BackgroundDecor } from '../components/BackgroundDecor';
@@ -106,6 +107,7 @@ interface MyPurchasesProps {
 export function MyPurchases({ onNavigate }: MyPurchasesProps) {
   const { user, profile } = useAuth();
   const { t } = useLanguage();
+  const { clearCart } = useCart();
   const [activeTab, setActiveTab] = useState<'subscriptions' | 'programs' | 'videos' | 'orders' | 'tickets'>('subscriptions');
   const [professorSubscriptions, setProfessorSubscriptions] = useState<ProfessorSubscription[]>([]);
   const [programPurchases, setProgramPurchases] = useState<ProgramPurchase[]>([]);
@@ -128,13 +130,14 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
     const sessionId = urlParams.get('session_id');
 
     if (payment === 'success' && sessionId) {
+      clearCart();
       verifyPayment(sessionId);
     } else {
       loadData();
     }
 
     if (payment === 'success') {
-      setActiveTab('tickets');
+      setActiveTab('orders');
     }
   }, [user]);
 
