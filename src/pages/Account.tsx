@@ -17,7 +17,8 @@ interface ProfessorSubscription {
   expires_at: string | null;
   started_at: string | null;
   subscription_created_at: string | null;
-  cancel_at_period_end: boolean;
+  cancel_at_period_end: boolean | null;
+  cancelled_at: string | null;
   withdrawal_right_waived: boolean;
   withdrawal_waiver_reason: string | null;
   professor: {
