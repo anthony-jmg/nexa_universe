@@ -559,10 +559,17 @@ export function Account({ onNavigate }: AccountProps) {
                           <h3 className="font-medium text-white mb-1">{t('account.subscription.platformTitle')}</h3>
                           <div className="flex items-center space-x-2 mb-3">
                             {hasActiveSubscription ? (
-                              <>
-                                <CheckCircle className="w-5 h-5 text-green-600" />
-                                <span className="text-green-600 font-medium">{t('account.subscription.active')}</span>
-                              </>
+                              profile.subscription_cancel_at_period_end ? (
+                                <>
+                                  <AlertTriangle className="w-5 h-5 text-yellow-500" />
+                                  <span className="text-yellow-400 font-medium">Résiliation programmée</span>
+                                </>
+                              ) : (
+                                <>
+                                  <CheckCircle className="w-5 h-5 text-green-600" />
+                                  <span className="text-green-600 font-medium">{t('account.subscription.active')}</span>
+                                </>
+                              )
                             ) : (
                               <>
                                 <XCircle className="w-5 h-5 text-gray-400" />
@@ -671,8 +678,17 @@ export function Account({ onNavigate }: AccountProps) {
                               <div>
                                 <h4 className="font-medium text-white">{sub.professor.profiles.full_name}</h4>
                                 <div className="flex items-center space-x-2 mt-1">
-                                  <CheckCircle className="w-4 h-4 text-green-600" />
-                                  <span className="text-sm text-green-600">{t('account.subscription.activeSubscription')}</span>
+                                  {sub.cancel_at_period_end ? (
+                                    <>
+                                      <AlertTriangle className="w-4 h-4 text-yellow-500" />
+                                      <span className="text-sm text-yellow-400">Résiliation programmée</span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <CheckCircle className="w-4 h-4 text-green-600" />
+                                      <span className="text-sm text-green-600">{t('account.subscription.activeSubscription')}</span>
+                                    </>
+                                  )}
                                 </div>
                                 {sub.expires_at && (
                                   <div className="text-xs text-gray-400 mt-1 flex items-center">
