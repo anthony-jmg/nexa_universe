@@ -33,7 +33,7 @@ interface AccountProps {
   onNavigate: (page: string) => void;
 }
 
-const PLATFORM_SUBSCRIPTION_MONTHLY = 8.99;
+const PLATFORM_SUBSCRIPTION_MONTHLY = 1;
 const PLATFORM_SUBSCRIPTION_YEARLY = 89;
 
 export function Account({ onNavigate }: AccountProps) {
