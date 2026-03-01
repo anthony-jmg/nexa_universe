@@ -293,6 +293,7 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
       .from('orders')
       .select('*, order_items(id, item_type, quantity, unit_price, selected_size)')
       .eq('user_id', user.id)
+      .not('status', 'in', '(pending,cancelled)')
       .order('created_at', { ascending: false });
 
     if (!error && data) {
