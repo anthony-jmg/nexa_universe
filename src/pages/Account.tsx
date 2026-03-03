@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { User, CreditCard, Settings, CheckCircle, XCircle, Calendar, Users, Globe, Award, Percent, X, AlertTriangle, RefreshCw, GraduationCap, Plus } from 'lucide-react';
+import { User, CreditCard, Settings, CheckCircle, XCircle, Calendar, Users, Globe, Award, Percent, X, AlertTriangle, RefreshCw, GraduationCap, Plus, ShoppingBag, Video, BookOpen, Receipt, ChevronDown, ChevronUp } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { supabase } from '../lib/supabase';
@@ -27,6 +27,18 @@ interface ProfessorSubscription {
     };
     subscriber_discount_percentage: number;
   };
+}
+
+interface BillingRecord {
+  id: string;
+  type: 'order' | 'video' | 'program' | 'subscription';
+  amount: number;
+  currency: string;
+  status: string;
+  date: string;
+  description: string;
+  items?: { name: string; quantity?: number; price: number }[];
+  payment_intent_id?: string;
 }
 
 interface AccountProps {
@@ -60,6 +72,10 @@ export function Account({ onNavigate }: AccountProps) {
   const [professorVideoUrl, setProfessorVideoUrl] = useState('');
   const [savingProfessorInfo, setSavingProfessorInfo] = useState(false);
   const [professorMessage, setProfessorMessage] = useState('');
+
+  const [billingRecords, setBillingRecords] = useState<BillingRecord[]>([]);
+  const [billingLoading, setBillingLoading] = useState(false);
+  const [expandedRecord, setExpandedRecord] = useState<string | null>(null);
 
   const [profileLoaded, setProfileLoaded] = useState(false);
 
@@ -100,6 +116,120 @@ export function Account({ onNavigate }: AccountProps) {
     if (!error && data) {
       setProfessorSubscriptions(data as any);
     }
+  };
+
+  const loadBillingHistory = async () => {
+    if (!profile?.id) return;
+    setBillingLoading(true);
+
+    const records: BillingRecord[] = [];
+
+    const { data: orders } = await supabase
+      .from('orders')
+      .select(`
+        id, total_amount, status, created_at, stripe_payment_intent_id,
+        order_items(
+          item_type, quantity, unit_price,
+          product:products(name),
+          video:videos(title),
+          program:programs(title)
+        )
+      `)
+      .eq('user_id', profile.id)
+      .in('status', ['paid', 'completed', 'shipped', 'delivered'])
+      .order('created_at', { ascending: false });
+
+    if (orders) {
+      for (const order of orders) {
+        const items = (order.order_items || []).map((item: any) => ({
+          name: item.product?.name || item.video?.title || item.program?.title || 'Article',
+          quantity: item.quantity,
+          price: item.unit_price,
+        }));
+        records.push({
+          id: order.id,
+          type: 'order',
+          amount: order.total_amount,
+          currency: 'EUR',
+          status: order.status,
+          date: order.created_at,
+          description: items.length === 1 ? items[0].name : `Commande (${items.length} article${items.length > 1 ? 's' : ''})`,
+          items,
+          payment_intent_id: order.stripe_payment_intent_id,
+        });
+      }
+    }
+
+    const { data: videoPurchases } = await supabase
+      .from('video_purchases')
+      .select(`id, amount_paid, status, purchased_at, video:videos(title)`)
+      .eq('user_id', profile.id)
+      .eq('status', 'completed')
+      .order('purchased_at', { ascending: false });
+
+    if (videoPurchases) {
+      for (const vp of videoPurchases) {
+        records.push({
+          id: vp.id,
+          type: 'video',
+          amount: vp.amount_paid,
+          currency: 'EUR',
+          status: vp.status,
+          date: vp.purchased_at,
+          description: (vp.video as any)?.title || 'Vidéo',
+          items: [{ name: (vp.video as any)?.title || 'Vidéo', price: vp.amount_paid }],
+        });
+      }
+    }
+
+    const { data: programPurchases } = await supabase
+      .from('program_purchases')
+      .select(`id, price_paid, status, purchased_at, program:programs(title)`)
+      .eq('user_id', profile.id)
+      .eq('status', 'completed')
+      .order('purchased_at', { ascending: false });
+
+    if (programPurchases) {
+      for (const pp of programPurchases) {
+        records.push({
+          id: pp.id,
+          type: 'program',
+          amount: pp.price_paid,
+          currency: 'EUR',
+          status: pp.status,
+          date: pp.purchased_at,
+          description: (pp.program as any)?.title || 'Programme',
+          items: [{ name: (pp.program as any)?.title || 'Programme', price: pp.price_paid }],
+        });
+      }
+    }
+
+    const { data: subscriptions } = await supabase
+      .from('stripe_payments')
+      .select('id, amount, currency, status, created_at, payment_type, metadata')
+      .eq('user_id', profile.id)
+      .eq('payment_type', 'subscription')
+      .eq('status', 'succeeded')
+      .order('created_at', { ascending: false });
+
+    if (subscriptions) {
+      for (const sub of subscriptions) {
+        records.push({
+          id: sub.id,
+          type: 'subscription',
+          amount: sub.amount / 100,
+          currency: (sub.currency || 'EUR').toUpperCase(),
+          status: sub.status,
+          date: sub.created_at,
+          description: 'Abonnement',
+          items: [{ name: 'Abonnement Nexa', price: sub.amount / 100 }],
+        });
+      }
+    }
+
+    records.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    setBillingRecords(records);
+    setBillingLoading(false);
   };
 
   const handleUpdateProfile = async (e: React.FormEvent) => {
@@ -336,7 +466,7 @@ export function Account({ onNavigate }: AccountProps) {
                 {t('account.tabs.subscription')}
               </button>
               <button
-                onClick={() => setActiveTab('billing')}
+                onClick={() => { setActiveTab('billing'); loadBillingHistory(); }}
                 className={`py-3 sm:py-4 lg:py-3 border-b-2 font-medium text-xs sm:text-sm lg:text-xs whitespace-nowrap transition-all ${
                   activeTab === 'billing'
                     ? 'border-[#B8913D] text-[#B8913D]'
@@ -784,26 +914,103 @@ export function Account({ onNavigate }: AccountProps) {
               <div>
                 <h2 className="text-xl font-medium text-white mb-6">{t('account.billing.title')}</h2>
 
-                <div className="bg-gray-800/50 backdrop-blur-sm rounded-xl p-6 text-center border border-[#B8913D] border-opacity-30">
-                  <CreditCard className="w-12 h-12 text-[#B8913D] mx-auto mb-4" />
-                  <h3 className="font-medium text-white mb-2">{t('account.billing.paymentMethod')}</h3>
-                  <p className="text-sm text-gray-300 mb-4">
-                    {t('account.billing.stripeMessage')}
-                  </p>
-                  <button
-                    disabled
-                    className="px-6 py-2 bg-gray-700 text-gray-400 font-medium rounded-lg cursor-not-allowed"
-                  >
-                    {t('account.billing.stripeRequired')}
-                  </button>
-                </div>
-
-                <div className="mt-6">
-                  <h3 className="font-medium text-white mb-4">{t('account.billing.history')}</h3>
-                  <div className="bg-gray-800/50 backdrop-blur-sm rounded-xl p-6 text-center text-gray-300 text-sm border border-[#B8913D] border-opacity-30">
-                    {t('account.billing.noHistory')}
+                {billingLoading ? (
+                  <div className="flex items-center justify-center py-16">
+                    <RefreshCw className="w-6 h-6 text-[#B8913D] animate-spin" />
                   </div>
-                </div>
+                ) : billingRecords.length === 0 ? (
+                  <div className="bg-gray-800/50 backdrop-blur-sm rounded-xl p-10 text-center border border-gray-700/50">
+                    <Receipt className="w-12 h-12 text-gray-600 mx-auto mb-4" />
+                    <p className="text-gray-400 text-sm">Aucune transaction trouvée</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {billingRecords.map((record) => {
+                      const isExpanded = expandedRecord === record.id;
+                      const typeIcon = record.type === 'order'
+                        ? <ShoppingBag className="w-4 h-4" />
+                        : record.type === 'video'
+                          ? <Video className="w-4 h-4" />
+                          : record.type === 'program'
+                            ? <BookOpen className="w-4 h-4" />
+                            : <CreditCard className="w-4 h-4" />;
+                      const typeLabel = record.type === 'order' ? 'Commande'
+                        : record.type === 'video' ? 'Vidéo'
+                          : record.type === 'program' ? 'Programme'
+                            : 'Abonnement';
+                      const statusColor = record.status === 'completed' || record.status === 'succeeded' || record.status === 'paid' || record.status === 'shipped' || record.status === 'delivered'
+                        ? 'text-green-400 bg-green-400/10'
+                        : 'text-yellow-400 bg-yellow-400/10';
+                      const statusLabel = record.status === 'completed' || record.status === 'succeeded' ? 'Payé'
+                        : record.status === 'paid' ? 'Payé'
+                          : record.status === 'shipped' ? 'Expédié'
+                            : record.status === 'delivered' ? 'Livré'
+                              : record.status;
+
+                      return (
+                        <div key={record.id} className="bg-gray-800/50 backdrop-blur-sm rounded-xl border border-gray-700/50 overflow-hidden">
+                          <button
+                            onClick={() => setExpandedRecord(isExpanded ? null : record.id)}
+                            className="w-full flex items-center justify-between p-4 hover:bg-gray-700/30 transition-colors text-left"
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className="w-9 h-9 rounded-lg bg-[#B8913D]/15 flex items-center justify-center text-[#B8913D] flex-shrink-0">
+                                {typeIcon}
+                              </div>
+                              <div className="min-w-0">
+                                <p className="text-white font-medium text-sm truncate">{record.description}</p>
+                                <div className="flex items-center gap-2 mt-0.5">
+                                  <span className="text-xs text-gray-500">{typeLabel}</span>
+                                  <span className="text-xs text-gray-600">•</span>
+                                  <span className="text-xs text-gray-500">
+                                    {new Date(record.date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-3 flex-shrink-0 ml-4">
+                              <div className="text-right">
+                                <p className="text-[#B8913D] font-semibold text-sm">{record.amount.toFixed(2)}€</p>
+                                <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusColor}`}>
+                                  {statusLabel}
+                                </span>
+                              </div>
+                              {isExpanded
+                                ? <ChevronUp className="w-4 h-4 text-gray-500" />
+                                : <ChevronDown className="w-4 h-4 text-gray-500" />
+                              }
+                            </div>
+                          </button>
+
+                          {isExpanded && (
+                            <div className="border-t border-gray-700/50 px-4 pb-4 pt-3 space-y-3">
+                              {record.items && record.items.length > 0 && (
+                                <div className="space-y-1.5">
+                                  <p className="text-xs text-gray-500 uppercase tracking-wide font-medium mb-2">Détail</p>
+                                  {record.items.map((item, i) => (
+                                    <div key={i} className="flex justify-between text-sm">
+                                      <span className="text-gray-300">
+                                        {item.name}{item.quantity && item.quantity > 1 ? ` × ${item.quantity}` : ''}
+                                      </span>
+                                      <span className="text-gray-400">{item.price.toFixed(2)}€</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                              <div className="border-t border-gray-700/50 pt-2 flex justify-between font-medium text-sm">
+                                <span className="text-gray-300">Total payé</span>
+                                <span className="text-[#B8913D]">{record.amount.toFixed(2)}€</span>
+                              </div>
+                              {record.payment_intent_id && (
+                                <p className="text-xs text-gray-600 font-mono truncate">Réf: {record.payment_intent_id}</p>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             )}
           </div>

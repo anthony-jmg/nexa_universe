@@ -533,11 +533,11 @@ function StepCart({
         <div className="space-y-2 mb-4">
           <div className="flex justify-between text-gray-400 text-sm">
             <span>Sous-total</span>
-            <span>{total.toFixed(2)}€</span>
+            <span className={savings > 0 ? 'line-through text-gray-500' : ''}>{(total + savings).toFixed(2)}€</span>
           </div>
           {savings > 0 && (
             <div className="flex justify-between text-green-400 text-sm">
-              <span>Économies membre</span>
+              <span>Économie membre</span>
               <span>-{savings.toFixed(2)}€</span>
             </div>
           )}
@@ -737,10 +737,16 @@ function StepContact({ cart, eventTickets, isMember, getItemPrice, total, saving
             </div>
           )}
           {savings > 0 && (
-            <div className="flex justify-between text-green-400">
-              <span>Économies membre</span>
-              <span>-{savings.toFixed(2)}€</span>
-            </div>
+            <>
+              <div className="flex justify-between text-gray-500 text-sm line-through">
+                <span>Sous-total sans remise</span>
+                <span>{(total + savings).toFixed(2)}€</span>
+              </div>
+              <div className="flex justify-between text-green-400">
+                <span>Économie membre</span>
+                <span>-{savings.toFixed(2)}€</span>
+              </div>
+            </>
           )}
           <div className="flex justify-between text-white font-bold text-base pt-2 border-t border-gray-700">
             <span>Total</span>
