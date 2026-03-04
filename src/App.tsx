@@ -45,16 +45,10 @@ type NavigationState = {
 };
 
 function AppContent() {
-  // Check for recovery token BEFORE initializing the page state
-  const getInitialPage = (): Page => {
+  const getInitialState = (): NavigationState => {
     const url = window.location.href;
     const hash = window.location.hash;
 
-    console.log('=== Initial page detection ===');
-    console.log('Full URL:', url);
-    console.log('Hash:', hash);
-
-    // Check for recovery token in various formats
     const hasRecoveryToken =
       hash.includes('type=recovery') ||
       hash.includes('access_token') ||
@@ -62,19 +56,28 @@ function AppContent() {
       url.includes('#access_token=');
 
     if (hasRecoveryToken) {
-      console.log('✅ Recovery token detected on initial load - redirecting to reset-password');
-      return 'reset-password';
+      return { page: 'reset-password' };
     }
 
-    console.log('❌ No recovery token found - showing landing page');
-    return 'landing';
+    const path = window.location.pathname;
+    const parts = path.split('/').filter(Boolean);
+    if (parts.length === 0) return { page: 'landing' };
+
+    const [first, second] = parts;
+    if (first === 'video' && second) return { page: 'video', videoId: second };
+    if (first === 'professor' && second) return { page: 'professor-detail', professorId: second };
+    if (first === 'program' && second) return { page: 'program-detail', programId: second };
+    if (first === 'event' && second) return { page: 'event-detail', eventId: second };
+
+    return { page: first as Page };
   };
 
-  const [currentPage, setCurrentPage] = useState<Page>(getInitialPage());
-  const [currentVideoId, setCurrentVideoId] = useState<string>('');
-  const [currentProfessorId, setCurrentProfessorId] = useState<string>('');
-  const [currentProgramId, setCurrentProgramId] = useState<string>('');
-  const [currentEventId, setCurrentEventId] = useState<string>('');
+  const _initialState = getInitialState();
+  const [currentPage, setCurrentPage] = useState<Page>(_initialState.page);
+  const [currentVideoId, setCurrentVideoId] = useState<string>(_initialState.videoId || '');
+  const [currentProfessorId, setCurrentProfessorId] = useState<string>(_initialState.professorId || '');
+  const [currentProgramId, setCurrentProgramId] = useState<string>(_initialState.programId || '');
+  const [currentEventId, setCurrentEventId] = useState<string>(_initialState.eventId || '');
   const [currentProductId, setCurrentProductId] = useState<string>('');
   const { user, loading } = useAuth();
 
@@ -115,54 +118,24 @@ function AppContent() {
     return () => subscription.unsubscribe();
   }, []);
 
-  // Initialize state from URL on mount
+  // Initialize browser history state on mount (page state is already set via getInitialState)
   useEffect(() => {
-    // Check for recovery token first (takes priority)
     const hash = window.location.hash;
     const hasRecoveryToken = hash.includes('type=recovery') || hash.includes('access_token');
-
-    if (hasRecoveryToken) {
-      // Don't modify URL for recovery flow
-      return;
-    }
+    if (hasRecoveryToken) return;
 
     const currentPath = window.location.pathname;
-    const stateFromPath = parsePathToState(currentPath);
-
-    if (stateFromPath && stateFromPath.page !== 'landing') {
-      setCurrentPage(stateFromPath.page);
-      if (stateFromPath.videoId) setCurrentVideoId(stateFromPath.videoId);
-      if (stateFromPath.professorId) setCurrentProfessorId(stateFromPath.professorId);
-      if (stateFromPath.programId) setCurrentProgramId(stateFromPath.programId);
-      if (stateFromPath.eventId) setCurrentEventId(stateFromPath.eventId);
-
-      // Initialize browser history state
-      window.history.replaceState(
-        {
-          page: stateFromPath.page,
-          videoId: stateFromPath.videoId,
-          professorId: stateFromPath.professorId,
-          programId: stateFromPath.programId,
-          eventId: stateFromPath.eventId
-        },
-        '',
-        currentPath
-      );
-    } else if (currentPage !== 'reset-password') {
-      // Initialize browser history with current state only if not on password reset page
-      const initialPath = buildPath(currentPage, currentVideoId, currentProfessorId, currentProgramId, currentEventId);
-      window.history.replaceState(
-        {
-          page: currentPage,
-          videoId: currentVideoId,
-          professorId: currentProfessorId,
-          programId: currentProgramId,
-          eventId: currentEventId
-        },
-        '',
-        initialPath
-      );
-    }
+    window.history.replaceState(
+      {
+        page: currentPage,
+        videoId: currentVideoId,
+        professorId: currentProfessorId,
+        programId: currentProgramId,
+        eventId: currentEventId
+      },
+      '',
+      currentPath
+    );
   }, []);
 
   // Handle browser back/forward buttons
