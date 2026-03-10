@@ -493,98 +493,71 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
           </div>
         </div>
 
-        <div className="flex justify-start sm:justify-center mb-6 sm:mb-8 overflow-x-auto pb-2 -mx-4 px-4 sm:mx-0 sm:px-0">
-          <div className="inline-flex space-x-2 sm:space-x-3 p-1.5 sm:p-2 bg-gray-800/50 border border-gray-700/50 rounded-full shadow-md">
-            <button
-              onClick={() => setActiveTab('subscriptions')}
-              className={`px-3 sm:px-4 md:px-6 py-2 sm:py-2.5 md:py-3 rounded-full text-xs sm:text-sm font-medium transition-all flex items-center space-x-1.5 sm:space-x-2 whitespace-nowrap ${
-                activeTab === 'subscriptions'
-                  ? 'bg-gradient-to-r from-[#B8913D] to-[#D4AC5B] text-white'
-                  : 'text-gray-300 hover:bg-gray-700/70'
-              }`}
-            >
-              <User className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-              <span>Professeurs</span>
-              {!loading && professorSubscriptions.length > 0 && (
-                <span className={`ml-1 min-w-[18px] h-[18px] flex items-center justify-center rounded-full text-[10px] font-bold px-1 ${
-                  activeTab === 'subscriptions' ? 'bg-white/25 text-white' : 'bg-[#B8913D]/20 text-[#B8913D]'
-                }`}>
-                  {professorSubscriptions.length}
-                </span>
-              )}
-            </button>
-            <button
-              onClick={() => setActiveTab('programs')}
-              className={`px-3 sm:px-4 md:px-6 py-2 sm:py-2.5 md:py-3 rounded-full text-xs sm:text-sm font-medium transition-all flex items-center space-x-1.5 sm:space-x-2 whitespace-nowrap ${
-                activeTab === 'programs'
-                  ? 'bg-gradient-to-r from-[#B8913D] to-[#D4AC5B] text-white'
-                  : 'text-gray-300 hover:bg-gray-700/70'
-              }`}
-            >
-              <Package className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-              <span>Programmes</span>
-              {!loading && programPurchases.length > 0 && (
-                <span className={`ml-1 min-w-[18px] h-[18px] flex items-center justify-center rounded-full text-[10px] font-bold px-1 ${
-                  activeTab === 'programs' ? 'bg-white/25 text-white' : 'bg-[#B8913D]/20 text-[#B8913D]'
-                }`}>
-                  {programPurchases.length}
-                </span>
-              )}
-            </button>
-            <button
-              onClick={() => setActiveTab('videos')}
-              className={`px-3 sm:px-4 md:px-6 py-2 sm:py-2.5 md:py-3 rounded-full text-xs sm:text-sm font-medium transition-all flex items-center space-x-1.5 sm:space-x-2 whitespace-nowrap ${
-                activeTab === 'videos'
-                  ? 'bg-gradient-to-r from-[#B8913D] to-[#D4AC5B] text-white'
-                  : 'text-gray-300 hover:bg-gray-700/70'
-              }`}
-            >
-              <Video className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-              <span>Vidéos</span>
-              {!loading && videoPurchases.length > 0 && (
-                <span className={`ml-1 min-w-[18px] h-[18px] flex items-center justify-center rounded-full text-[10px] font-bold px-1 ${
-                  activeTab === 'videos' ? 'bg-white/25 text-white' : 'bg-[#B8913D]/20 text-[#B8913D]'
-                }`}>
-                  {videoPurchases.length}
-                </span>
-              )}
-            </button>
-            <button
-              onClick={() => setActiveTab('orders')}
-              className={`px-3 sm:px-4 md:px-6 py-2 sm:py-2.5 md:py-3 rounded-full text-xs sm:text-sm font-medium transition-all flex items-center space-x-1.5 sm:space-x-2 whitespace-nowrap ${
-                activeTab === 'orders'
-                  ? 'bg-gradient-to-r from-[#B8913D] to-[#D4AC5B] text-white'
-                  : 'text-gray-300 hover:bg-gray-700/70'
-              }`}
-            >
-              <ShoppingBag className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-              <span>Commandes</span>
-              {!loading && orders.length > 0 && (
-                <span className={`ml-1 min-w-[18px] h-[18px] flex items-center justify-center rounded-full text-[10px] font-bold px-1 ${
-                  activeTab === 'orders' ? 'bg-white/25 text-white' : 'bg-[#B8913D]/20 text-[#B8913D]'
-                }`}>
-                  {orders.length}
-                </span>
-              )}
-            </button>
-            <button
-              onClick={() => setActiveTab('tickets')}
-              className={`px-3 sm:px-4 md:px-6 py-2 sm:py-2.5 md:py-3 rounded-full text-xs sm:text-sm font-medium transition-all flex items-center space-x-1.5 sm:space-x-2 whitespace-nowrap ${
-                activeTab === 'tickets'
-                  ? 'bg-gradient-to-r from-[#B8913D] to-[#D4AC5B] text-white'
-                  : 'text-gray-300 hover:bg-gray-700/70'
-              }`}
-            >
-              <Ticket className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-              <span>Billets</span>
-              {!loading && tickets.length > 0 && (
-                <span className={`ml-1 min-w-[18px] h-[18px] flex items-center justify-center rounded-full text-[10px] font-bold px-1 ${
-                  activeTab === 'tickets' ? 'bg-white/25 text-white' : 'bg-[#B8913D]/20 text-[#B8913D]'
-                }`}>
-                  {tickets.length}
-                </span>
-              )}
-            </button>
+        <div className="mb-6 sm:mb-8">
+          <div className="hidden sm:flex justify-center">
+            <div className="inline-flex space-x-2 sm:space-x-3 p-1.5 sm:p-2 bg-gray-800/50 border border-gray-700/50 rounded-full shadow-md">
+              {(['subscriptions', 'programs', 'videos', 'orders', 'tickets'] as const).map((tab) => {
+                const icons = { subscriptions: User, programs: Package, videos: Video, orders: ShoppingBag, tickets: Ticket };
+                const labels = { subscriptions: 'Professeurs', programs: 'Programmes', videos: 'Vidéos', orders: 'Commandes', tickets: 'Billets' };
+                const counts = { subscriptions: professorSubscriptions.length, programs: programPurchases.length, videos: videoPurchases.length, orders: orders.length, tickets: tickets.length };
+                const Icon = icons[tab];
+                return (
+                  <button
+                    key={tab}
+                    onClick={() => setActiveTab(tab)}
+                    className={`px-4 md:px-6 py-2.5 md:py-3 rounded-full text-sm font-medium transition-all flex items-center space-x-2 whitespace-nowrap ${
+                      activeTab === tab
+                        ? 'bg-gradient-to-r from-[#B8913D] to-[#D4AC5B] text-white'
+                        : 'text-gray-300 hover:bg-gray-700/70'
+                    }`}
+                  >
+                    <Icon className="w-4 h-4" />
+                    <span>{labels[tab]}</span>
+                    {!loading && counts[tab] > 0 && (
+                      <span className={`ml-1 min-w-[18px] h-[18px] flex items-center justify-center rounded-full text-[10px] font-bold px-1 ${
+                        activeTab === tab ? 'bg-white/25 text-white' : 'bg-[#B8913D]/20 text-[#B8913D]'
+                      }`}>
+                        {counts[tab]}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="sm:hidden">
+            <div className="grid grid-cols-5 gap-1 p-1 bg-gray-800/50 border border-gray-700/50 rounded-2xl shadow-md">
+              {(['subscriptions', 'programs', 'videos', 'orders', 'tickets'] as const).map((tab) => {
+                const icons = { subscriptions: User, programs: Package, videos: Video, orders: ShoppingBag, tickets: Ticket };
+                const labels = { subscriptions: 'Profs', programs: 'Progs', videos: 'Vidéos', orders: 'Cmdes', tickets: 'Billets' };
+                const counts = { subscriptions: professorSubscriptions.length, programs: programPurchases.length, videos: videoPurchases.length, orders: orders.length, tickets: tickets.length };
+                const Icon = icons[tab];
+                return (
+                  <button
+                    key={tab}
+                    onClick={() => setActiveTab(tab)}
+                    className={`relative flex flex-col items-center justify-center py-2.5 px-1 rounded-xl text-[10px] font-medium transition-all ${
+                      activeTab === tab
+                        ? 'bg-gradient-to-br from-[#B8913D] to-[#D4AC5B] text-white shadow-lg'
+                        : 'text-gray-400 hover:text-gray-200 hover:bg-gray-700/40'
+                    }`}
+                  >
+                    <div className="relative">
+                      <Icon className="w-4 h-4 mb-1" />
+                      {!loading && counts[tab] > 0 && (
+                        <span className={`absolute -top-1.5 -right-1.5 min-w-[14px] h-[14px] flex items-center justify-center rounded-full text-[9px] font-bold px-0.5 ${
+                          activeTab === tab ? 'bg-white text-[#B8913D]' : 'bg-[#B8913D] text-white'
+                        }`}>
+                          {counts[tab]}
+                        </span>
+                      )}
+                    </div>
+                    <span className="leading-none">{labels[tab]}</span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </div>
 
