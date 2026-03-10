@@ -129,52 +129,64 @@ export function Favorites({ onNavigate }: FavoritesProps) {
           </p>
         </div>
 
-        <div className="flex justify-start sm:justify-center mb-6 sm:mb-8 overflow-x-auto pb-2 -mx-4 px-4 sm:mx-0 sm:px-0">
-          <div className="inline-flex space-x-1.5 sm:space-x-2 p-1.5 sm:p-2 bg-gray-900 bg-opacity-60 backdrop-blur-sm rounded-full shadow-lg border border-[#B8913D] border-opacity-30">
-            <button
-              onClick={() => setActiveTab('all')}
-              className={`px-3 sm:px-4 md:px-6 py-2 sm:py-2.5 md:py-3 rounded-full text-xs sm:text-sm font-medium transition-all flex items-center space-x-1.5 sm:space-x-2 whitespace-nowrap ${
-                activeTab === 'all'
-                  ? 'bg-gradient-to-r from-[#B8913D] to-[#A07F35] text-white shadow-lg scale-105'
-                  : 'text-gray-300 hover:text-white hover:bg-gray-800 hover:bg-opacity-50'
-              }`}
-            >
-              <Heart className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-              <span>{t('favorites.tabs.all')} ({totalCount})</span>
-            </button>
-            <button
-              onClick={() => setActiveTab('professors')}
-              className={`px-3 sm:px-4 md:px-6 py-2 sm:py-2.5 md:py-3 rounded-full text-xs sm:text-sm font-medium transition-all flex items-center space-x-1.5 sm:space-x-2 whitespace-nowrap ${
-                activeTab === 'professors'
-                  ? 'bg-gradient-to-r from-[#B8913D] to-[#A07F35] text-white shadow-lg scale-105'
-                  : 'text-gray-300 hover:text-white hover:bg-gray-800 hover:bg-opacity-50'
-              }`}
-            >
-              <User className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-              <span>{t('favorites.tabs.professors')} ({professors.length})</span>
-            </button>
-            <button
-              onClick={() => setActiveTab('videos')}
-              className={`px-3 sm:px-4 md:px-6 py-2 sm:py-2.5 md:py-3 rounded-full text-xs sm:text-sm font-medium transition-all flex items-center space-x-1.5 sm:space-x-2 whitespace-nowrap ${
-                activeTab === 'videos'
-                  ? 'bg-gradient-to-r from-[#B8913D] to-[#A07F35] text-white shadow-lg scale-105'
-                  : 'text-gray-300 hover:text-white hover:bg-gray-800 hover:bg-opacity-50'
-              }`}
-            >
-              <Video className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-              <span>{t('favorites.tabs.videos')} ({videos.length})</span>
-            </button>
-            <button
-              onClick={() => setActiveTab('programs')}
-              className={`px-3 sm:px-4 md:px-6 py-2 sm:py-2.5 md:py-3 rounded-full text-xs sm:text-sm font-medium transition-all flex items-center space-x-1.5 sm:space-x-2 whitespace-nowrap ${
-                activeTab === 'programs'
-                  ? 'bg-gradient-to-r from-[#B8913D] to-[#A07F35] text-white shadow-lg scale-105'
-                  : 'text-gray-300 hover:text-white hover:bg-gray-800 hover:bg-opacity-50'
-              }`}
-            >
-              <BookOpen className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-              <span>{t('favorites.tabs.programs')} ({programs.length})</span>
-            </button>
+        <div className="mb-6 sm:mb-8">
+          <div className="hidden sm:flex justify-center">
+            <div className="inline-flex space-x-1.5 sm:space-x-2 p-1.5 sm:p-2 bg-gray-900 bg-opacity-60 backdrop-blur-sm rounded-full shadow-lg border border-[#B8913D] border-opacity-30">
+              {(['all', 'professors', 'videos', 'programs'] as const).map((tab) => {
+                const icons = { all: Heart, professors: User, videos: Video, programs: BookOpen };
+                const Icon = icons[tab];
+                const count = tab === 'all' ? totalCount : tab === 'professors' ? professors.length : tab === 'videos' ? videos.length : programs.length;
+                const label = t(`favorites.tabs.${tab}`);
+                return (
+                  <button
+                    key={tab}
+                    onClick={() => setActiveTab(tab)}
+                    className={`px-4 md:px-6 py-2.5 md:py-3 rounded-full text-sm font-medium transition-all flex items-center space-x-2 whitespace-nowrap ${
+                      activeTab === tab
+                        ? 'bg-gradient-to-r from-[#B8913D] to-[#A07F35] text-white shadow-lg scale-105'
+                        : 'text-gray-300 hover:text-white hover:bg-gray-800 hover:bg-opacity-50'
+                    }`}
+                  >
+                    <Icon className="w-4 h-4" />
+                    <span>{label} ({count})</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="sm:hidden">
+            <div className="grid grid-cols-4 gap-1 p-1 bg-gray-900/60 backdrop-blur-sm border border-[#B8913D]/30 rounded-2xl shadow-lg">
+              {(['all', 'professors', 'videos', 'programs'] as const).map((tab) => {
+                const icons = { all: Heart, professors: User, videos: Video, programs: BookOpen };
+                const shortLabels = { all: t('favorites.tabs.all'), professors: 'Profs', videos: 'Vidéos', programs: 'Progs' };
+                const Icon = icons[tab];
+                const count = tab === 'all' ? totalCount : tab === 'professors' ? professors.length : tab === 'videos' ? videos.length : programs.length;
+                return (
+                  <button
+                    key={tab}
+                    onClick={() => setActiveTab(tab)}
+                    className={`relative flex flex-col items-center justify-center py-2.5 px-1 rounded-xl text-[10px] font-medium transition-all ${
+                      activeTab === tab
+                        ? 'bg-gradient-to-br from-[#B8913D] to-[#A07F35] text-white shadow-lg'
+                        : 'text-gray-400 hover:text-gray-200 hover:bg-gray-700/40'
+                    }`}
+                  >
+                    <div className="relative">
+                      <Icon className="w-4 h-4 mb-1" />
+                      {count > 0 && (
+                        <span className={`absolute -top-1.5 -right-1.5 min-w-[14px] h-[14px] flex items-center justify-center rounded-full text-[9px] font-bold px-0.5 ${
+                          activeTab === tab ? 'bg-white text-[#B8913D]' : 'bg-[#B8913D] text-white'
+                        }`}>
+                          {count}
+                        </span>
+                      )}
+                    </div>
+                    <span className="leading-none">{shortLabels[tab]}</span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </div>
 
