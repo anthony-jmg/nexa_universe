@@ -111,7 +111,7 @@ export function Favorites({ onNavigate }: FavoritesProps) {
     <div className="min-h-screen bg-gradient-to-b from-gray-950 via-gray-900 to-gray-950 pt-16 sm:pt-20 pb-8 sm:pb-12 relative overflow-hidden">
       <BackgroundDecor />
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+      <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
         <div className="mb-6 sm:mb-8 text-center">
           <div className="flex justify-center mb-3 sm:mb-4">
             <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-br from-[#B8913D] to-[#A07F35] rounded-full flex items-center justify-center shadow-lg">
@@ -216,13 +216,13 @@ export function Favorites({ onNavigate }: FavoritesProps) {
                   <User className="w-5 h-5 sm:w-6 sm:h-6 text-[#B8913D]" />
                   <span>{t('favorites.sections.professors')}</span>
                 </h2>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                   {filteredProfessors.map((professor) => (
                     <div
                       key={professor.id}
-                      className="bg-gray-900 bg-opacity-60 backdrop-blur-sm rounded-xl border border-[#B8913D] border-opacity-30 hover:shadow-lg hover:shadow-[#B8913D]/10 transition-all group flex items-center gap-3 p-3"
+                      className="bg-gray-900 bg-opacity-60 backdrop-blur-sm rounded-xl border border-[#B8913D] border-opacity-30 hover:shadow-lg hover:shadow-[#B8913D]/10 transition-all group flex items-center gap-4 p-4"
                     >
-                      <div className="w-12 h-12 rounded-full overflow-hidden bg-gray-800 shrink-0 ring-2 ring-[#B8913D] ring-opacity-40">
+                      <div className="w-14 h-14 rounded-full overflow-hidden bg-gray-800 shrink-0 ring-2 ring-[#B8913D] ring-opacity-40">
                         {professor.profiles?.avatar_url ? (
                           <img
                             src={professor.profiles.avatar_url}
@@ -231,19 +231,19 @@ export function Favorites({ onNavigate }: FavoritesProps) {
                           />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center">
-                            <User className="w-5 h-5 text-[#B8913D] opacity-60" />
+                            <User className="w-6 h-6 text-[#B8913D] opacity-60" />
                           </div>
                         )}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <h3 className="text-sm font-medium text-white truncate">
+                        <h3 className="text-base font-medium text-white truncate">
                           {professor.profiles?.full_name}
                         </h3>
                       </div>
-                      <div className="flex items-center gap-1.5 shrink-0">
+                      <div className="flex items-center gap-2 shrink-0">
                         <button
                           onClick={() => onNavigate(`professor-${professor.id}`)}
-                          className="px-3 py-1.5 bg-gradient-to-r from-[#B8913D] to-[#A07F35] text-white text-xs rounded-lg hover:shadow-md transition-all"
+                          className="px-3 py-2 bg-gradient-to-r from-[#B8913D] to-[#A07F35] text-white text-sm rounded-lg hover:shadow-md transition-all"
                         >
                           {t('favorites.cards.viewProfile')}
                         </button>
@@ -252,7 +252,7 @@ export function Favorites({ onNavigate }: FavoritesProps) {
                           className="p-1.5 bg-red-900 bg-opacity-40 text-red-400 rounded-lg hover:bg-opacity-60 transition-all"
                           title={t('favorites.cards.removeTitle')}
                         >
-                          <Trash2 className="w-3.5 h-3.5" />
+                          <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
                     </div>
@@ -267,13 +267,13 @@ export function Favorites({ onNavigate }: FavoritesProps) {
                   <Video className="w-5 h-5 sm:w-6 sm:h-6 text-[#B8913D]" />
                   <span>{t('favorites.sections.videos')}</span>
                 </h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
                   {filteredVideos.map((video) => (
                     <div
                       key={video.id}
                       className="bg-gray-900 bg-opacity-60 backdrop-blur-sm rounded-xl sm:rounded-2xl overflow-hidden border border-[#B8913D] border-opacity-30 hover:shadow-2xl hover:shadow-[#B8913D]/20 transition-all group"
                     >
-                      <div className="relative h-40 sm:h-48 bg-gray-800 overflow-hidden">
+                      <div className="relative h-44 sm:h-52 bg-gray-800 overflow-hidden">
                         {video.thumbnail_url ? (
                           <img
                             src={video.thumbnail_url}
@@ -329,13 +329,13 @@ export function Favorites({ onNavigate }: FavoritesProps) {
                   <BookOpen className="w-5 h-5 sm:w-6 sm:h-6 text-[#B8913D]" />
                   <span>{t('favorites.sections.programs')}</span>
                 </h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
                   {filteredPrograms.map((program) => (
                     <div
                       key={program.id}
                       className="bg-gray-900 bg-opacity-60 backdrop-blur-sm rounded-xl sm:rounded-2xl overflow-hidden border border-[#B8913D] border-opacity-30 hover:shadow-2xl hover:shadow-[#B8913D]/20 transition-all group"
                     >
-                      <div className="relative h-40 sm:h-48 bg-gray-800 overflow-hidden">
+                      <div className="relative h-44 sm:h-52 bg-gray-800 overflow-hidden">
                         {program.thumbnail_url ? (
                           <img
                             src={program.thumbnail_url}
