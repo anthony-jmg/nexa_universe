@@ -49,7 +49,7 @@ const translations: Record<Language, Record<string, string>> = {
     'landing.footer.copyright': '© 2024 NEXA UNIVERSE. Tous droits réservés.',
 
     'academy.header.title': 'Academy',
-    'academy.header.accessFull': 'Accès complet à tous les niveaux',
+    'academy.header.accessFull': 'Accès aux vidéos exclusives NEXA Universe et avantages boutique',
     'academy.header.accessLimited': 'Abonnez-vous pour débloquer tout le contenu',
     'academy.banner.title': 'NEXA UNIVERSE Access',
     'academy.banner.description': 'Créez un compte gratuit pour explorer la plateforme. Passez à NEXA Access pour débloquer tous les contenus premium, des réductions exclusives et bien plus encore.',
@@ -385,7 +385,7 @@ const translations: Record<Language, Record<string, string>> = {
     'landing.footer.copyright': '© 2024 NEXA UNIVERSE. All rights reserved.',
 
     'academy.header.title': 'Academy',
-    'academy.header.accessFull': 'Full access to all levels',
+    'academy.header.accessFull': 'Access to exclusive NEXA Universe videos and shop benefits',
     'academy.header.accessLimited': 'Subscribe to unlock all content',
     'academy.banner.title': 'NEXA UNIVERSE Access',
     'academy.banner.description': 'Create a free account to explore the platform. Upgrade to NEXA Access to unlock all premium content, exclusive discounts and much more.',
@@ -705,7 +705,7 @@ const translations: Record<Language, Record<string, string>> = {
     'landing.footer.copyright': '© 2024 NEXA UNIVERSE. Todos os direitos reservados.',
 
     'academy.header.title': 'Academia',
-    'academy.header.accessFull': 'Acesso completo a todos os níveis',
+    'academy.header.accessFull': 'Acesso aos vídeos exclusivos NEXA Universe e benefícios na loja',
     'academy.header.accessLimited': 'Assine para desbloquear todo o conteúdo',
     'academy.banner.title': 'NEXA UNIVERSE Access',
     'academy.banner.description': 'Crie uma conta gratuita para explorar a plataforma. Atualize para NEXA Access para desbloquear todo o conteúdo premium, descontos exclusivos e muito mais.',
@@ -1025,7 +1025,7 @@ const translations: Record<Language, Record<string, string>> = {
     'landing.footer.copyright': '© 2024 NEXA UNIVERSE. Todos los derechos reservados.',
 
     'academy.header.title': 'Academia',
-    'academy.header.accessFull': 'Acceso completo a todos los niveles',
+    'academy.header.accessFull': 'Acceso a los videos exclusivos de NEXA Universe y beneficios en la tienda',
     'academy.header.accessLimited': 'Suscríbete para desbloquear todo el contenido',
     'academy.banner.title': 'NEXA UNIVERSE Access',
     'academy.banner.description': 'Crea una cuenta gratuita para explorar la plataforma. Actualiza a NEXA Access para desbloquear todo el contenido premium, descuentos exclusivos y mucho más.',
