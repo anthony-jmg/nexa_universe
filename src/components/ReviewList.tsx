@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
-import { Star, Edit2, Trash2 } from 'lucide-react';
+import { Star, CreditCard as Edit2, Trash2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import ReviewForm from './ReviewForm';
+import SubscriberBadge from './SubscriberBadge';
 
 interface Review {
   id: string;
@@ -14,6 +15,7 @@ interface Review {
   profiles: {
     full_name: string;
     avatar_url: string;
+    platform_subscription_status: string;
   };
 }
 
@@ -40,7 +42,7 @@ export default function ReviewList({ itemType, itemId }: ReviewListProps) {
         .from('reviews')
         .select(`
           *,
-          profiles!reviews_user_id_fkey(full_name, avatar_url)
+          profiles!reviews_user_id_fkey(full_name, avatar_url, platform_subscription_status)
         `)
         .eq('reviewable_type', itemType)
         .eq('reviewable_id', itemId)
@@ -209,8 +211,11 @@ export default function ReviewList({ itemType, itemId }: ReviewListProps) {
                       {review.profiles?.full_name?.[0]?.toUpperCase() || 'U'}
                     </div>
                     <div>
-                      <div className="font-medium text-white">
+                      <div className="font-medium text-white flex items-center gap-1.5">
                         {review.profiles?.full_name || 'Utilisateur'}
+                        {review.profiles?.platform_subscription_status === 'active' && (
+                          <SubscriberBadge />
+                        )}
                       </div>
                       <div className="flex items-center gap-2">
                         {renderStars(review.rating)}
