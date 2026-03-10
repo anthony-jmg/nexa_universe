@@ -1,4 +1,4 @@
-import { Menu, X, User, Shield, ShoppingCart, LayoutDashboard, Heart, Package, ChevronDown, GraduationCap, Users, Store, Bell, LogOut, LogIn, UserPlus } from 'lucide-react';
+mport { Menu, X, User, Shield, ShoppingCart, LayoutDashboard, Heart, Package, ChevronDown, GraduationCap, Users, Store, Bell, LogOut, LogIn, UserPlus } from 'lucide-react';
 import { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useCart } from '../contexts/CartContext';
@@ -7,6 +7,7 @@ import { useLanguage } from '../contexts/LanguageContext';
 import { LanguageSelector } from './LanguageSelector';
 import NotificationDropdown from './NotificationDropdown';
 import { getAvatarUrl } from './AvatarUpload';
+import SubscriberBadge from './SubscriberBadge';
 
 interface HeaderProps {
   onNavigate: (page: string) => void;
@@ -156,7 +157,12 @@ export function Header({ onNavigate, currentPage }: HeaderProps) {
                     ) : (
                       <User className="w-3.5 h-3.5 lg:w-4 lg:h-4" />
                     )}
-                    <span className="hidden lg:inline">{profile?.full_name || t('nav.account')}</span>
+                    <span className="hidden lg:inline flex items-center gap-1">
+                      {profile?.full_name || t('nav.account')}
+                      {profile?.platform_subscription_status === 'active' && (
+                        <SubscriberBadge className="ml-1" />
+                      )}
+                    </span>
                     <ChevronDown className={`w-3 h-3 lg:w-4 lg:h-4 transition-transform ${userMenuOpen ? 'rotate-180' : ''}`} />
                   </button>
                   {userMenuOpen && (
