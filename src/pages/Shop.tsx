@@ -155,7 +155,8 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
         )
       `, { count: 'exact' })
       .in('event_status', ['published', 'upcoming'])
-      .eq('is_active', true);
+      .eq('is_active', true)
+      .gte('start_date', new Date().toISOString());
 
     if (debouncedSearchQuery.trim()) {
       query = query.or(`title.ilike.%${debouncedSearchQuery}%,description.ilike.%${debouncedSearchQuery}%`);
@@ -487,6 +488,7 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
                 const availableTickets = getAvailableTickets(event);
                 const eventDate = new Date(event.start_date);
                 const isAlmostFull = event.max_attendees && availableTickets < event.max_attendees * 0.2;
+                const isUpcoming = event.event_status === 'upcoming';
 
                 return (
                   <div
@@ -507,7 +509,13 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
                       )}
                       <div className="absolute inset-0 bg-gradient-to-t from-gray-900/80 via-transparent to-transparent"></div>
 
-                      {isAlmostFull && (
+                      {isUpcoming && (
+                        <div className="absolute top-2 left-2 px-2 py-0.5 bg-[#B8913D] bg-opacity-90 text-white text-[10px] font-bold rounded-full flex items-center gap-1">
+                          <Clock className="w-2.5 h-2.5" />
+                          Bientôt disponible
+                        </div>
+                      )}
+                      {!isUpcoming && isAlmostFull && (
                         <div className="absolute top-2 right-2 px-2 py-0.5 bg-red-600 bg-opacity-90 text-white text-[10px] font-bold rounded-full">
                           Places limitées
                         </div>
@@ -549,7 +557,7 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
                         </div>
                       </div>
 
-                      {event.event_ticket_types && event.event_ticket_types.filter(ett => ett.is_active).length > 0 && (
+                      {!isUpcoming && event.event_ticket_types && event.event_ticket_types.filter(ett => ett.is_active).length > 0 && (
                         <div className="mb-3 space-y-1">
                           {event.event_ticket_types.filter(ett => ett.is_active).slice(0, 2).map((ett) => {
                             const hasDiscount = ett.member_price > 0 && ett.member_price < ett.price;
@@ -582,7 +590,12 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
 
                       <div className="flex items-center justify-between mt-auto pt-2.5 border-t border-gray-700/50">
                         <div>
-                          {minPrice !== null ? (
+                          {isUpcoming ? (
+                            <div className="flex items-center gap-1.5">
+                              <Clock className="w-3.5 h-3.5 text-[#B8913D]" />
+                              <span className="text-xs font-medium text-[#B8913D]">Bientôt disponible</span>
+                            </div>
+                          ) : minPrice !== null ? (
                             minMemberPrice && minMemberPrice < minPrice ? (
                               <div>
                                 <div className="text-[10px] text-gray-400 line-through">{minPrice.toFixed(2)}€</div>
@@ -610,18 +623,20 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
                             <Info className="w-3 h-3" />
                             <span>Détails</span>
                           </button>
-                          <button
-                            onClick={() => handleAddEventTicketToCart(event)}
-                            disabled={availableTickets === 0}
-                            className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center space-x-1 ${
-                              availableTickets === 0
-                                ? 'bg-gray-800 text-gray-500 cursor-not-allowed'
-                                : 'bg-gradient-to-r from-[#B8913D] to-[#A07F35] text-white hover:shadow-lg hover:shadow-[#B8913D]/40 hover:scale-105'
-                            }`}
-                          >
-                            <ShoppingBag className="w-3 h-3" />
-                            <span>{availableTickets === 0 ? 'Complet' : 'Réserver'}</span>
-                          </button>
+                          {!isUpcoming && (
+                            <button
+                              onClick={() => handleAddEventTicketToCart(event)}
+                              disabled={availableTickets === 0}
+                              className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center space-x-1 ${
+                                availableTickets === 0
+                                  ? 'bg-gray-800 text-gray-500 cursor-not-allowed'
+                                  : 'bg-gradient-to-r from-[#B8913D] to-[#A07F35] text-white hover:shadow-lg hover:shadow-[#B8913D]/40 hover:scale-105'
+                              }`}
+                            >
+                              <ShoppingBag className="w-3 h-3" />
+                              <span>{availableTickets === 0 ? 'Complet' : 'Réserver'}</span>
+                            </button>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -858,7 +873,9 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
         )}
       </div>
 
-      {detailEvent && (
+      {detailEvent && (() => {
+        const isDetailUpcoming = detailEvent.event_status === 'upcoming';
+        return (
         <div className="fixed inset-0 bg-black bg-opacity-70 backdrop-blur-sm flex items-center justify-center z-50 p-3 sm:p-4">
           <div className="bg-gray-900 bg-opacity-95 backdrop-blur-sm rounded-xl sm:rounded-2xl max-w-lg w-full border border-[#B8913D] border-opacity-30 shadow-2xl max-h-[90vh] overflow-y-auto">
             {(detailEvent as any).thumbnail_url && (
@@ -929,7 +946,7 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
                 </div>
               )}
 
-              {detailEvent.event_ticket_types && detailEvent.event_ticket_types.filter(ett => ett.is_active).length > 0 && (
+              {!isDetailUpcoming && detailEvent.event_ticket_types && detailEvent.event_ticket_types.filter(ett => ett.is_active).length > 0 && (
                 <div className="mb-5">
                   <h4 className="text-xs font-semibold text-[#B8913D] uppercase tracking-wider mb-2">Tarifs</h4>
                   <div className="space-y-2">
@@ -968,6 +985,13 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
                 </div>
               )}
 
+              {isDetailUpcoming && (
+                <div className="mb-5 p-3 bg-[#B8913D] bg-opacity-10 border border-[#B8913D] border-opacity-30 rounded-lg flex items-center gap-2">
+                  <Clock className="w-4 h-4 text-[#B8913D] flex-shrink-0" />
+                  <p className="text-sm text-[#B8913D] font-medium">Les billets seront bientôt disponibles à la vente.</p>
+                </div>
+              )}
+
               <div className="flex space-x-2 sm:space-x-3">
                 <button
                   onClick={() => setDetailEvent(null)}
@@ -975,26 +999,29 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
                 >
                   Fermer
                 </button>
-                <button
-                  onClick={() => {
-                    handleAddEventTicketToCart(detailEvent);
-                    setDetailEvent(null);
-                  }}
-                  disabled={getAvailableTickets(detailEvent) === 0}
-                  className={`flex-1 py-2.5 text-sm rounded-lg font-medium transition-all flex items-center justify-center space-x-2 ${
-                    getAvailableTickets(detailEvent) === 0
-                      ? 'bg-gray-800 text-gray-500 cursor-not-allowed'
-                      : 'bg-gradient-to-r from-[#B8913D] to-[#A07F35] text-white hover:shadow-lg hover:shadow-[#B8913D]/40'
-                  }`}
-                >
-                  <ShoppingBag className="w-4 h-4" />
-                  <span>{getAvailableTickets(detailEvent) === 0 ? 'Complet' : 'Réserver'}</span>
-                </button>
+                {!isDetailUpcoming && (
+                  <button
+                    onClick={() => {
+                      handleAddEventTicketToCart(detailEvent);
+                      setDetailEvent(null);
+                    }}
+                    disabled={getAvailableTickets(detailEvent) === 0}
+                    className={`flex-1 py-2.5 text-sm rounded-lg font-medium transition-all flex items-center justify-center space-x-2 ${
+                      getAvailableTickets(detailEvent) === 0
+                        ? 'bg-gray-800 text-gray-500 cursor-not-allowed'
+                        : 'bg-gradient-to-r from-[#B8913D] to-[#A07F35] text-white hover:shadow-lg hover:shadow-[#B8913D]/40'
+                    }`}
+                  >
+                    <ShoppingBag className="w-4 h-4" />
+                    <span>{getAvailableTickets(detailEvent) === 0 ? 'Complet' : 'Réserver'}</span>
+                  </button>
+                )}
               </div>
             </div>
           </div>
         </div>
-      )}
+        );
+      })()}
 
       {selectedEvent && (
         <div className="fixed inset-0 bg-black bg-opacity-70 backdrop-blur-sm flex items-center justify-center z-50 p-3 sm:p-4">
