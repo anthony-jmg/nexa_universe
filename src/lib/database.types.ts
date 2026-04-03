@@ -350,7 +350,7 @@ export interface Database {
           end_date: string | null
           image_url: string
           is_active: boolean
-          event_status: 'draft' | 'published' | 'cancelled' | 'completed'
+          event_status: 'draft' | 'published' | 'cancelled' | 'completed' | 'upcoming'
           created_by: string | null
           max_attendees: number | null
           created_at: string
@@ -365,7 +365,7 @@ export interface Database {
           end_date?: string | null
           image_url?: string
           is_active?: boolean
-          event_status?: 'draft' | 'published' | 'cancelled' | 'completed'
+          event_status?: 'draft' | 'published' | 'cancelled' | 'completed' | 'upcoming'
           created_by?: string | null
           max_attendees?: number | null
           created_at?: string
@@ -380,7 +380,7 @@ export interface Database {
           end_date?: string | null
           image_url?: string
           is_active?: boolean
-          event_status?: 'draft' | 'published' | 'cancelled' | 'completed'
+          event_status?: 'draft' | 'published' | 'cancelled' | 'completed' | 'upcoming'
           created_by?: string | null
           max_attendees?: number | null
           created_at?: string

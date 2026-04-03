@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { Database } from '../lib/database.types';
 import { ImageUpload } from './ImageUpload';
-import { Calendar, Plus, Edit2, Trash2, X, Check, AlertCircle, Ticket } from 'lucide-react';
+import { Calendar, Plus, CreditCard as Edit2, Trash2, X, Check, AlertCircle, Ticket, BarChart3 } from 'lucide-react';
+import { EventSalesStats } from './EventSalesStats';
 
 type Event = Database['public']['Tables']['events']['Row'];
 type TicketType = Database['public']['Tables']['ticket_types']['Row'];
@@ -21,7 +22,7 @@ interface EventFormData {
   end_date: string;
   location: string;
   thumbnail_url: string;
-  event_status: 'draft' | 'published';
+  event_status: 'draft' | 'published' | 'upcoming';
   is_active: boolean;
 }
 
@@ -41,6 +42,7 @@ export function EventsManagement() {
   const [loading, setLoading] = useState(true);
   const [showEventForm, setShowEventForm] = useState(false);
   const [editingEvent, setEditingEvent] = useState<EventWithTickets | null>(null);
+  const [statsEvent, setStatsEvent] = useState<EventWithTickets | null>(null);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
@@ -162,7 +164,7 @@ export function EventsManagement() {
       end_date: toDatetimeLocal(event.end_date),
       location: event.location || '',
       thumbnail_url: event.thumbnail_url || '',
-      event_status: event.event_status as 'draft' | 'published',
+      event_status: event.event_status as 'draft' | 'published' | 'upcoming',
       is_active: event.is_active,
     });
     setEventTicketTypes(
@@ -433,10 +435,11 @@ export function EventsManagement() {
                 </label>
                 <select
                   value={eventForm.event_status}
-                  onChange={(e) => setEventForm({ ...eventForm, event_status: e.target.value as 'draft' | 'published' })}
+                  onChange={(e) => setEventForm({ ...eventForm, event_status: e.target.value as 'draft' | 'published' | 'upcoming' })}
                   className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-[#B8913D] focus:border-[#B8913D] outline-none"
                 >
                   <option value="draft">Brouillon</option>
+                  <option value="upcoming">À venir</option>
                   <option value="published">Publié</option>
                 </select>
               </div>
@@ -590,6 +593,14 @@ export function EventsManagement() {
         </div>
       )}
 
+      {statsEvent && (
+        <EventSalesStats
+          eventId={statsEvent.id}
+          eventTitle={statsEvent.title}
+          onClose={() => setStatsEvent(null)}
+        />
+      )}
+
       <div className="grid grid-cols-1 gap-6">
         {events.map((event) => (
           <div
@@ -604,10 +615,12 @@ export function EventsManagement() {
                     className={`px-3 py-1 rounded-full text-xs font-medium ${
                       event.event_status === 'published'
                         ? 'bg-green-900 bg-opacity-40 text-green-300 border border-green-600 border-opacity-40'
+                        : event.event_status === 'upcoming'
+                        ? 'bg-blue-900 bg-opacity-40 text-blue-300 border border-blue-600 border-opacity-40'
                         : 'bg-gray-700 text-gray-300'
                     }`}
                   >
-                    {event.event_status === 'published' ? 'Publié' : 'Brouillon'}
+                    {event.event_status === 'published' ? 'Publié' : event.event_status === 'upcoming' ? 'À venir' : 'Brouillon'}
                   </span>
                   {!event.is_active && (
                     <span className="px-3 py-1 rounded-full text-xs font-medium bg-red-900 bg-opacity-40 text-red-300 border border-red-600 border-opacity-40">
@@ -648,6 +661,13 @@ export function EventsManagement() {
                 )}
               </div>
               <div className="flex items-center space-x-2">
+                <button
+                  onClick={() => setStatsEvent(event)}
+                  className="p-2 text-[#B8913D] hover:text-[#A07F35] transition-colors"
+                  title="Statistiques de vente"
+                >
+                  <BarChart3 className="w-5 h-5" />
+                </button>
                 <button
                   onClick={() => handleEditEvent(event)}
                   className="p-2 text-blue-400 hover:text-blue-300 transition-colors"
