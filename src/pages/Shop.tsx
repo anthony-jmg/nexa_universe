@@ -501,8 +501,7 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
                         <img
                           src={(event as any).thumbnail_url}
                           alt={event.title}
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 cursor-zoom-in"
-                          onClick={(e) => { e.stopPropagation(); setLightboxImage((event as any).thumbnail_url); }}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                         />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-800 to-gray-900">
@@ -510,6 +509,15 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
                         </div>
                       )}
                       <div className="absolute inset-0 bg-gradient-to-t from-gray-900/80 via-transparent to-transparent"></div>
+                      {(event as any).thumbnail_url && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setLightboxImage((event as any).thumbnail_url); }}
+                          className="absolute top-2 right-2 p-1.5 rounded-full bg-black/40 hover:bg-black/70 text-white transition-all opacity-0 group-hover:opacity-100 z-10"
+                          title="Voir la photo"
+                        >
+                          <Images className="w-3.5 h-3.5" />
+                        </button>
+                      )}
 
                       {isUpcoming && (
                         <div className="absolute top-2 left-2 px-2 py-0.5 bg-[#B8913D] bg-opacity-90 text-white text-[10px] font-bold rounded-full flex items-center gap-1">
