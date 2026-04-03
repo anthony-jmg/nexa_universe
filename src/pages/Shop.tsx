@@ -46,6 +46,7 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
   const [ticketQuantities, setTicketQuantities] = useState<Record<string, number>>({});
   const [success, setSuccess] = useState('');
   const [detailEvent, setDetailEvent] = useState<EventWithTickets | null>(null);
+  const [lightboxImage, setLightboxImage] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
   const [priceRange, setPriceRange] = useState<'all' | 'under25' | '25to50' | 'over50'>('all');
@@ -500,7 +501,8 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
                         <img
                           src={(event as any).thumbnail_url}
                           alt={event.title}
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 cursor-zoom-in"
+                          onClick={(e) => { e.stopPropagation(); setLightboxImage((event as any).thumbnail_url); }}
                         />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-800 to-gray-900">
@@ -866,6 +868,26 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
           </>
         )}
       </div>
+
+      {lightboxImage && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-sm"
+          onClick={() => setLightboxImage(null)}
+        >
+          <button
+            className="absolute top-4 right-4 p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
+            onClick={() => setLightboxImage(null)}
+          >
+            <X className="w-6 h-6" />
+          </button>
+          <img
+            src={lightboxImage}
+            alt="Affiche de l'événement"
+            className="max-w-[90vw] max-h-[90vh] object-contain rounded-xl shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      )}
 
       {detailEvent && (() => {
         const isDetailUpcoming = detailEvent.event_status === 'upcoming';
