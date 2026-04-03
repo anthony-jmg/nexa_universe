@@ -549,12 +549,6 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
                           </div>
                         )}
 
-                        <div className="flex items-center space-x-2 text-gray-300">
-                          <Users className="w-3.5 h-3.5 text-[#B8913D] flex-shrink-0" />
-                          <span className={`text-xs ${availableTickets === 0 ? 'text-red-400' : ''}`}>
-                            {availableTickets > 0 ? `${availableTickets} places dispo.` : 'Complet'}
-                          </span>
-                        </div>
                       </div>
 
                       {!isUpcoming && event.event_ticket_types && event.event_ticket_types.filter(ett => ett.is_active).length > 0 && (
