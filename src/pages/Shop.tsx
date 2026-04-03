@@ -154,9 +154,8 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
           ticket_type:ticket_types (*)
         )
       `, { count: 'exact' })
-      .eq('event_status', 'published')
-      .eq('is_active', true)
-      .gte('start_date', new Date().toISOString());
+      .in('event_status', ['published', 'upcoming'])
+      .eq('is_active', true);
 
     if (debouncedSearchQuery.trim()) {
       query = query.or(`title.ilike.%${debouncedSearchQuery}%,description.ilike.%${debouncedSearchQuery}%`);
