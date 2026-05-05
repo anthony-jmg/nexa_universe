@@ -37,8 +37,9 @@ Deno.serve(async (req: Request) => {
       throw new Error("No stripe signature");
     }
 
-    const body = await req.text();
-    const event = stripe.webhooks.constructEvent(body, signature, webhookSecret);
+    const body = await req.arrayBuffer();
+    const bodyText = new TextDecoder().decode(body);
+    const event = await stripe.webhooks.constructEventAsync(bodyText, signature, webhookSecret, undefined, Stripe.createSubtleCryptoProvider());
 
     console.log(`Received webhook: ${event.type}`);
 
@@ -83,6 +84,12 @@ Deno.serve(async (req: Request) => {
       case "invoice.payment_failed": {
         const invoice = event.data.object as Stripe.Invoice;
         await handleInvoicePaymentFailed(supabase, invoice);
+        break;
+      }
+
+      case "account.updated": {
+        const account = event.data.object as Stripe.Account;
+        await handleConnectAccountUpdated(supabase, account);
         break;
       }
     }
@@ -148,41 +155,45 @@ async function handleCheckoutCompleted(
   if (paymentType === "order") {
     const orderId = session.metadata?.order_id;
     if (orderId) {
+      const { data: orderItems } = await supabase
+        .from("order_items")
+        .select("product_id, quantity, item_type")
+        .eq("order_id", orderId);
+
+      const hasPhysicalProducts = orderItems?.some((item: any) => item.item_type === "product" && item.product_id);
+      const newStatus = hasPhysicalProducts ? "paid" : "completed";
+
       await supabase
         .from("orders")
         .update({
-          status: "paid",
+          status: newStatus,
           stripe_payment_intent_id: paymentIntentId,
         })
         .eq("id", orderId);
-
-      const { data: orderItems } = await supabase
-        .from("order_items")
-        .select("product_id, quantity")
-        .eq("order_id", orderId);
 
       if (orderItems && orderItems.length > 0) {
         for (const item of orderItems) {
           if (item.product_id) {
             const { data: product } = await supabase
               .from("products")
-              .select("stock")
+              .select("stock_quantity")
               .eq("id", item.product_id)
-              .single();
+              .maybeSingle();
 
-            if (product && product.stock >= 0) {
+            if (product && product.stock_quantity >= 0) {
               await supabase
                 .from("products")
-                .update({ stock: product.stock - item.quantity })
+                .update({ stock_quantity: product.stock_quantity - item.quantity })
                 .eq("id", item.product_id);
             }
           }
         }
       }
 
-      await supabase.rpc("release_stock_reservation", { p_order_id: orderId });
-
-      await supabase.rpc("convert_pending_to_actual_attendees", { p_order_id: orderId });
+      const { error: rpcError } = await supabase.rpc("convert_pending_to_actual_attendees", { p_order_id: orderId });
+      if (rpcError) {
+        console.error(`Failed to convert pending attendees for order ${orderId}:`, rpcError);
+      }
 
       if (paymentIntentId) {
         await supabase.from("stripe_payments").insert({
@@ -198,7 +209,7 @@ async function handleCheckoutCompleted(
         });
       }
 
-      console.log(`Order ${orderId} paid: stock updated, reservations released, attendees created`);
+      console.log(`Order ${orderId} paid: status set to '${newStatus}', stock updated, reservations released, attendees created`);
     }
   } else if (paymentType === "video") {
     const videoId = session.metadata?.video_id;
@@ -226,6 +237,37 @@ async function handleCheckoutCompleted(
           video_purchase_id: purchase.id,
           metadata: session.metadata,
         });
+      }
+    }
+  } else if (paymentType === "program") {
+    const programId = session.metadata?.target_id;
+    if (programId && paymentIntentId) {
+      const { data: purchase } = await supabase
+        .from("program_purchases")
+        .insert({
+          user_id: userId,
+          program_id: programId,
+          price_paid: (session.amount_total || 0) / 100,
+          status: "active",
+          purchased_at: new Date().toISOString(),
+        })
+        .select()
+        .single();
+
+      if (purchase) {
+        await supabase.from("stripe_payments").insert({
+          user_id: userId,
+          stripe_payment_intent_id: paymentIntentId,
+          stripe_customer_id: session.customer as string,
+          amount: (session.amount_total || 0) / 100,
+          currency: session.currency || "eur",
+          status: "succeeded",
+          payment_type: "program",
+          program_purchase_id: purchase.id,
+          metadata: session.metadata,
+        });
+
+        console.log(`Program ${programId} purchased by user ${userId}`);
       }
     }
   }
@@ -426,4 +468,28 @@ async function handleInvoicePaymentFailed(
   }
 
   console.log(`Invoice payment failed for subscription ${subscriptionId}`);
+}
+
+async function handleConnectAccountUpdated(
+  supabase: any,
+  account: Stripe.Account
+) {
+  const userId = account.metadata?.user_id;
+  if (!userId) {
+    console.log(`Connect account ${account.id} updated but no user_id in metadata`);
+    return;
+  }
+
+  const onboardingCompleted = account.details_submitted || false;
+  const chargesEnabled = account.charges_enabled || false;
+
+  await supabase
+    .from("professors")
+    .update({
+      stripe_connect_onboarding_completed: onboardingCompleted,
+      stripe_connect_enabled: chargesEnabled,
+    })
+    .eq("id", userId);
+
+  console.log(`Connect account ${account.id} updated for professor ${userId}: onboarding=${onboardingCompleted}, charges=${chargesEnabled}`);
 }

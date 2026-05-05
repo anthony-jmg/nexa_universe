@@ -7,9 +7,10 @@ import { VideoUpload } from '../components/VideoUpload';
 import { ProgramEditForm } from '../components/ProgramEditForm';
 import { VideoEditForm } from '../components/VideoEditForm';
 import ProfessorPaymentHistory from '../components/ProfessorPaymentHistory';
+import { StripeConnectCard } from '../components/StripeConnectCard';
 import LazyImage from '../components/LazyImage';
 import { Database } from '../lib/database.types';
-import { Video, Folder, Plus, Edit2, Trash2, X, Check, AlertCircle, Eye, EyeOff, Lock, Settings, Percent, ChevronUp, ChevronDown, List, BarChart3, Users, Play, DollarSign, TrendingUp } from 'lucide-react';
+import { Video, Folder, Plus, CreditCard as Edit2, Trash2, X, Check, AlertCircle, Eye, EyeOff, Lock, Settings, Percent, ChevronUp, ChevronDown, List, BarChart3, Users, Play, DollarSign, TrendingUp } from 'lucide-react';
 
 type Video = Database['public']['Tables']['videos']['Row'];
 type Program = Database['public']['Tables']['programs']['Row'];
@@ -1196,6 +1197,8 @@ export function ProfessorDashboard({ onNavigate }: ProfessorDashboardProps) {
                 </button>
               </div>
             </div>
+
+            <StripeConnectCard userId={user?.id} />
           </div>
         ) : activeTab === 'programs' ? (
           <div className="space-y-4 sm:space-y-6">

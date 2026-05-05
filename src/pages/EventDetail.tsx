@@ -272,7 +272,6 @@ export function EventDetail({ eventId, onNavigate }: EventDetailProps) {
                             ))}
                           </ul>
                         )}
-                        <p className="text-xs text-gray-500 mt-2">{available} places disponibles</p>
                       </div>
 
                       <div className="flex items-center justify-between sm:justify-end gap-4 sm:gap-6">

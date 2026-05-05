@@ -4,7 +4,8 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
+  "Access-Control-Allow-Headers":
+    "Content-Type, Authorization, X-Client-Info, Apikey",
 };
 
 Deno.serve(async (req: Request) => {
@@ -16,7 +17,6 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    // Only allow POST requests
     if (req.method !== "POST") {
       return new Response(
         JSON.stringify({ error: "Method not allowed" }),
@@ -27,7 +27,6 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // Authenticate user
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
       return new Response(
@@ -44,7 +43,10 @@ Deno.serve(async (req: Request) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     const token = authHeader.replace("Bearer ", "");
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser(token);
 
     if (authError || !user) {
       return new Response(
@@ -56,12 +58,11 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // Verify user is professor or admin
     const { data: profile, error: profileError } = await supabase
       .from("profiles")
       .select("role")
       .eq("id", user.id)
-      .single();
+      .maybeSingle();
 
     if (profileError || !profile) {
       return new Response(
@@ -75,7 +76,9 @@ Deno.serve(async (req: Request) => {
 
     if (!["professor", "admin"].includes(profile.role)) {
       return new Response(
-        JSON.stringify({ error: "Forbidden - Only professors and admins can upload videos" }),
+        JSON.stringify({
+          error: "Forbidden - Only professors and admins can upload videos",
+        }),
         {
           status: 403,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -83,14 +86,12 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // Get environment variables
     const accountId = Deno.env.get("CLOUDFLARE_ACCOUNT_ID");
     const apiToken = Deno.env.get("CLOUDFLARE_API_TOKEN");
 
     if (!accountId || !apiToken) {
-      console.error("Missing Cloudflare credentials");
       return new Response(
-        JSON.stringify({ error: "Server configuration error" }),
+        JSON.stringify({ error: "Server configuration error - Missing Cloudflare credentials" }),
         {
           status: 500,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -98,107 +99,48 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // Parse the multipart form data
-    const formData = await req.formData();
-    const file = formData.get("file") as File;
-    const title = formData.get("title") as string || "Untitled Video";
+    const body = await req.json();
+    const title = body.title || "Untitled Video";
+    const maxDurationSeconds = body.maxDurationSeconds || 3600;
 
-    if (!file) {
-      return new Response(
-        JSON.stringify({ error: "No file provided" }),
-        {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
-      );
-    }
+    const directUploadUrl = `https://api.cloudflare.com/client/v4/accounts/${accountId}/stream/direct_upload`;
 
-    // Prepare form data for Cloudflare
-    const cloudflareFormData = new FormData();
-    cloudflareFormData.append("file", file);
-    
-    // Add metadata
-    const metadata = JSON.stringify({
-      name: title,
-    });
-    cloudflareFormData.append("meta", metadata);
-
-    // Upload to Cloudflare Stream
-    const uploadUrl = `https://api.cloudflare.com/client/v4/accounts/${accountId}/stream`;
-    
-    console.log("Uploading to Cloudflare Stream...");
-    const cloudflareResponse = await fetch(uploadUrl, {
+    const cfResponse = await fetch(directUploadUrl, {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${apiToken}`,
+        Authorization: `Bearer ${apiToken}`,
+        "Content-Type": "application/json",
       },
-      body: cloudflareFormData,
+      body: JSON.stringify({
+        maxDurationSeconds,
+        requireSignedURLs: true,
+        meta: { name: title },
+      }),
     });
 
-    const responseText = await cloudflareResponse.text();
-    console.log("Cloudflare response:", responseText);
+    const cfResult = await cfResponse.json();
 
-    if (!cloudflareResponse.ok) {
-      console.error("Cloudflare API error:", responseText);
-      return new Response(
-        JSON.stringify({ 
-          error: "Failed to upload to Cloudflare",
-          details: responseText 
-        }),
-        {
-          status: cloudflareResponse.status,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
-      );
-    }
-
-    const result = JSON.parse(responseText);
-
-    if (!result.success || !result.result) {
+    if (!cfResponse.ok || !cfResult.success) {
       return new Response(
         JSON.stringify({
-          error: "Invalid response from Cloudflare",
-          details: result
+          error: "Failed to get upload URL from Cloudflare",
+          details: cfResult.errors,
         }),
         {
-          status: 500,
+          status: cfResponse.status,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         }
       );
     }
 
-    const videoId = result.result.uid;
-
-    console.log("Enabling signed URLs for video:", videoId);
-    const updateResponse = await fetch(
-      `https://api.cloudflare.com/client/v4/accounts/${accountId}/stream/${videoId}`,
-      {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${apiToken}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          requireSignedURLs: true,
-        }),
-      }
-    );
-
-    if (!updateResponse.ok) {
-      const updateError = await updateResponse.text();
-      console.error("Failed to enable signed URLs:", updateError);
-    } else {
-      console.log("Signed URLs enabled successfully");
-    }
+    const uploadURL = cfResult.result.uploadURL;
+    const videoId = cfResult.result.uid;
 
     return new Response(
       JSON.stringify({
         success: true,
-        videoId: videoId,
-        status: result.result.status?.state || "pending",
-        duration: result.result.duration,
-        thumbnail: result.result.thumbnail,
-        requireSignedURLs: true,
+        uploadURL,
+        videoId,
       }),
       {
         status: 200,
@@ -206,11 +148,10 @@ Deno.serve(async (req: Request) => {
       }
     );
   } catch (error: any) {
-    console.error("Upload error:", error);
     return new Response(
-      JSON.stringify({ 
+      JSON.stringify({
         error: "Internal server error",
-        message: error.message 
+        message: error.message,
       }),
       {
         status: 500,

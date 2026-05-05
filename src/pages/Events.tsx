@@ -4,7 +4,7 @@ import { useLanguage } from '../contexts/LanguageContext';
 import { supabase } from '../lib/supabase';
 import { BackgroundDecor } from '../components/BackgroundDecor';
 import { Database } from '../lib/database.types';
-import { Calendar, MapPin, Users, ChevronRight, Clock, Bell } from 'lucide-react';
+import { Calendar, MapPin, ChevronRight, Clock, Bell } from 'lucide-react';
 
 type Event = Database['public']['Tables']['events']['Row'];
 type TicketType = Database['public']['Tables']['ticket_types']['Row'];
@@ -50,7 +50,10 @@ export function Events({ onNavigate }: EventsProps) {
       .eq('is_active', true)
       .order('start_date', { ascending: true });
 
-    if (!error && data) {
+    if (error) {
+      console.error('Error loading events:', error);
+    }
+    if (data) {
       setEvents(data as any);
     }
     setLoading(false);
@@ -189,12 +192,6 @@ export function Events({ onNavigate }: EventsProps) {
                                 <span className="text-sm">{event.location}</span>
                               </div>
                             )}
-                            <div className="flex items-center space-x-3 text-gray-300">
-                              <Users className="w-5 h-5 text-[#B8913D] flex-shrink-0" />
-                              <span className="text-sm">
-                                {availableTickets > 0 ? `${availableTickets} places disponibles` : 'Complet'}
-                              </span>
-                            </div>
                           </div>
 
                           <div className="flex items-center justify-between pt-4 border-t border-gray-700">

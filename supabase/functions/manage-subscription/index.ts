@@ -102,6 +102,52 @@ Deno.serve(async (req: Request) => {
       subscriptionId = profSub?.stripe_subscription_id;
     }
 
+    const isFreeSubscription = subscription_type === "professor" && !subscriptionId;
+
+    if (!subscriptionId && !isFreeSubscription) {
+      return new Response(
+        JSON.stringify({ error: "No active subscription found" }),
+        {
+          status: 404,
+          headers: {
+            ...corsHeaders,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+    }
+
+    if (isFreeSubscription && action === "cancel" && subscription_type === "professor" && professor_id) {
+      const now = new Date().toISOString();
+      await supabase
+        .from("professor_subscriptions")
+        .update({
+          status: "cancelled",
+          cancel_at_period_end: false,
+          cancellation_reason,
+          cancellation_feedback,
+          cancelled_at: now,
+        })
+        .eq("user_id", user.id)
+        .eq("professor_id", professor_id)
+        .eq("status", "active");
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          message: "Free subscription cancelled successfully",
+          refund_processed: false,
+          refund_id: null,
+        }),
+        {
+          headers: {
+            ...corsHeaders,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+    }
+
     if (!subscriptionId) {
       return new Response(
         JSON.stringify({ error: "No active subscription found" }),

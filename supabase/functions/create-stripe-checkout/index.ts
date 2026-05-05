@@ -8,43 +8,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
 };
 
-async function checkRateLimit(supabase: any, userId: string): Promise<boolean> {
-  const key = `checkout:${userId}`;
-  const now = Date.now();
-  const windowMs = 60000;
-  const maxRequests = 10;
-  const windowStart = now - windowMs;
-
-  const { data: rateLimitRecord } = await supabase
-    .from('rate_limits')
-    .select('*')
-    .eq('key', key)
-    .gte('window_start', new Date(windowStart).toISOString())
-    .maybeSingle();
-
-  if (!rateLimitRecord) {
-    await supabase
-      .from('rate_limits')
-      .insert({
-        key,
-        count: 1,
-        window_start: new Date(now).toISOString(),
-        expires_at: new Date(now + windowMs).toISOString(),
-      });
-    return true;
-  }
-
-  if (rateLimitRecord.count >= maxRequests) {
-    return false;
-  }
-
-  await supabase
-    .from('rate_limits')
-    .update({ count: rateLimitRecord.count + 1 })
-    .eq('id', rateLimitRecord.id);
-
-  return true;
-}
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function validateCheckoutRequest(data: any): string[] {
   const errors: string[] = [];
@@ -132,50 +96,71 @@ Deno.serve(async (req: Request) => {
   try {
     const stripeSecretKey = Deno.env.get("STRIPE_SECRET_KEY");
     if (!stripeSecretKey) {
-      throw new Error("STRIPE_SECRET_KEY not configured");
-    }
-
-    const stripe = new Stripe(stripeSecretKey, {
-      apiVersion: "2024-12-18.acacia",
-    });
-
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader) {
-      throw new Error("No authorization header");
-    }
-
-    const token = authHeader.replace("Bearer ", "");
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-
-    if (authError || !user) {
-      throw new Error("Unauthorized");
-    }
-
-    const allowed = await checkRateLimit(supabase, user.id);
-    if (!allowed) {
+      console.error("STRIPE_SECRET_KEY is not configured in edge function secrets");
       return new Response(
-        JSON.stringify({
-          error: "Rate limit exceeded. Please try again in a minute.",
-        }),
+        JSON.stringify({ error: "Payment system not configured. STRIPE_SECRET_KEY is missing." }),
         {
-          status: 429,
-          headers: {
-            ...corsHeaders,
-            "Content-Type": "application/json",
-            "Retry-After": "60",
-          },
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
         }
       );
     }
 
+    const stripe = new Stripe(stripeSecretKey);
+
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) {
+      console.error("No authorization header provided");
+      return new Response(
+        JSON.stringify({ error: "Authentication required" }),
+        {
+          status: 401,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    }
+
+    const token = authHeader.replace("Bearer ", "");
+    const supabaseUser = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: `Bearer ${token}` } },
+    });
+    const { data: { user }, error: authError } = await supabaseUser.auth.getUser();
+
+    if (authError || !user) {
+      console.error("Auth error:", authError?.message || "No user found");
+      return new Response(
+        JSON.stringify({ error: "Invalid or expired session. Please sign in again." }),
+        {
+          status: 401,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    }
+
+    const supabase = supabaseAdmin;
+
+    console.log("Authenticated user:", user.id, user.email);
+
     const requestData: CheckoutRequest = await req.json();
+
+    console.log('Received checkout request:', {
+      payment_type: requestData.payment_type,
+      items_count: requestData.items?.length,
+      items: requestData.items,
+      has_success_url: !!requestData.success_url,
+      has_cancel_url: !!requestData.cancel_url,
+      metadata: requestData.metadata,
+      price_id: requestData.price_id,
+    });
 
     const validationErrors = validateCheckoutRequest(requestData);
     if (validationErrors.length > 0) {
+      console.error('Validation errors:', validationErrors);
       return new Response(
         JSON.stringify({
           error: "Validation failed",
@@ -192,6 +177,46 @@ Deno.serve(async (req: Request) => {
     }
 
     const { payment_type, items, success_url, cancel_url, metadata = {}, price_id } = requestData;
+
+    // Resolve professor's Stripe Connect account for direct payouts
+    let professorConnectAccountId: string | null = null;
+    let platformFeePercentage = 20;
+
+    if (["video", "program", "professor_subscription"].includes(payment_type)) {
+      let professorId = metadata.professor_id;
+
+      // If professor_id not in metadata, resolve from video or program
+      if (!professorId && payment_type === "video" && metadata.video_id) {
+        const { data: video } = await supabase
+          .from("videos")
+          .select("professor_id")
+          .eq("id", metadata.video_id)
+          .maybeSingle();
+        professorId = video?.professor_id;
+      }
+      if (!professorId && payment_type === "program" && metadata.target_id) {
+        const { data: program } = await supabase
+          .from("programs")
+          .select("professor_id")
+          .eq("id", metadata.target_id)
+          .maybeSingle();
+        professorId = program?.professor_id;
+      }
+
+      if (professorId) {
+        const { data: professor } = await supabase
+          .from("professors")
+          .select("stripe_connect_account_id, stripe_connect_enabled, platform_fee_percentage")
+          .eq("id", professorId)
+          .maybeSingle();
+
+        if (professor?.stripe_connect_account_id && professor?.stripe_connect_enabled) {
+          professorConnectAccountId = professor.stripe_connect_account_id;
+          platformFeePercentage = professor.platform_fee_percentage || 20;
+          console.log(`Using Stripe Connect for professor ${professorId}, fee: ${platformFeePercentage}%`);
+        }
+      }
+    }
 
     let stripeCustomerId: string | undefined;
     const { data: existingCustomer } = await supabase
@@ -233,10 +258,13 @@ Deno.serve(async (req: Request) => {
     if (isSubscription) {
       totalAmount = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
 
+      const subscriptionTransferData = professorConnectAccountId
+        ? { transfer_data: { destination: professorConnectAccountId, amount_percent: (100 - platformFeePercentage) } }
+        : {};
+
       if (price_id) {
         session = await stripe.checkout.sessions.create({
           customer: stripeCustomerId,
-          payment_method_types: ["card"],
           line_items: [
             {
               price: price_id,
@@ -257,13 +285,13 @@ Deno.serve(async (req: Request) => {
               payment_type,
               ...metadata,
             },
+            ...subscriptionTransferData,
           },
         });
       } else {
         const item = items[0];
         session = await stripe.checkout.sessions.create({
           customer: stripeCustomerId,
-          payment_method_types: ["card"],
           line_items: [
             {
               price_data: {
@@ -294,27 +322,46 @@ Deno.serve(async (req: Request) => {
               payment_type,
               ...metadata,
             },
+            ...subscriptionTransferData,
           },
         });
       }
     } else {
-      const lineItems = items.map((item) => ({
-        price_data: {
-          currency: "eur",
-          unit_amount: Math.round(item.price * 100),
-          product_data: {
-            name: item.name,
-            metadata: item.metadata || {},
+      const lineItems = items.map((item) => {
+        const sanitizedMetadata: Record<string, string> = {};
+        if (item.metadata) {
+          for (const [k, v] of Object.entries(item.metadata)) {
+            sanitizedMetadata[String(k)] = String(v);
+          }
+        }
+        return {
+          price_data: {
+            currency: "eur",
+            unit_amount: Math.max(1, Math.round(item.price * 100)),
+            product_data: {
+              name: item.name || "Item",
+              metadata: sanitizedMetadata,
+            },
           },
-        },
-        quantity: item.quantity,
-      }));
+          quantity: item.quantity,
+        };
+      });
 
       totalAmount = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
 
+      const paymentIntentData = professorConnectAccountId
+        ? {
+            payment_intent_data: {
+              transfer_data: {
+                destination: professorConnectAccountId,
+                amount: Math.round(totalAmount * 100 * (100 - platformFeePercentage) / 100),
+              },
+            },
+          }
+        : {};
+
       session = await stripe.checkout.sessions.create({
         customer: stripeCustomerId,
-        payment_method_types: ["card"],
         line_items: lineItems,
         mode: "payment",
         success_url,
@@ -324,20 +371,27 @@ Deno.serve(async (req: Request) => {
           payment_type,
           ...metadata,
         },
+        ...paymentIntentData,
       });
     }
 
-    await supabase.from("stripe_checkout_sessions").insert({
+    const targetId = metadata.target_id && UUID_REGEX.test(metadata.target_id) ? metadata.target_id : null;
+
+    const { error: insertError } = await supabase.from("stripe_checkout_sessions").insert({
       user_id: user.id,
       stripe_session_id: session.id,
       payment_type,
-      target_id: metadata.target_id || null,
+      target_id: targetId,
       amount: totalAmount,
       currency: "eur",
       status: "pending",
       metadata: metadata,
       expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
     });
+
+    if (insertError) {
+      console.error("Failed to save checkout session to DB:", insertError);
+    }
 
     return new Response(
       JSON.stringify({
@@ -352,13 +406,19 @@ Deno.serve(async (req: Request) => {
       }
     );
   } catch (error) {
-    console.error("Error creating checkout session:", error);
+    const message = error instanceof Error ? error.message : "Unknown error";
+    const stripeCode = error && typeof error === 'object' && 'code' in error ? (error as any).code : undefined;
+    const stripeType = error && typeof error === 'object' && 'type' in error ? (error as any).type : undefined;
+    console.error("Checkout error:", { message, stripeCode, stripeType, raw: error });
+
     return new Response(
       JSON.stringify({
-        error: error instanceof Error ? error.message : "Unknown error",
+        error: message,
+        stripe_code: stripeCode,
+        stripe_type: stripeType,
       }),
       {
-        status: 400,
+        status: 500,
         headers: {
           ...corsHeaders,
           "Content-Type": "application/json",

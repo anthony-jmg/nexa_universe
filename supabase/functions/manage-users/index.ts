@@ -28,23 +28,69 @@ Deno.serve(async (req: Request) => {
 
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
-      throw new Error('No authorization header');
+      console.error('Missing authorization header');
+      return new Response(
+        JSON.stringify({ error: 'Missing authorization header' }),
+        {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
     }
 
     const token = authHeader.replace('Bearer ', '');
-    const { data: { user } } = await supabaseAdmin.auth.getUser(token);
+    const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
 
-    if (!user) {
-      throw new Error('Invalid token');
+    if (authError) {
+      console.error('Auth error:', authError);
+      return new Response(
+        JSON.stringify({ error: 'Authentication failed', details: authError.message }),
+        {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
     }
 
-    const { data: profile } = await supabaseAdmin
+    if (!user) {
+      console.error('No user found from token');
+      return new Response(
+        JSON.stringify({ error: 'Invalid token: no user found' }),
+        {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
+    }
+
+    const { data: profile, error: profileError } = await supabaseAdmin
       .from('profiles')
       .select('role')
       .eq('id', user.id)
-      .single();
+      .maybeSingle();
 
-    if (profile?.role !== 'admin') {
+    if (profileError) {
+      console.error('Profile fetch error:', profileError);
+      return new Response(
+        JSON.stringify({ error: 'Failed to fetch user profile', details: profileError.message }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
+    }
+
+    if (!profile) {
+      return new Response(
+        JSON.stringify({ error: 'User profile not found' }),
+        {
+          status: 404,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
+    }
+
+    if (profile.role !== 'admin') {
       return new Response(
         JSON.stringify({ error: 'Unauthorized: Admin access required' }),
         {
