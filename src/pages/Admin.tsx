@@ -725,107 +725,32 @@ export function Admin({ onNavigate }: AdminProps) {
           </div>
         )}
 
-        <div className="flex justify-center mb-8 overflow-x-auto">
-          <div className="inline-flex space-x-3 p-2 bg-gray-800/50 border border-gray-700/50 rounded-full shadow-md">
-            <button
-              onClick={() => setActiveTab('videos')}
-              className={`px-6 py-3 rounded-full font-medium transition-all flex items-center space-x-2 whitespace-nowrap ${
-                activeTab === 'videos'
-                  ? 'bg-gradient-to-r from-[#B8913D] to-[#D4AC5B] text-white border-transparent'
-                  : 'text-gray-300 hover:bg-gray-700/70'
-              }`}
-            >
-              <Video className="w-4 h-4" />
-              <span>Videos</span>
-            </button>
-            <button
-              onClick={() => setActiveTab('users')}
-              className={`px-6 py-3 rounded-full font-medium transition-all flex items-center space-x-2 whitespace-nowrap ${
-                activeTab === 'users'
-                  ? 'bg-gradient-to-r from-[#B8913D] to-[#D4AC5B] text-white border-transparent'
-                  : 'text-gray-300 hover:bg-gray-700/70'
-              }`}
-            >
-              <Users className="w-4 h-4" />
-              <span>Users</span>
-            </button>
-            <button
-              onClick={() => setActiveTab('products')}
-              className={`px-6 py-3 rounded-full font-medium transition-all flex items-center space-x-2 whitespace-nowrap ${
-                activeTab === 'products'
-                  ? 'bg-gradient-to-r from-[#B8913D] to-[#D4AC5B] text-white border-transparent'
-                  : 'text-gray-300 hover:bg-gray-700/70'
-              }`}
-            >
-              <ShoppingBag className="w-4 h-4" />
-              <span>Products</span>
-            </button>
-            <button
-              onClick={() => setActiveTab('product-types')}
-              className={`px-6 py-3 rounded-full font-medium transition-all flex items-center space-x-2 whitespace-nowrap ${
-                activeTab === 'product-types'
-                  ? 'bg-gradient-to-r from-[#B8913D] to-[#D4AC5B] text-white border-transparent'
-                  : 'text-gray-300 hover:bg-gray-700/70'
-              }`}
-            >
-              <Tag className="w-4 h-4" />
-              <span>Product Types</span>
-            </button>
-            <button
-              onClick={() => setActiveTab('orders')}
-              className={`px-6 py-3 rounded-full font-medium transition-all flex items-center space-x-2 whitespace-nowrap ${
-                activeTab === 'orders'
-                  ? 'bg-gradient-to-r from-[#B8913D] to-[#D4AC5B] text-white border-transparent'
-                  : 'text-gray-300 hover:bg-gray-700/70'
-              }`}
-            >
-              <Package className="w-4 h-4" />
-              <span>Orders</span>
-            </button>
-            <button
-              onClick={() => setActiveTab('events')}
-              className={`px-6 py-3 rounded-full font-medium transition-all flex items-center space-x-2 whitespace-nowrap ${
-                activeTab === 'events'
-                  ? 'bg-gradient-to-r from-[#B8913D] to-[#D4AC5B] text-white border-transparent'
-                  : 'text-gray-300 hover:bg-gray-700/70'
-              }`}
-            >
-              <Calendar className="w-4 h-4" />
-              <span>Events</span>
-            </button>
-            <button
-              onClick={() => setActiveTab('ticket-types')}
-              className={`px-6 py-3 rounded-full font-medium transition-all flex items-center space-x-2 whitespace-nowrap ${
-                activeTab === 'ticket-types'
-                  ? 'bg-gradient-to-r from-[#B8913D] to-[#D4AC5B] text-white border-transparent'
-                  : 'text-gray-300 hover:bg-gray-700/70'
-              }`}
-            >
-              <Ticket className="w-4 h-4" />
-              <span>Ticket Types</span>
-            </button>
-            <button
-              onClick={() => setActiveTab('payments')}
-              className={`px-6 py-3 rounded-full font-medium transition-all flex items-center space-x-2 whitespace-nowrap ${
-                activeTab === 'payments'
-                  ? 'bg-gradient-to-r from-[#B8913D] to-[#D4AC5B] text-white border-transparent'
-                  : 'text-gray-300 hover:bg-gray-700/70'
-              }`}
-            >
-              <DollarSign className="w-4 h-4" />
-              <span>Payments</span>
-            </button>
-            <button
-              onClick={() => setActiveTab('professor-requests')}
-              className={`px-6 py-3 rounded-full font-medium transition-all flex items-center space-x-2 whitespace-nowrap ${
-                activeTab === 'professor-requests'
-                  ? 'bg-gradient-to-r from-[#B8913D] to-[#D4AC5B] text-white border-transparent'
-                  : 'text-gray-300 hover:bg-gray-700/70'
-              }`}
-            >
-              <GraduationCap className="w-4 h-4" />
-              <span>Demandes Prof</span>
-            </button>
+        <div className="flex justify-center mb-8">
+          <div className="flex flex-wrap justify-center gap-2 p-2 bg-gray-800/50 border border-gray-700/50 rounded-2xl shadow-md max-w-5xl">
+            {([
+              { id: 'videos', icon: Video, label: 'Videos' },
+              { id: 'users', icon: Users, label: 'Users' },
+              { id: 'products', icon: ShoppingBag, label: 'Products' },
+              { id: 'product-types', icon: Tag, label: 'Product Types' },
+              { id: 'orders', icon: Package, label: 'Orders' },
+              { id: 'events', icon: Calendar, label: 'Events' },
+              { id: 'ticket-types', icon: Ticket, label: 'Ticket Types' },
+              { id: 'payments', icon: DollarSign, label: 'Payments' },
+              { id: 'professor-requests', icon: GraduationCap, label: 'Demandes Prof' },
+            ] as const).map(({ id, icon: Icon, label }) => (
+              <button
+                key={id}
+                onClick={() => setActiveTab(id)}
+                className={`px-4 py-2.5 rounded-xl font-medium transition-all flex items-center gap-2 whitespace-nowrap text-sm ${
+                  activeTab === id
+                    ? 'bg-gradient-to-r from-[#B8913D] to-[#D4AC5B] text-white shadow-md'
+                    : 'text-gray-300 hover:bg-gray-700/70 hover:text-white'
+                }`}
+              >
+                <Icon className="w-4 h-4 flex-shrink-0" />
+                <span>{label}</span>
+              </button>
+            ))}
           </div>
         </div>
 
