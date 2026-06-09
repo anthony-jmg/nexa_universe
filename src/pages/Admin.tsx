@@ -1729,7 +1729,6 @@ function ProfessorRequestsSection({ onCountChange }: { onCountChange?: (count: n
       title: 'Demande approuvee',
       message: 'Felicitations ! Votre demande pour devenir professeur a ete acceptee. Vous pouvez maintenant acceder a votre dashboard professeur.',
       type: 'professor_approved',
-      priority: 'high',
     });
 
     setProcessing(null);
@@ -1753,7 +1752,6 @@ function ProfessorRequestsSection({ onCountChange }: { onCountChange?: (count: n
       title: 'Demande refusee',
       message: 'Votre demande pour devenir professeur n\'a pas ete retenue pour le moment.',
       type: 'professor_rejected',
-      priority: 'medium',
     });
 
     setProcessing(null);

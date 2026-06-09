@@ -10,7 +10,7 @@ import ProfessorPaymentHistory from '../components/ProfessorPaymentHistory';
 import { StripeConnectCard } from '../components/StripeConnectCard';
 import LazyImage from '../components/LazyImage';
 import { Database } from '../lib/database.types';
-import { Video, Folder, Plus, CreditCard as Edit2, Trash2, X, Check, AlertCircle, Eye, EyeOff, Lock, Settings, Percent, ChevronUp, ChevronDown, List, BarChart3, Users, Play, DollarSign, TrendingUp } from 'lucide-react';
+import { Video, Folder, Plus, CreditCard as Edit2, Trash2, X, Check, AlertCircle, Eye, EyeOff, Lock, Settings, Percent, ChevronUp, ChevronDown, List, BarChart3, Users, Play, DollarSign, TrendingUp, GraduationCap, ArrowRight, RefreshCw } from 'lucide-react';
 
 type Video = Database['public']['Tables']['videos']['Row'];
 type Program = Database['public']['Tables']['programs']['Row'];
@@ -91,6 +91,8 @@ export function ProfessorDashboard({ onNavigate }: ProfessorDashboardProps) {
     topPrograms: [] as { title: string; purchases: number; revenue: number; program_id: string }[]
   });
   const [loadingStats, setLoadingStats] = useState(false);
+  const [stripeOnboardingCompleted, setStripeOnboardingCompleted] = useState<boolean | null>(null);
+  const [checkingStripe, setCheckingStripe] = useState(true);
 
   const [programForm, setProgramForm] = useState<ProgramFormData>({
     title: '',
@@ -122,7 +124,51 @@ export function ProfessorDashboard({ onNavigate }: ProfessorDashboardProps) {
       return;
     }
     loadData();
+    checkStripeStatus();
   }, [profile, user, onNavigate]);
+
+  // Handle return from Stripe onboarding (?connect=success)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const connectParam = params.get('connect');
+    if (connectParam === 'success' || connectParam === 'refresh') {
+      const url = new URL(window.location.href);
+      url.searchParams.delete('connect');
+      window.history.replaceState({}, '', url.toString());
+      checkStripeStatus();
+    }
+  }, []);
+
+  const checkStripeStatus = async () => {
+    if (!user?.id) return;
+    setCheckingStripe(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/stripe-connect`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({ action: 'get-status' }),
+        }
+      );
+      if (response.ok) {
+        const data = await response.json();
+        setStripeOnboardingCompleted(data.onboarding_completed === true);
+      } else {
+        setStripeOnboardingCompleted(false);
+      }
+    } catch {
+      setStripeOnboardingCompleted(false);
+    } finally {
+      setCheckingStripe(false);
+    }
+  };
 
   useEffect(() => {
     if (activeTab === 'stats' && user?.id) {
@@ -724,6 +770,79 @@ export function ProfessorDashboard({ onNavigate }: ProfessorDashboardProps) {
 
   if (profile?.role !== 'professor' && profile?.role !== 'admin') {
     return null;
+  }
+
+  if (checkingStripe || stripeOnboardingCompleted === null) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-gray-950 via-gray-900 to-gray-950 flex items-center justify-center">
+        <div className="w-8 h-8 border-4 border-[#B8913D] border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (!stripeOnboardingCompleted) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-gray-950 via-gray-900 to-gray-950 pt-20 pb-12 relative overflow-hidden">
+        <BackgroundDecor />
+        <div className="max-w-2xl mx-auto px-4 sm:px-6 relative z-10">
+          <div className="text-center mb-10">
+            <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-[#B8913D]/15 border border-[#B8913D]/30 mb-6">
+              <GraduationCap className="w-10 h-10 text-[#B8913D]" />
+            </div>
+            <h1 className="text-3xl font-light text-white mb-3">
+              Bienvenue, <span className="text-[#B8913D]">Professeur</span>
+            </h1>
+            <p className="text-gray-400 text-lg leading-relaxed">
+              Avant d'acceder a votre dashboard, vous devez configurer votre compte Stripe pour recevoir vos paiements.
+            </p>
+          </div>
+
+          <div className="bg-gray-800/50 border border-gray-700/50 rounded-2xl p-6 mb-6">
+            <div className="flex items-start gap-4 mb-6">
+              <div className="flex-shrink-0 w-8 h-8 rounded-full bg-amber-500/20 flex items-center justify-center mt-0.5">
+                <AlertCircle className="w-4 h-4 text-amber-400" />
+              </div>
+              <div>
+                <p className="text-white font-medium mb-1">Configuration obligatoire</p>
+                <p className="text-gray-400 text-sm">
+                  Cette etape est necessaire pour que vos abonnes puissent vous payer et que vous receviez vos revenus directement sur votre compte bancaire.
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-3 mb-6">
+              {[
+                { step: '1', text: 'Cliquez sur "Configurer Stripe Connect" ci-dessous' },
+                { step: '2', text: 'Completez le formulaire Stripe (informations personnelles et bancaires)' },
+                { step: '3', text: 'Revenez automatiquement sur votre dashboard' },
+              ].map(({ step, text }) => (
+                <div key={step} className="flex items-center gap-3">
+                  <span className="flex-shrink-0 w-6 h-6 rounded-full bg-[#B8913D]/20 text-[#B8913D] text-xs font-bold flex items-center justify-center">
+                    {step}
+                  </span>
+                  <span className="text-gray-300 text-sm">{text}</span>
+                </div>
+              ))}
+            </div>
+
+            <div className="flex items-center gap-3 pt-4 border-t border-gray-700/50">
+              <button
+                onClick={checkStripeStatus}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl text-gray-400 hover:text-white hover:bg-gray-700/50 transition-all text-sm"
+              >
+                <RefreshCw className="w-4 h-4" />
+                Actualiser
+              </button>
+              <div className="ml-auto">
+                <ArrowRight className="w-4 h-4 text-gray-600" />
+              </div>
+            </div>
+          </div>
+
+          <StripeConnectCard userId={user?.id} />
+        </div>
+      </div>
+    );
   }
 
   return (
