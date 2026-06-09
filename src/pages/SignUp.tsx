@@ -3,7 +3,8 @@ import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useToast } from '../contexts/ToastContext';
 import { BackgroundDecor } from '../components/BackgroundDecor';
-import { AlertCircle, CheckCircle, ArrowLeft } from 'lucide-react';
+import { supabase } from '../lib/supabase';
+import { AlertCircle, CheckCircle, ArrowLeft, GraduationCap } from 'lucide-react';
 
 interface SignUpProps {
   onNavigate: (page: string) => void;
@@ -13,6 +14,7 @@ export function SignUp({ onNavigate }: SignUpProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
+  const [wantsProfessor, setWantsProfessor] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -41,6 +43,19 @@ export function SignUp({ onNavigate }: SignUpProps) {
       showToast(signUpError.message, 'error');
       setLoading(false);
     } else {
+      if (wantsProfessor) {
+        const { data: { user: newUser } } = await supabase.auth.getUser();
+        if (newUser) {
+          await supabase
+            .from('profiles')
+            .update({
+              wants_to_be_professor: true,
+              professor_request_status: 'pending',
+              professor_request_at: new Date().toISOString(),
+            })
+            .eq('id', newUser.id);
+        }
+      }
       setSuccess(true);
       showToast('Compte créé avec succès', 'success');
       setLoading(false);
@@ -129,6 +144,36 @@ export function SignUp({ onNavigate }: SignUpProps) {
                 className="w-full px-4 py-3 bg-gray-800/50 border border-gray-700 rounded-lg focus:border-gold-500 focus:ring-2 focus:ring-gold-500/20 outline-none transition-all text-white placeholder-gray-500"
                 placeholder={t('signup.form.passwordPlaceholder')}
               />
+            </div>
+
+            <div
+              onClick={() => setWantsProfessor(!wantsProfessor)}
+              className={`flex items-start gap-3 p-4 rounded-xl border cursor-pointer transition-all ${
+                wantsProfessor
+                  ? 'border-[#B8913D] bg-[#B8913D]/10'
+                  : 'border-gray-700 hover:border-gray-600 bg-gray-800/30'
+              }`}
+            >
+              <div className={`mt-0.5 w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 transition-all ${
+                wantsProfessor
+                  ? 'border-[#B8913D] bg-[#B8913D]'
+                  : 'border-gray-500'
+              }`}>
+                {wantsProfessor && (
+                  <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                )}
+              </div>
+              <div className="flex-1">
+                <div className="flex items-center gap-2">
+                  <GraduationCap className="w-4 h-4 text-[#B8913D]" />
+                  <span className="text-sm font-medium text-white">Je souhaite devenir professeur</span>
+                </div>
+                <p className="text-xs text-gray-400 mt-1">
+                  Votre demande sera examinee par l'equipe. Vous serez notifie une fois approuve.
+                </p>
+              </div>
             </div>
 
             <button

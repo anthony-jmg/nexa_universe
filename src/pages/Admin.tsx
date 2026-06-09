@@ -10,7 +10,7 @@ import { EventsManagement } from '../components/EventsManagement';
 import { TicketTypesManagement } from '../components/TicketTypesManagement';
 import ProfessorPayments from '../components/ProfessorPayments';
 import { Database } from '../lib/database.types';
-import { Video, Users, Plus, Edit2, Trash2, X, Check, AlertCircle, ShoppingBag, Package, Search, Filter, Tag, Calendar, Ticket, DollarSign } from 'lucide-react';
+import { Video, Users, Plus, CreditCard as Edit2, Trash2, X, Check, AlertCircle, ShoppingBag, Package, Search, Filter, Tag, Calendar, Ticket, DollarSign, GraduationCap } from 'lucide-react';
 
 type Video = Database['public']['Tables']['videos']['Row'];
 type Profile = Database['public']['Tables']['profiles']['Row'];
@@ -72,7 +72,7 @@ interface AdminProps {
 
 export function Admin({ onNavigate }: AdminProps) {
   const { user, profile } = useAuth();
-  const [activeTab, setActiveTab] = useState<'videos' | 'users' | 'products' | 'product-types' | 'orders' | 'events' | 'ticket-types' | 'payments'>('videos');
+  const [activeTab, setActiveTab] = useState<'videos' | 'users' | 'products' | 'product-types' | 'orders' | 'events' | 'ticket-types' | 'payments' | 'professor-requests'>('videos');
   const [videos, setVideos] = useState<Video[]>([]);
   const [users, setUsers] = useState<Profile[]>([]);
   const [professors, setProfessors] = useState<Professor[]>([]);
@@ -814,6 +814,17 @@ export function Admin({ onNavigate }: AdminProps) {
             >
               <DollarSign className="w-4 h-4" />
               <span>Payments</span>
+            </button>
+            <button
+              onClick={() => setActiveTab('professor-requests')}
+              className={`px-6 py-3 rounded-full font-medium transition-all flex items-center space-x-2 whitespace-nowrap ${
+                activeTab === 'professor-requests'
+                  ? 'bg-gradient-to-r from-[#B8913D] to-[#D4AC5B] text-white border-transparent'
+                  : 'text-gray-300 hover:bg-gray-700/70'
+              }`}
+            >
+              <GraduationCap className="w-4 h-4" />
+              <span>Demandes Prof</span>
             </button>
           </div>
         </div>
@@ -1702,8 +1713,219 @@ export function Admin({ onNavigate }: AdminProps) {
           <TicketTypesManagement />
         ) : activeTab === 'payments' ? (
           <ProfessorPayments />
+        ) : activeTab === 'professor-requests' ? (
+          <ProfessorRequestsSection />
         ) : null}
       </div>
+    </div>
+  );
+}
+
+function ProfessorRequestsSection() {
+  const [requests, setRequests] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [processing, setProcessing] = useState<string | null>(null);
+
+  useEffect(() => {
+    loadRequests();
+  }, []);
+
+  const loadRequests = async () => {
+    setLoading(true);
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('id, full_name, email, avatar_url, professor_request_status, professor_request_message, professor_request_at, created_at')
+      .eq('wants_to_be_professor', true)
+      .order('professor_request_at', { ascending: false });
+
+    if (!error) {
+      setRequests(data || []);
+    }
+    setLoading(false);
+  };
+
+  const handleApprove = async (userId: string) => {
+    setProcessing(userId);
+
+    const { error: profileError } = await supabase
+      .from('profiles')
+      .update({
+        role: 'professor',
+        professor_request_status: 'approved',
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', userId);
+
+    if (profileError) {
+      alert('Erreur lors de l\'approbation: ' + profileError.message);
+      setProcessing(null);
+      return;
+    }
+
+    const { error: professorError } = await supabase
+      .from('professors')
+      .upsert({
+        id: userId,
+        bio: '',
+        specialties: [],
+        experience_years: 0,
+        profile_video_url: '',
+        is_featured: false,
+        subscription_price: 0,
+      }, { onConflict: 'id' });
+
+    if (professorError) {
+      console.error('Error creating professor record:', professorError);
+    }
+
+    await supabase.from('notifications').insert({
+      user_id: userId,
+      title: 'Demande approuvee',
+      message: 'Felicitations ! Votre demande pour devenir professeur a ete acceptee. Vous pouvez maintenant acceder a votre dashboard professeur.',
+      type: 'professor_approved',
+      priority: 'high',
+    });
+
+    setProcessing(null);
+    loadRequests();
+  };
+
+  const handleReject = async (userId: string) => {
+    if (!confirm('Etes-vous sur de vouloir refuser cette demande ?')) return;
+    setProcessing(userId);
+
+    await supabase
+      .from('profiles')
+      .update({
+        professor_request_status: 'rejected',
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', userId);
+
+    await supabase.from('notifications').insert({
+      user_id: userId,
+      title: 'Demande refusee',
+      message: 'Votre demande pour devenir professeur n\'a pas ete retenue pour le moment.',
+      type: 'professor_rejected',
+      priority: 'medium',
+    });
+
+    setProcessing(null);
+    loadRequests();
+  };
+
+  if (loading) {
+    return (
+      <div className="text-center py-12">
+        <div className="inline-block w-8 h-8 border-4 border-[#B8913D] border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    );
+  }
+
+  const pendingRequests = requests.filter(r => r.professor_request_status === 'pending');
+  const processedRequests = requests.filter(r => r.professor_request_status !== 'pending');
+
+  return (
+    <div className="space-y-8">
+      <div>
+        <h2 className="text-2xl font-bold text-white mb-2">Demandes de Professeur</h2>
+        <p className="text-gray-400">Gérez les demandes des utilisateurs souhaitant devenir professeur</p>
+      </div>
+
+      {pendingRequests.length > 0 && (
+        <div className="bg-gray-800/50 backdrop-blur-sm rounded-xl overflow-hidden">
+          <div className="px-6 py-4 border-b border-gray-700 flex items-center justify-between">
+            <h3 className="text-lg font-semibold text-white">En attente ({pendingRequests.length})</h3>
+            <span className="inline-flex items-center px-3 py-1 bg-yellow-500/20 text-yellow-400 rounded-full text-sm font-medium">
+              A traiter
+            </span>
+          </div>
+          <div className="divide-y divide-gray-700/50">
+            {pendingRequests.map((req) => (
+              <div key={req.id} className="p-6 hover:bg-gray-700/20 transition-colors">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-3 mb-2">
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#B8913D] to-[#A07F35] flex items-center justify-center text-white font-bold text-sm">
+                        {req.full_name?.charAt(0)?.toUpperCase() || '?'}
+                      </div>
+                      <div>
+                        <p className="font-medium text-white">{req.full_name}</p>
+                        <p className="text-sm text-gray-400">{req.email}</p>
+                      </div>
+                    </div>
+                    {req.professor_request_message && (
+                      <div className="mt-3 bg-gray-900/50 rounded-lg p-3 border border-gray-700/50">
+                        <p className="text-sm text-gray-300 italic">"{req.professor_request_message}"</p>
+                      </div>
+                    )}
+                    <p className="text-xs text-gray-500 mt-2">
+                      Demande du {new Date(req.professor_request_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
+                      {' · '}Membre depuis {new Date(req.created_at).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <button
+                      onClick={() => handleApprove(req.id)}
+                      disabled={processing === req.id}
+                      className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 flex items-center gap-2 text-sm font-medium"
+                    >
+                      <Check className="w-4 h-4" />
+                      Accepter
+                    </button>
+                    <button
+                      onClick={() => handleReject(req.id)}
+                      disabled={processing === req.id}
+                      className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 flex items-center gap-2 text-sm font-medium"
+                    >
+                      <X className="w-4 h-4" />
+                      Refuser
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {pendingRequests.length === 0 && (
+        <div className="bg-gray-800/50 backdrop-blur-sm rounded-xl p-12 text-center">
+          <GraduationCap className="w-12 h-12 text-gray-600 mx-auto mb-4" />
+          <p className="text-gray-400 text-lg">Aucune demande en attente</p>
+          <p className="text-gray-500 text-sm mt-1">Les nouvelles demandes apparaitront ici</p>
+        </div>
+      )}
+
+      {processedRequests.length > 0 && (
+        <div className="bg-gray-800/50 backdrop-blur-sm rounded-xl overflow-hidden">
+          <div className="px-6 py-4 border-b border-gray-700">
+            <h3 className="text-lg font-semibold text-white">Historique ({processedRequests.length})</h3>
+          </div>
+          <div className="divide-y divide-gray-700/50">
+            {processedRequests.map((req) => (
+              <div key={req.id} className="px-6 py-4 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center text-white font-bold text-xs">
+                    {req.full_name?.charAt(0)?.toUpperCase() || '?'}
+                  </div>
+                  <div>
+                    <p className="font-medium text-white text-sm">{req.full_name}</p>
+                    <p className="text-xs text-gray-400">{req.email}</p>
+                  </div>
+                </div>
+                <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${
+                  req.professor_request_status === 'approved'
+                    ? 'bg-green-500/20 text-green-400'
+                    : 'bg-red-500/20 text-red-400'
+                }`}>
+                  {req.professor_request_status === 'approved' ? 'Approuve' : 'Refuse'}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -78,6 +78,9 @@ export function Account({ onNavigate }: AccountProps) {
   const [expandedRecord, setExpandedRecord] = useState<string | null>(null);
 
   const [profileLoaded, setProfileLoaded] = useState(false);
+  const [professorRequestMessage, setProfessorRequestMessage] = useState('');
+  const [professorRequestSaving, setProfessorRequestSaving] = useState(false);
+  const [professorRequestStatus, setProfessorRequestStatus] = useState<string | null>(null);
 
   useEffect(() => {
     if (profile && !profileLoaded) {
@@ -85,6 +88,7 @@ export function Account({ onNavigate }: AccountProps) {
       setAvatarUrl(getAvatarUrl(profile.avatar_url));
       setProfileLoaded(true);
       loadProfessorSubscriptions();
+      loadProfessorRequestStatus();
       if (profile.role === 'professor') {
         loadProfessorInfo();
       }
@@ -96,6 +100,42 @@ export function Account({ onNavigate }: AccountProps) {
   const handleAvatarUpdate = async (url: string) => {
     setAvatarUrl(url);
     await refreshProfile();
+  };
+
+  const loadProfessorRequestStatus = async () => {
+    if (!profile?.id) return;
+    const { data } = await supabase
+      .from('profiles')
+      .select('professor_request_status, professor_request_message')
+      .eq('id', profile.id)
+      .maybeSingle();
+    if (data) {
+      setProfessorRequestStatus(data.professor_request_status);
+      setProfessorRequestMessage(data.professor_request_message || '');
+    }
+  };
+
+  const handleProfessorRequest = async () => {
+    if (!profile?.id) return;
+    setProfessorRequestSaving(true);
+    const { error } = await supabase
+      .from('profiles')
+      .update({
+        wants_to_be_professor: true,
+        professor_request_status: 'pending',
+        professor_request_message: professorRequestMessage,
+        professor_request_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', profile.id);
+
+    if (error) {
+      showToast('Erreur lors de l\'envoi de la demande', 'error');
+    } else {
+      setProfessorRequestStatus('pending');
+      showToast('Demande envoyee avec succes !', 'success');
+    }
+    setProfessorRequestSaving(false);
   };
 
   const loadProfessorSubscriptions = async () => {
@@ -551,6 +591,74 @@ export function Account({ onNavigate }: AccountProps) {
                     {saving ? t('account.profile.saving') : t('account.profile.saveButton')}
                   </button>
                 </form>
+
+                {profile?.role !== 'professor' && profile?.role !== 'admin' && (
+                  <div className="mt-12 pt-12 border-t border-gray-700">
+                    <div className="flex items-center space-x-3 mb-6">
+                      <div className="w-10 h-10 bg-gradient-to-br from-[#B8913D] to-[#A07F35] rounded-lg flex items-center justify-center">
+                        <GraduationCap className="w-6 h-6 text-white" />
+                      </div>
+                      <h2 className="text-xl font-medium text-white">Devenir Professeur</h2>
+                    </div>
+
+                    {professorRequestStatus === 'pending' ? (
+                      <div className="bg-yellow-900/20 border border-yellow-700/50 rounded-xl p-5">
+                        <div className="flex items-start gap-3">
+                          <AlertTriangle className="w-5 h-5 text-yellow-400 flex-shrink-0 mt-0.5" />
+                          <div>
+                            <p className="font-medium text-yellow-300">Demande en cours d'examen</p>
+                            <p className="text-sm text-yellow-200/80 mt-1">
+                              Votre demande pour devenir professeur est en cours de traitement. Vous serez notifie une fois qu'elle sera traitee par l'administration.
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    ) : professorRequestStatus === 'rejected' ? (
+                      <div className="bg-red-900/20 border border-red-700/50 rounded-xl p-5">
+                        <div className="flex items-start gap-3">
+                          <XCircle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
+                          <div>
+                            <p className="font-medium text-red-300">Demande refusee</p>
+                            <p className="text-sm text-red-200/80 mt-1">
+                              Votre demande a ete refusee. Vous pouvez soumettre une nouvelle demande si vous le souhaitez.
+                            </p>
+                            <button
+                              onClick={() => setProfessorRequestStatus(null)}
+                              className="mt-3 text-sm text-[#B8913D] hover:text-[#d4a94e] transition-colors"
+                            >
+                              Soumettre une nouvelle demande
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        <p className="text-gray-300 text-sm">
+                          Vous souhaitez partager vos connaissances en tant que professeur sur la plateforme ? Envoyez une demande et notre equipe l'examinera.
+                        </p>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-300 mb-2">
+                            Message de motivation (optionnel)
+                          </label>
+                          <textarea
+                            value={professorRequestMessage}
+                            onChange={(e) => setProfessorRequestMessage(e.target.value)}
+                            rows={3}
+                            className="w-full px-4 py-3 bg-gray-900/50 border border-gray-600 rounded-xl text-white placeholder-gray-500 focus:ring-2 focus:ring-[#B8913D] focus:border-[#B8913D] outline-none transition-all resize-none"
+                            placeholder="Decrivez votre experience, vos specialites..."
+                          />
+                        </div>
+                        <button
+                          onClick={handleProfessorRequest}
+                          disabled={professorRequestSaving}
+                          className="px-6 py-3 bg-gradient-to-r from-[#B8913D] to-[#A07F35] text-white font-medium rounded-lg hover:shadow-xl transition-all hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+                        >
+                          {professorRequestSaving ? 'Envoi en cours...' : 'Envoyer ma demande'}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {profile?.role === 'professor' && (
                   <div className="mt-12 pt-12 border-t border-gray-700">
