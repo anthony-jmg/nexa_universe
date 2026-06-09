@@ -6,7 +6,7 @@ import { useToast } from './ToastContext';
 export interface Notification {
   id: string;
   professor_id: string | null;
-  type: 'new_video' | 'new_program' | 'platform_subscription_expiring' | 'professor_subscription_expiring' | 'platform_subscription_expired' | 'professor_subscription_expired' | 'order_paid' | 'order_processing' | 'order_shipped' | 'order_completed' | 'order_cancelled';
+  type: 'new_video' | 'new_program' | 'platform_subscription_expiring' | 'professor_subscription_expiring' | 'platform_subscription_expired' | 'professor_subscription_expired' | 'order_paid' | 'order_processing' | 'order_shipped' | 'order_completed' | 'order_cancelled' | 'professor_approved' | 'professor_rejected';
   title: string;
   message: string;
   link: string;

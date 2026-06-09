@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Bell, Check, CheckCheck, Trash2, Video, BookOpen, ArrowLeft, AlertTriangle, Clock, ShoppingBag, Package, Truck, CheckCircle, XCircle } from 'lucide-react';
+import { Bell, Check, CheckCheck, Trash2, Video, BookOpen, ArrowLeft, AlertTriangle, Clock, ShoppingBag, Package, Truck, CheckCircle, XCircle, GraduationCap } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useNotifications } from '../contexts/NotificationContext';
 import type { Notification } from '../contexts/NotificationContext';
@@ -179,6 +179,10 @@ export default function NotificationsPage({ onNavigate }: NotificationsPageProps
                             ? 'bg-green-500/20 text-green-400'
                             : notification.type === 'order_cancelled'
                             ? 'bg-red-500/20 text-red-400'
+                            : notification.type === 'professor_approved'
+                            ? 'bg-green-500/20 text-green-400'
+                            : notification.type === 'professor_rejected'
+                            ? 'bg-red-500/20 text-red-400'
                             : notification.type.includes('expiring')
                             ? 'bg-yellow-500/20 text-yellow-400'
                             : 'bg-red-500/20 text-red-400'
@@ -196,6 +200,10 @@ export default function NotificationsPage({ onNavigate }: NotificationsPageProps
                           ) : notification.type === 'order_completed' ? (
                             <CheckCircle className="w-6 h-6" />
                           ) : notification.type === 'order_cancelled' ? (
+                            <XCircle className="w-6 h-6" />
+                          ) : notification.type === 'professor_approved' ? (
+                            <GraduationCap className="w-6 h-6" />
+                          ) : notification.type === 'professor_rejected' ? (
                             <XCircle className="w-6 h-6" />
                           ) : notification.type.includes('expiring') ? (
                             <Clock className="w-6 h-6" />

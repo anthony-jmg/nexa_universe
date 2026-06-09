@@ -80,6 +80,7 @@ export function Admin({ onNavigate }: AdminProps) {
   const [productTypes, setProductTypes] = useState<ProductType[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
+  const [pendingProfessorRequestsCount, setPendingProfessorRequestsCount] = useState(0);
   const [showVideoForm, setShowVideoForm] = useState(false);
   const [editingVideo, setEditingVideo] = useState<Video | null>(null);
   const [showUserForm, setShowUserForm] = useState(false);
@@ -145,8 +146,17 @@ export function Admin({ onNavigate }: AdminProps) {
 
   const loadData = async () => {
     setLoading(true);
-    await Promise.all([loadVideos(), loadUsers(), loadProfessors(), loadProducts(), loadProductTypes(), loadOrders()]);
+    await Promise.all([loadVideos(), loadUsers(), loadProfessors(), loadProducts(), loadProductTypes(), loadOrders(), loadPendingProfessorRequestsCount()]);
     setLoading(false);
+  };
+
+  const loadPendingProfessorRequestsCount = async () => {
+    const { count } = await supabase
+      .from('profiles')
+      .select('id', { count: 'exact', head: true })
+      .eq('wants_to_be_professor', true)
+      .eq('professor_request_status', 'pending');
+    setPendingProfessorRequestsCount(count ?? 0);
   };
 
   const loadVideos = async () => {
@@ -749,6 +759,15 @@ export function Admin({ onNavigate }: AdminProps) {
               >
                 <Icon className="w-4 h-4 flex-shrink-0" />
                 <span>{label}</span>
+                {id === 'professor-requests' && pendingProfessorRequestsCount > 0 && (
+                  <span className={`ml-0.5 min-w-[20px] h-5 px-1.5 rounded-full text-xs font-bold flex items-center justify-center ${
+                    activeTab === 'professor-requests'
+                      ? 'bg-white/25 text-white'
+                      : 'bg-red-500 text-white'
+                  }`}>
+                    {pendingProfessorRequestsCount}
+                  </span>
+                )}
               </button>
             ))}
           </div>
@@ -1639,14 +1658,14 @@ export function Admin({ onNavigate }: AdminProps) {
         ) : activeTab === 'payments' ? (
           <ProfessorPayments />
         ) : activeTab === 'professor-requests' ? (
-          <ProfessorRequestsSection />
+          <ProfessorRequestsSection onCountChange={setPendingProfessorRequestsCount} />
         ) : null}
       </div>
     </div>
   );
 }
 
-function ProfessorRequestsSection() {
+function ProfessorRequestsSection({ onCountChange }: { onCountChange?: (count: number) => void }) {
   const [requests, setRequests] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState<string | null>(null);
@@ -1665,6 +1684,8 @@ function ProfessorRequestsSection() {
 
     if (!error) {
       setRequests(data || []);
+      const pending = (data || []).filter(r => r.professor_request_status === 'pending').length;
+      onCountChange?.(pending);
     }
     setLoading(false);
   };
