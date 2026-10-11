@@ -120,7 +120,7 @@ export function PriceLockModal({ summary, existingLock, onClose, onViewEvents, o
                 Les {formatPrice(summary.depositAmount).replace(' €', ' €')} sont déduits du montant final.
               </p>
               <p className="text-xs text-gray-400">
-                Tu pourras payer les <span className="font-medium text-gray-200">{formatPrice(summary.remainingAmount)}</span> restants plus tard, avant le {formatDateFr(summary.guaranteeEndDate)}.
+                Tu règleras les <span className="font-medium text-gray-200">{formatPrice(summary.remainingAmount)}</span> restants en une seule fois, avant le {formatDateFr(summary.guaranteeEndDate)}.
               </p>
               <p className="text-[11px] text-gray-500 leading-relaxed pt-1">
                 Si ton Price Lock expire, les sommes déjà versées restent déduites, mais le tarif public en vigueur s’applique.

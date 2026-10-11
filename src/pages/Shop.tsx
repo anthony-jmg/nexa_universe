@@ -1081,7 +1081,7 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
 
             {quickAddNotice && !quickAddError && (
               <div className="mb-4 p-3 bg-blue-900/30 border border-blue-700/40 rounded-lg">
-                <p className="text-xs text-blue-200 leading-relaxed">{quickAddNotice}</p>
+                <p className="text-xs text-blue-200 leading-relaxed whitespace-pre-line">{quickAddNotice}</p>
               </div>
             )}
 
@@ -1130,7 +1130,7 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
                       });
                       return next;
                     });
-                    setQuickAddNotice('En mode Price Lock, un seul pass peut être bloqué par festival.');
+                    setQuickAddNotice('Comment fonctionne Price Lock ?\nTu verses une partie aujourd’hui pour bloquer ton tarif, puis tu règles le reste en une seule fois avant la date indiquée.\nUn seul Price Lock peut être actif par festival.');
                   }}
                   className={`flex items-start gap-3 px-4 py-4 sm:py-3.5 rounded-xl text-left transition-all border ${
                     quickAddLockMode
@@ -1141,7 +1141,7 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
                   <Lock className={`w-5 h-5 flex-shrink-0 mt-0.5 ${quickAddLockMode ? 'text-[#D4AC5B]' : 'text-gray-400'}`} />
                   <span className="flex-1 min-w-0">
                     <span className="block text-sm font-semibold text-white">Price Lock</span>
-                    <span className="block text-[11px] sm:text-xs text-gray-400 mt-0.5">Bloque le tarif avec le versement prévu pour ce billet et paie le solde plus tard.</span>
+                    <span className="block text-[11px] sm:text-xs text-gray-400 mt-0.5">Verse une partie aujourd’hui pour garder ce tarif. Tu règleras le montant restant en une seule fois avant la date limite.</span>
                   </span>
                   {quickAddLockMode && <CheckCircle className="w-5 h-5 text-[#D4AC5B] flex-shrink-0" />}
                 </button>
@@ -1198,11 +1198,19 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
                             <div className="text-[10px] uppercase tracking-wide text-gray-400">Prix bloqué</div>
                             <div className="text-base sm:text-xl font-bold text-[#B8913D]">{price.toFixed(2)}€</div>
                             <div className="text-[11px] sm:text-xs text-gray-300 mt-1">
-                              À payer aujourd’hui : <span className="font-semibold text-white">{Number(ett.price_lock_deposit_amount).toFixed(0)} €</span>
+                              Aujourd’hui : <span className="font-semibold text-white">{Number(ett.price_lock_deposit_amount).toFixed(0)} €</span>
                             </div>
                             <div className="text-[11px] sm:text-xs text-gray-300">
-                              Solde plus tard : <span className="font-semibold text-[#F0D38A]">{Math.max(0, price - Number(ett.price_lock_deposit_amount)).toFixed(0)} €</span>
+                              Reste à payer : <span className="font-semibold text-[#F0D38A]">{Math.max(0, price - Number(ett.price_lock_deposit_amount)).toFixed(0)} €</span>
                             </div>
+                            {(() => {
+                              const payDeadline = priceLockDeadline(ett as any);
+                              return payDeadline ? (
+                                <div className="text-[10px] sm:text-[11px] text-gray-400 mt-1 leading-snug">
+                                  À régler en une fois avant le {payDeadline.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
+                                </div>
+                              ) : null;
+                            })()}
                           </>
                         ) : (
                           <>
@@ -1221,7 +1229,7 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
                       return (
                         <div className="mb-2 sm:mb-3 flex items-center gap-1.5 text-[11px] text-[#F0D38A]">
                           <Lock className="w-3 h-3 flex-shrink-0" />
-                          <span>Prix garanti jusqu’au {deadline.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}</span>
+                          <span>Ton prix de {price.toFixed(0)} € est garanti jusqu’au {deadline.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}</span>
                         </div>
                       );
                     })()}
@@ -1313,7 +1321,7 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
                   </span>
                 </div>
                 {quickAddLockMode && (
-                  <p className="mt-1.5 text-[11px] text-gray-400">Le solde restant sera à payer plus tard, avant la date de garantie.</p>
+                  <p className="mt-1.5 text-[11px] text-gray-400 leading-snug">Le reste à payer sera à régler en une seule fois, avant la date de garantie.</p>
                 )}
               </div>
             )}
