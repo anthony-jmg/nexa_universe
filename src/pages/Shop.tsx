@@ -1200,16 +1200,22 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
                             <div className="text-[11px] sm:text-xs text-gray-300 mt-1">
                               Aujourd’hui : <span className="font-semibold text-white">{Number(ett.price_lock_deposit_amount).toFixed(0)} €</span>
                             </div>
-                            <div className="text-[11px] sm:text-xs text-gray-300">
-                              Reste à payer : <span className="font-semibold text-[#F0D38A]">{Math.max(0, price - Number(ett.price_lock_deposit_amount)).toFixed(0)} €</span>
-                            </div>
                             {(() => {
                               const payDeadline = priceLockDeadline(ett as any);
-                              return payDeadline ? (
-                                <div className="text-[10px] sm:text-[11px] text-gray-400 mt-1 leading-snug">
-                                  À régler en une fois avant le {payDeadline.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
+                              return (
+                                <div className="text-[11px] sm:text-xs text-gray-300 leading-snug">
+                                  {payDeadline ? (
+                                    <>
+                                      Reste à payer avant le {payDeadline.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })} :{' '}
+                                      <span className="font-semibold text-[#F0D38A]">{Math.max(0, price - Number(ett.price_lock_deposit_amount)).toFixed(0)} €</span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      Reste à payer : <span className="font-semibold text-[#F0D38A]">{Math.max(0, price - Number(ett.price_lock_deposit_amount)).toFixed(0)} €</span>
+                                    </>
+                                  )}
                                 </div>
-                              ) : null;
+                              );
                             })()}
                           </>
                         ) : (
