@@ -204,19 +204,12 @@ export function Academy({ onNavigate }: AcademyProps) {
     setLoading(false);
   };
 
-  const hasAccess = profile?.platform_subscription_status === 'active' &&
-    profile?.platform_subscription_expires_at &&
-    new Date(profile.platform_subscription_expires_at) > new Date();
-
   const getVideoAccess = (video: Video) => {
     if (user && video.professor_id === user.id) return 'full';
     if (profile?.role === 'admin') return 'full';
 
     if (video.visibility === 'public') {
       return user ? 'full' : 'locked';
-    }
-    if (video.visibility === 'platform') {
-      return hasAccess ? 'full' : 'locked';
     }
     if (video.visibility === 'subscribers_only') {
       if (!user || !video.professor_id) return 'locked';
@@ -291,31 +284,9 @@ export function Academy({ onNavigate }: AcademyProps) {
             {t('academy.header.title')}
           </h1>
           <p className="text-sm sm:text-base lg:text-sm text-gray-400 relative">
-            {hasAccess ? t('academy.header.accessFull') : t('academy.header.accessLimited')}
+            {t('academy.header.accessFull')}
           </p>
         </div>
-
-        {!hasAccess && profile?.role !== 'professor' && (
-          <div className="mb-5 sm:mb-7 lg:mb-5 p-4 sm:p-6 md:p-7 lg:p-5 bg-gradient-to-br from-[#B8913D] to-[#A07F35] rounded-xl sm:rounded-2xl text-white relative overflow-hidden shadow-xl">
-            <div className="absolute top-0 right-0 w-32 h-32 sm:w-40 sm:h-40 bg-white opacity-5 rounded-full blur-2xl"></div>
-            <div className="absolute bottom-0 left-0 w-32 h-32 sm:w-40 sm:h-40 bg-white opacity-5 rounded-full blur-2xl"></div>
-            <div className="relative">
-              <h3 className="text-base sm:text-xl md:text-2xl lg:text-lg xl:text-xl font-medium mb-1.5 sm:mb-2">{t('academy.banner.title')}</h3>
-              <p className="mb-2 opacity-90 text-xs sm:text-base lg:text-sm leading-snug sm:leading-relaxed">
-                {t('academy.banner.description')}
-              </p>
-              <p className="mb-3 sm:mb-4 lg:mb-3 text-sm sm:text-lg md:text-xl lg:text-base xl:text-lg font-light">
-                {t('academy.banner.pricing')}
-              </p>
-              <button
-                onClick={() => onNavigate('account')}
-                className="px-4 py-2 sm:px-6 sm:py-2.5 lg:px-5 lg:py-2 text-xs sm:text-base lg:text-sm bg-white text-[#B8913D] font-medium rounded-lg hover:bg-gray-100 transition-all shadow-lg hover:shadow-xl transform hover:scale-105"
-              >
-                {t('academy.banner.button')}
-              </button>
-            </div>
-          </div>
-        )}
 
         <div className="mb-5 sm:mb-7 lg:mb-5">
           <div className="bg-gradient-to-br from-gray-800/60 to-gray-900/60 backdrop-blur-sm border border-gray-700/50 rounded-xl sm:rounded-2xl p-4 sm:p-5 lg:p-4 shadow-xl">
@@ -512,9 +483,9 @@ export function Academy({ onNavigate }: AcademyProps) {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {(currentItems as ProgramWithDiscount[]).map((program) => {
                 const isPurchased = purchasedPrograms.has(program.id);
-                const isLocked = program.visibility === 'subscribers_only' || program.visibility === 'paid' || program.visibility === 'platform';
+                const isLocked = program.visibility === 'subscribers_only' || program.visibility === 'paid';
                 const hasSubscription = subscribedProfessors.has(program.professor_id);
-                const canAccess = isPurchased || hasSubscription || (program.visibility === 'public' && user) || (program.visibility === 'platform' && hasAccess);
+                const canAccess = isPurchased || hasSubscription || (program.visibility === 'public' && user);
 
                 return (
                   <div
@@ -574,11 +545,6 @@ export function Academy({ onNavigate }: AcademyProps) {
                         }`}>
                           {getLevelLabel(program.level)}
                         </span>
-                        {program.visibility === 'platform' && (
-                          <span className="px-3 py-1 rounded-full text-xs font-medium border bg-blue-500/20 text-blue-400 border-blue-500/30">
-                            NEXA Academy
-                          </span>
-                        )}
                       </div>
                       <h3 className="font-medium text-white mb-2 line-clamp-2">
                         {program.title}
@@ -736,12 +702,10 @@ export function Academy({ onNavigate }: AcademyProps) {
                     <div className="flex items-center space-x-2 mb-2">
                       <span className={`px-3 py-1 rounded-full text-xs font-medium border ${
                         video.visibility === 'public' ? 'bg-green-500/20 text-green-400 border-green-500/30' :
-                        video.visibility === 'platform' ? 'bg-blue-500/20 text-blue-400 border-blue-500/30' :
                         video.visibility === 'subscribers_only' ? 'bg-amber-500/20 text-amber-400 border-amber-500/30' :
                         'bg-purple-500/20 text-purple-400 border-purple-500/30'
                       }`}>
                         {video.visibility === 'public' ? t('academy.card.public') :
-                         video.visibility === 'platform' ? 'NEXA Academy' :
                          video.visibility === 'subscribers_only' ? t('academy.card.subscribers') :
                          t('academy.card.paid')}
                       </span>
@@ -765,7 +729,6 @@ export function Academy({ onNavigate }: AcademyProps) {
                       {isLocked && (
                         <span className="text-xs text-gold-400 font-medium">
                           {video.visibility === 'public' ? t('academy.card.loginRequired') :
-                           video.visibility === 'platform' ? 'Abonnement NEXA requis' :
                            video.visibility === 'subscribers_only' ? t('academy.card.subscriptionRequired') :
                            t('academy.card.locked')}
                         </span>
@@ -854,12 +817,10 @@ export function Academy({ onNavigate }: AcademyProps) {
                 </span>
                 <span className={`px-3 py-1 rounded-full text-xs font-medium border ${
                   lockedVideoModal.visibility === 'public' ? 'bg-green-500/20 text-green-400 border-green-500/30' :
-                  lockedVideoModal.visibility === 'platform' ? 'bg-blue-500/20 text-blue-400 border-blue-500/30' :
                   lockedVideoModal.visibility === 'subscribers_only' ? 'bg-amber-500/20 text-amber-400 border-amber-500/30' :
                   'bg-purple-500/20 text-purple-400 border-purple-500/30'
                 }`}>
                   {lockedVideoModal.visibility === 'public' ? t('academy.card.public') :
-                   lockedVideoModal.visibility === 'platform' ? 'NEXA Academy' :
                    lockedVideoModal.visibility === 'subscribers_only' ? t('academy.card.subscribers') :
                    t('academy.card.paid')}
                 </span>
@@ -903,18 +864,6 @@ export function Academy({ onNavigate }: AcademyProps) {
                       {t('academy.modal.login')}
                     </button>
                   </>
-                ) : lockedVideoModal.visibility === 'platform' ? (
-                  <>
-                    <p className="text-sm sm:text-base text-gray-300 text-center mb-4">
-                      Cette vidéo est réservée aux abonnés NEXA Academy. Accédez à tous les contenus exclusifs de la plateforme.
-                    </p>
-                    <button
-                      onClick={() => onNavigate('account')}
-                      className="w-full py-3 sm:py-3.5 text-sm sm:text-base bg-gradient-to-r from-[#B8913D] to-[#D4AC5B] text-white font-medium rounded-xl hover:shadow-glow transition-all"
-                    >
-                      S'abonner à NEXA Academy
-                    </button>
-                  </>
                 ) : lockedVideoModal.visibility === 'subscribers_only' ? (
                   <>
                     <p className="text-sm sm:text-base text-gray-300 text-center mb-4">
@@ -935,7 +884,7 @@ export function Academy({ onNavigate }: AcademyProps) {
                       {t('academy.modal.subscribeNexa')}
                     </p>
                     <button
-                      onClick={() => onNavigate('account')}
+                      onClick={() => onNavigate('academy')}
                       className="w-full py-3 sm:py-3.5 text-sm sm:text-base bg-gradient-to-r from-[#B8913D] to-[#D4AC5B] text-white font-medium rounded-xl hover:shadow-glow transition-all"
                     >
                       {t('academy.modal.subscribeButton')}

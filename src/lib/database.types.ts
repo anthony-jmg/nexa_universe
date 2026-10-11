@@ -350,6 +350,7 @@ export interface Database {
           end_date: string | null
           image_url: string
           is_active: boolean
+          is_test: boolean
           event_status: 'draft' | 'published' | 'cancelled' | 'completed' | 'upcoming'
           created_by: string | null
           max_attendees: number | null
@@ -365,6 +366,7 @@ export interface Database {
           end_date?: string | null
           image_url?: string
           is_active?: boolean
+          is_test?: boolean
           event_status?: 'draft' | 'published' | 'cancelled' | 'completed' | 'upcoming'
           created_by?: string | null
           max_attendees?: number | null
@@ -380,6 +382,7 @@ export interface Database {
           end_date?: string | null
           image_url?: string
           is_active?: boolean
+          is_test?: boolean
           event_status?: 'draft' | 'published' | 'cancelled' | 'completed' | 'upcoming'
           created_by?: string | null
           max_attendees?: number | null
@@ -423,6 +426,13 @@ export interface Database {
           is_active: boolean
           display_order: number
           created_at: string
+          next_price: number | null
+          price_increase_date: string | null
+          nexa_cost: number | null
+          price_lock_enabled: boolean
+          price_lock_deposit_amount: number
+          price_lock_guarantee_days: number
+          price_lock_opens_at: string | null
         }
         Insert: {
           id?: string
@@ -439,13 +449,20 @@ export interface Database {
           is_active?: boolean
           display_order?: number
           created_at?: string
+          next_price?: number | null
+          price_increase_date?: string | null
+          nexa_cost?: number | null
+          price_lock_enabled?: boolean
+          price_lock_deposit_amount?: number
+          price_lock_guarantee_days?: number
+          price_lock_opens_at?: string | null
         }
         Update: {
           id?: string
           event_id?: string
           ticket_type_id?: string
           price?: number
-          member_price?: number
+          member_price?: number | null
           quantity_available?: number | null
           quantity_sold?: number
           max_per_order?: number
@@ -455,6 +472,60 @@ export interface Database {
           is_active?: boolean
           display_order?: number
           created_at?: string
+          next_price?: number | null
+          price_increase_date?: string | null
+          nexa_cost?: number | null
+          price_lock_enabled?: boolean
+          price_lock_deposit_amount?: number
+          price_lock_guarantee_days?: number
+          price_lock_opens_at?: string | null
+        }
+      }
+      price_locks: {
+        Row: {
+          id: string
+          user_id: string
+          event_id: string
+          event_ticket_type_id: string
+          locked_price: number
+          deposit_amount: number
+          total_paid: number
+          remaining_amount: number
+          locked_at: string
+          expires_at: string
+          status: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id?: string
+          event_id?: string
+          event_ticket_type_id: string
+          locked_price?: number
+          deposit_amount?: number
+          total_paid?: number
+          remaining_amount?: number
+          locked_at?: string
+          expires_at?: string
+          status?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          event_id?: string
+          event_ticket_type_id?: string
+          locked_price?: number
+          deposit_amount?: number
+          total_paid?: number
+          remaining_amount?: number
+          locked_at?: string
+          expires_at?: string
+          status?: string
+          created_at?: string
+          updated_at?: string
         }
       }
       ticket_purchases: {
@@ -982,6 +1053,7 @@ export interface Database {
           order_id: string | null
           subscription_id: string | null
           video_purchase_id: string | null
+          price_lock_id: string | null
           metadata: Json
           created_at: string
           updated_at: string
@@ -998,6 +1070,7 @@ export interface Database {
           order_id?: string | null
           subscription_id?: string | null
           video_purchase_id?: string | null
+          price_lock_id?: string | null
           metadata?: Json
           created_at?: string
           updated_at?: string
@@ -1014,6 +1087,7 @@ export interface Database {
           order_id?: string | null
           subscription_id?: string | null
           video_purchase_id?: string | null
+          price_lock_id?: string | null
           metadata?: Json
           created_at?: string
           updated_at?: string

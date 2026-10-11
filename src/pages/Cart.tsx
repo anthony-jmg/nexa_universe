@@ -5,10 +5,11 @@ import { useLanguage } from '../contexts/LanguageContext';
 import { BackgroundDecor } from '../components/BackgroundDecor';
 import {
   ShoppingCart, Trash2, Plus, Minus, ShoppingBag,
-  Ticket, Calendar, AlertCircle, ChevronRight, User, CreditCard, ArrowLeft, Loader2
+  Ticket, Calendar, AlertCircle, ChevronRight, User, CreditCard, ArrowLeft, Loader2, Lock
 } from 'lucide-react';
 import { handleOrderCheckout } from '../lib/stripe';
 import { validateAndCreateOrder } from '../lib/orderService';
+import { currentPrice, priceLockDeadline } from '../lib/tierPricing';
 
 interface CartProps {
   onNavigate: (page: string) => void;
@@ -23,15 +24,17 @@ interface AttendeeInfo {
 
 type Step = 'cart' | 'attendees' | 'contact';
 
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 const STEPS: { id: Step; label: string; icon: React.ReactNode }[] = [
   { id: 'cart', label: 'Panier', icon: <ShoppingCart className="w-4 h-4" /> },
-  { id: 'attendees', label: 'Participants', icon: <User className="w-4 h-4" /> },
+  { id: 'attendees', label: 'Informations des pass', icon: <User className="w-4 h-4" /> },
   { id: 'contact', label: 'Paiement', icon: <CreditCard className="w-4 h-4" /> },
 ];
 
 export function Cart({ onNavigate }: CartProps) {
   const { user, profile } = useAuth();
-  const { cart, eventTickets, updateQuantity, updateEventTicketQuantity, removeFromCart, removeEventTicketFromCart, clearCart } = useCart();
+  const { cart, eventTickets, updateQuantity, updateEventTicketQuantity, updateEventTicketPricing, removeFromCart, removeEventTicketFromCart, clearCart } = useCart();
   const { t } = useLanguage();
 
   const [step, setStep] = useState<Step>('cart');
@@ -58,52 +61,27 @@ export function Cart({ onNavigate }: CartProps) {
 
   const [attendees, setAttendees] = useState<AttendeeInfo[]>([]);
 
-  const isMember = profile?.platform_subscription_status === 'active' &&
-    profile?.platform_subscription_expires_at &&
-    new Date(profile.platform_subscription_expires_at) > new Date();
-
   const getItemPrice = (item: any) => {
     if (item.product.category === 'event_pass' && item.product.details?.ticket_categories && item.selectedSize) {
       const category = (item.product.details.ticket_categories as any[]).find(
         (cat: any) => cat.name === item.selectedSize
       );
       if (category) {
-        return isMember && category.member_price > 0 ? category.member_price : category.price;
+        return category.price;
       }
     }
-    return isMember ? item.product.member_price : item.product.price;
+    return item.product.price;
   };
 
   const productsTotal = cart.reduce((sum, item) => sum + getItemPrice(item) * item.quantity, 0);
   const eventTicketsTotal = eventTickets.reduce((sum, ticket) => {
-    const price = isMember && ticket.eventTicketType.member_price > 0
-      ? ticket.eventTicketType.member_price
-      : ticket.eventTicketType.price;
-    return sum + price * ticket.quantity;
+    const dueNow = ticket.amountDueNow
+      ?? (ticket.purchaseType === 'price_lock_deposit' && ticket.depositAmount != null
+        ? ticket.depositAmount
+        : currentPrice(ticket.eventTicketType));
+    return sum + dueNow * ticket.quantity;
   }, 0);
   const total = productsTotal + eventTicketsTotal;
-
-  const productsSavings = isMember ? cart.reduce((sum, item) => {
-    if (item.product.category === 'event_pass' && item.product.details?.ticket_categories && item.selectedSize) {
-      const category = (item.product.details.ticket_categories as any[]).find(
-        (cat: any) => cat.name === item.selectedSize
-      );
-      if (category && category.member_price > 0) {
-        return sum + (category.price - category.member_price) * item.quantity;
-      }
-      return sum;
-    }
-    return sum + (item.product.price - item.product.member_price) * item.quantity;
-  }, 0) : 0;
-
-  const eventTicketsSavings = isMember ? eventTickets.reduce((sum, ticket) => {
-    if (ticket.eventTicketType.member_price > 0 && ticket.eventTicketType.member_price < ticket.eventTicketType.price) {
-      return sum + (ticket.eventTicketType.price - ticket.eventTicketType.member_price) * ticket.quantity;
-    }
-    return sum;
-  }, 0) : 0;
-
-  const savings = productsSavings + eventTicketsSavings;
 
   const totalTicketCount = eventTickets.reduce((sum, t) => sum + t.quantity, 0);
 
@@ -137,7 +115,15 @@ export function Cart({ onNavigate }: CartProps) {
     for (let i = 0; i < attendees.length; i++) {
       const a = attendees[i];
       if (!a.firstName.trim() || !a.lastName.trim()) {
-        setError(`Veuillez renseigner le prénom et nom du participant ${i + 1}`);
+        setError(`Veuillez renseigner le prénom et le nom du participant ${i + 1}`);
+        return;
+      }
+      if (!a.email.trim()) {
+        setError(`Veuillez renseigner l'email du participant ${i + 1}`);
+        return;
+      }
+      if (!EMAIL_REGEX.test(a.email.trim())) {
+        setError(`L'email du participant ${i + 1} n'est pas valide`);
         return;
       }
     }
@@ -195,6 +181,9 @@ export function Cart({ onNavigate }: CartProps) {
         ...eventTickets.map((ticket) => ({
           event_ticket_type_id: ticket.eventTicketType.id,
           quantity: ticket.quantity,
+          purchase_type: ticket.purchaseType,
+          price_snapshot: ticket.purchaseType === 'full_purchase' ? (ticket.priceSnapshot ?? null) : null,
+          deposit_amount: ticket.purchaseType === 'price_lock_deposit' ? (ticket.depositAmount ?? null) : null,
         })),
       ];
 
@@ -224,6 +213,48 @@ export function Cart({ onNavigate }: CartProps) {
 
       await handleOrderCheckout(orderResponse.order_id, checkoutItems);
     } catch (err: any) {
+      // Prix évolué depuis l'ajout au panier : le serveur refuse de créer la
+      // commande. On met le panier à jour au tarif réel puis on redemande une
+      // confirmation — Stripe ne s'ouvre qu'après un nouveau clic.
+      if (err?.code === 'PRICE_CHANGED' && err.priceChange) {
+        const { event_ticket_type_id, cart_price, current_price, ticket_name } = err.priceChange;
+        const isDeposit = eventTickets.some(
+          t => t.eventTicketType.id === event_ticket_type_id && t.purchaseType === 'price_lock_deposit'
+        );
+        await updateEventTicketPricing(
+          event_ticket_type_id,
+          isDeposit ? 'price_lock_deposit' : 'full_purchase',
+          isDeposit
+            ? { depositAmount: current_price, amountDueNow: current_price }
+            : { priceSnapshot: current_price, amountDueNow: current_price }
+        );
+        const fmt = (v: number) => `${v % 1 === 0 ? v : v.toFixed(2)} €`;
+        const name = ticket_name || 'ce billet';
+        setError(`Le tarif de ${name} vient d’évoluer de ${fmt(cart_price)} à ${fmt(current_price)}. Ton panier a été mis à jour.`);
+        setLoading(false);
+        setStep('cart');
+        return;
+      }
+
+      // Fenêtre Price Lock fermée depuis l'ajout : item retiré du panier,
+      // aucun lock créé, aucune conversion forcée en achat comptant.
+      if (err?.code === 'PRICE_LOCK_CLOSED' && err.ticketTypeId) {
+        const closed = eventTickets.find(t => t.eventTicketType.id === err.ticketTypeId);
+        const isDeposit = closed?.purchaseType === 'price_lock_deposit';
+        if (isDeposit) {
+          await removeEventTicketFromCart(err.ticketTypeId, 'price_lock_deposit');
+          setError(
+            `Ce Price Lock n’est plus disponible pour ce tarif.` +
+            (err.currentPrice != null ? ` Le tarif actuellement applicable est de ${err.currentPrice} €.` : '')
+          );
+        } else {
+          setError(err.message);
+        }
+        setLoading(false);
+        setStep('cart');
+        return;
+      }
+
       setError(err.message);
       setLoading(false);
     }
@@ -233,7 +264,8 @@ export function Cart({ onNavigate }: CartProps) {
     const result: Record<string, AttendeeInfo[]> = {};
     let offset = 0;
     for (const ticket of eventTickets) {
-      result[ticket.eventTicketType.id] = attendees.slice(offset, offset + ticket.quantity);
+      const key = `${ticket.eventTicketType.id}::${ticket.purchaseType}`;
+      result[key] = attendees.slice(offset, offset + ticket.quantity);
       offset += ticket.quantity;
     }
     return result;
@@ -334,10 +366,10 @@ export function Cart({ onNavigate }: CartProps) {
                 {t('cart.empty.button')}
               </button>
               <button
-                onClick={() => onNavigate('events')}
+                onClick={() => onNavigate('shop')}
                 className="px-8 py-3 border border-[#B8913D] text-[#B8913D] rounded-lg hover:bg-[#B8913D] hover:text-white transition-all"
               >
-                Voir les événements
+                Voir Nexa Pass
               </button>
             </div>
           </div>
@@ -347,12 +379,10 @@ export function Cart({ onNavigate }: CartProps) {
               <StepCart
                 cart={cart}
                 eventTickets={eventTickets}
-                isMember={isMember}
                 getItemPrice={getItemPrice}
                 productsTotal={productsTotal}
                 eventTicketsTotal={eventTicketsTotal}
                 total={total}
-                savings={savings}
                 updateQuantity={updateQuantity}
                 updateEventTicketQuantity={updateEventTicketQuantity}
                 removeFromCart={removeFromCart}
@@ -379,10 +409,8 @@ export function Cart({ onNavigate }: CartProps) {
               <StepContact
                 cart={cart}
                 eventTickets={eventTickets}
-                isMember={isMember}
                 getItemPrice={getItemPrice}
                 total={total}
-                savings={savings}
                 shippingInfo={shippingInfo}
                 setShippingInfo={setShippingInfo}
                 loading={loading}
@@ -399,27 +427,37 @@ export function Cart({ onNavigate }: CartProps) {
 }
 
 function StepCart({
-  cart, eventTickets, isMember, getItemPrice, productsTotal, eventTicketsTotal, total, savings,
+  cart, eventTickets, getItemPrice, productsTotal, eventTicketsTotal, total,
   updateQuantity, updateEventTicketQuantity, removeFromCart, removeEventTicketFromCart, onNext, onNavigate, t
 }: any) {
   return (
     <div className="space-y-6">
       <div className="space-y-4">
         {eventTickets.map((ticket: any) => {
-          const price = isMember && ticket.eventTicketType.member_price > 0
-            ? ticket.eventTicketType.member_price
-            : ticket.eventTicketType.price;
+          const isPriceLock = ticket.purchaseType === 'price_lock_deposit';
+          const ett = { ...ticket.eventTicketType, price_tiers: ticket.eventTicketType.price_tiers };
+          const lockedPrice = ticket.priceSnapshot ?? currentPrice(ett);
+          const deposit = ticket.depositAmount ?? ticket.eventTicketType.price_lock_deposit_amount ?? 20;
+          const dueNow = isPriceLock ? deposit : lockedPrice;
+          const futureBalance = lockedPrice - deposit;
 
           return (
-            <div key={ticket.eventTicketType.id} className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl p-5 border border-[#B8913D] border-opacity-50">
+            <div key={`${ticket.eventTicketType.id}-${ticket.purchaseType}`} className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl p-5 border border-[#B8913D] border-opacity-50">
               <div className="flex items-start gap-4">
                 <div className="w-14 h-14 bg-gray-700 rounded-lg flex items-center justify-center flex-shrink-0">
-                  <Ticket className="w-7 h-7 text-[#B8913D]" />
+                  {isPriceLock ? <Lock className="w-7 h-7 text-[#B8913D]" /> : <Ticket className="w-7 h-7 text-[#B8913D]" />}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1">
                     <Calendar className="w-3.5 h-3.5 text-[#B8913D]" />
                     <span className="text-xs text-[#B8913D] font-medium">Billet d'événement</span>
+                    <span className={`ml-auto rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                      isPriceLock
+                        ? 'border border-[#D4AC5B]/50 bg-[#D4AC5B]/10 text-[#F0D38A]'
+                        : 'bg-gray-700 text-gray-300'
+                    }`}>
+                      {isPriceLock ? 'Price Lock' : 'Achat comptant'}
+                    </span>
                   </div>
                   <h3 className="text-base font-medium text-white">{ticket.eventTicketType.event.title}</h3>
                   <p className="text-sm text-gray-400 mt-0.5">{ticket.eventTicketType.ticket_type.name}</p>
@@ -428,32 +466,47 @@ function StepCart({
                       weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
                     })}
                   </p>
+                  {isPriceLock && (
+                    <div className="mt-2 space-y-0.5 text-xs">
+                      <p className="text-gray-300">Prix bloqué : <span className="font-semibold text-white">{lockedPrice.toFixed(2)}€</span></p>
+                      <p className="text-gray-300">Solde futur : <span className="font-semibold text-white">{futureBalance.toFixed(2)}€</span></p>
+                      {(() => {
+                        const deadline = priceLockDeadline(ticket.eventTicketType);
+                        if (!deadline) return null;
+                        return (
+                          <p className="text-gray-500">
+                            Prix garanti jusqu'au {deadline.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
+                          </p>
+                        );
+                      })()}
+                    </div>
+                  )}
                   <div className="flex items-center justify-between mt-3">
                     <div className="flex items-center gap-2">
                       <button
-                        onClick={() => updateEventTicketQuantity(ticket.eventTicketType.id, ticket.quantity - 1)}
+                        onClick={() => updateEventTicketQuantity(ticket.eventTicketType.id, ticket.quantity - 1, ticket.purchaseType)}
                         className="p-1.5 border border-gray-600 rounded-lg hover:bg-gray-700 transition-colors text-white"
                       >
                         <Minus className="w-3.5 h-3.5" />
                       </button>
                       <span className="w-7 text-center font-medium text-white text-sm">{ticket.quantity}</span>
                       <button
-                        onClick={() => updateEventTicketQuantity(ticket.eventTicketType.id, ticket.quantity + 1)}
+                        onClick={() => updateEventTicketQuantity(ticket.eventTicketType.id, ticket.quantity + 1, ticket.purchaseType)}
                         className="p-1.5 border border-gray-600 rounded-lg hover:bg-gray-700 transition-colors text-white"
                       >
                         <Plus className="w-3.5 h-3.5" />
                       </button>
                       <button
-                        onClick={() => removeEventTicketFromCart(ticket.eventTicketType.id)}
+                        onClick={() => removeEventTicketFromCart(ticket.eventTicketType.id, ticket.purchaseType)}
                         className="p-1.5 text-red-400 hover:bg-red-900 hover:bg-opacity-20 rounded-lg transition-colors"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     </div>
                     <div className="text-right">
-                      <span className="text-base font-bold text-[#B8913D]">{(price * ticket.quantity).toFixed(2)}€</span>
-                      {isMember && ticket.eventTicketType.member_price > 0 && ticket.eventTicketType.member_price < ticket.eventTicketType.price && (
-                        <p className="text-xs text-gray-400 line-through">{(ticket.eventTicketType.price * ticket.quantity).toFixed(2)}€</p>
+                      <span className="text-base font-bold text-[#B8913D]">{(dueNow * ticket.quantity).toFixed(2)}€</span>
+                      {isPriceLock && (
+                        <p className="text-[10px] text-gray-500">à payer aujourd'hui</p>
                       )}
                     </div>
                   </div>
@@ -517,9 +570,6 @@ function StepCart({
                     </div>
                     <div className="text-right">
                       <span className="text-base font-bold text-[#B8913D]">{(price * item.quantity).toFixed(2)}€</span>
-                      {isMember && originalPrice > price && (
-                        <p className="text-xs text-gray-400 line-through">{(originalPrice * item.quantity).toFixed(2)}€</p>
-                      )}
                     </div>
                   </div>
                 </div>
@@ -531,17 +581,7 @@ function StepCart({
 
       <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl p-5 border border-gray-700/50">
         <div className="space-y-2 mb-4">
-          <div className="flex justify-between text-gray-400 text-sm">
-            <span>Sous-total</span>
-            <span className={savings > 0 ? 'line-through text-gray-500' : ''}>{(total + savings).toFixed(2)}€</span>
-          </div>
-          {savings > 0 && (
-            <div className="flex justify-between text-green-400 text-sm">
-              <span>Économie membre</span>
-              <span>-{savings.toFixed(2)}€</span>
-            </div>
-          )}
-          <div className="flex justify-between text-white font-bold text-lg pt-2 border-t border-gray-700">
+          <div className="flex justify-between text-white font-bold text-lg pt-2">
             <span>Total</span>
             <span className="text-[#B8913D]">{total.toFixed(2)}€</span>
           </div>
@@ -565,7 +605,7 @@ function StepAttendees({ eventTickets, attendees, onUpdateAttendee, onUseMyInfo,
   return (
     <div className="max-w-2xl mx-auto space-y-6">
       <p className="text-gray-400 text-center text-sm">
-        Les billets sont nominatifs. Renseignez le nom de chaque participant.
+        Les pass sont nominatifs. Renseignez les informations du détenteur de chaque billet.
       </p>
 
       {eventTickets.map((ticket: any) => {
@@ -576,7 +616,7 @@ function StepAttendees({ eventTickets, attendees, onUpdateAttendee, onUseMyInfo,
         ticketIndex += ticket.quantity;
 
         return (
-          <div key={ticket.eventTicketType.id} className="space-y-4">
+          <div key={`${ticket.eventTicketType.id}-${ticket.purchaseType}`} className="space-y-4">
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 bg-[#B8913D] bg-opacity-20 rounded-lg flex items-center justify-center">
                 <Ticket className="w-4 h-4 text-[#B8913D]" />
@@ -594,7 +634,10 @@ function StepAttendees({ eventTickets, attendees, onUpdateAttendee, onUseMyInfo,
                     <div className="w-6 h-6 rounded-full bg-[#B8913D] bg-opacity-20 flex items-center justify-center">
                       <span className="text-[#B8913D] text-xs font-bold">{idx + 1}</span>
                     </div>
-                    <span className="text-white text-sm font-medium">Participant {idx + 1}</span>
+                    <span className="text-white text-sm font-medium">Détenteur {idx + 1}</span>
+                    {ticket.purchaseType === 'price_lock_deposit' && (
+                      <span className="rounded-full border border-[#D4AC5B]/50 bg-[#D4AC5B]/10 px-2 py-0.5 text-[10px] font-semibold text-[#F0D38A]">Price Lock</span>
+                    )}
                   </div>
                   <button
                     onClick={() => onUseMyInfo(idx)}
@@ -604,7 +647,7 @@ function StepAttendees({ eventTickets, attendees, onUpdateAttendee, onUseMyInfo,
                   </button>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block text-xs text-gray-400 mb-1.5">Prénom <span className="text-red-400">*</span></label>
                     <input
@@ -626,12 +669,22 @@ function StepAttendees({ eventTickets, attendees, onUpdateAttendee, onUseMyInfo,
                     />
                   </div>
                   <div className="col-span-2">
-                    <label className="block text-xs text-gray-400 mb-1.5">Email</label>
+                    <label className="block text-xs text-gray-400 mb-1.5">Email <span className="text-red-400">*</span></label>
                     <input
                       type="email"
                       value={attendee.email}
                       onChange={(e) => onUpdateAttendee(idx, 'email', e.target.value)}
                       placeholder="email@exemple.com"
+                      className="w-full px-3 py-2.5 bg-gray-800 border border-gray-600 rounded-lg text-white text-sm focus:ring-2 focus:ring-[#B8913D] focus:border-[#B8913D] outline-none"
+                    />
+                  </div>
+                  <div className="col-span-2">
+                    <label className="block text-xs text-gray-400 mb-1.5">Téléphone</label>
+                    <input
+                      type="tel"
+                      value={attendee.phone}
+                      onChange={(e) => onUpdateAttendee(idx, 'phone', e.target.value)}
+                      placeholder="Téléphone (optionnel)"
                       className="w-full px-3 py-2.5 bg-gray-800 border border-gray-600 rounded-lg text-white text-sm focus:ring-2 focus:ring-[#B8913D] focus:border-[#B8913D] outline-none"
                     />
                   </div>
@@ -662,15 +715,16 @@ function StepAttendees({ eventTickets, attendees, onUpdateAttendee, onUseMyInfo,
   );
 }
 
-function StepContact({ cart, eventTickets, isMember, getItemPrice, total, savings, shippingInfo, setShippingInfo, loading, onBack, onCheckout, t }: any) {
+function StepContact({ cart, eventTickets, getItemPrice, total, shippingInfo, setShippingInfo, loading, onBack, onCheckout, t }: any) {
   const requiresShipping = cart.length > 0;
 
   const productsSubtotal = cart.reduce((sum: number, item: any) => sum + getItemPrice(item) * item.quantity, 0);
   const ticketsSubtotal = eventTickets.reduce((sum: number, ticket: any) => {
-    const price = isMember && ticket.eventTicketType.member_price > 0
-      ? ticket.eventTicketType.member_price
-      : ticket.eventTicketType.price;
-    return sum + price * ticket.quantity;
+    const dueNow = ticket.amountDueNow
+      ?? (ticket.purchaseType === 'price_lock_deposit' && ticket.depositAmount != null
+        ? ticket.depositAmount
+        : currentPrice(ticket.eventTicketType));
+    return sum + dueNow * ticket.quantity;
   }, 0);
 
   return (
@@ -732,21 +786,9 @@ function StepContact({ cart, eventTickets, isMember, getItemPrice, total, saving
           )}
           {eventTickets.length > 0 && (
             <div className="flex justify-between text-gray-400">
-              <span>Billets ({eventTickets.reduce((s: number, t: any) => s + t.quantity, 0)} billets)</span>
+              <span>Pass ({eventTickets.reduce((s: number, t: any) => s + t.quantity, 0)} billets)</span>
               <span>{ticketsSubtotal.toFixed(2)}€</span>
             </div>
-          )}
-          {savings > 0 && (
-            <>
-              <div className="flex justify-between text-gray-500 text-sm line-through">
-                <span>Sous-total sans remise</span>
-                <span>{(total + savings).toFixed(2)}€</span>
-              </div>
-              <div className="flex justify-between text-green-400">
-                <span>Économie membre</span>
-                <span>-{savings.toFixed(2)}€</span>
-              </div>
-            </>
           )}
           <div className="flex justify-between text-white font-bold text-base pt-2 border-t border-gray-700">
             <span>Total</span>

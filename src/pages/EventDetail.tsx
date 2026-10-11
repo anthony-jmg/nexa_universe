@@ -5,11 +5,12 @@ import { useLanguage } from '../contexts/LanguageContext';
 import { supabase } from '../lib/supabase';
 import { BackgroundDecor } from '../components/BackgroundDecor';
 import { Database } from '../lib/database.types';
-import { Calendar, MapPin, Clock, ArrowLeft, Check, Minus, Plus, ShoppingCart, Bell } from 'lucide-react';
+import { currentPrice, nextPrice, nextPriceChangeAt, priceLockDeadline, priceLockAvailable, EttWithPricing } from '../lib/tierPricing';
+import { Calendar, MapPin, Clock, ArrowLeft, Check, Minus, Plus, ShoppingCart, Bell, ChevronDown, ChevronUp, Music, ListChecks, Info, Lock } from 'lucide-react';
 
 type Event = Database['public']['Tables']['events']['Row'];
 type TicketType = Database['public']['Tables']['ticket_types']['Row'];
-type EventTicketType = Database['public']['Tables']['event_ticket_types']['Row'] & {
+type EventTicketType = EttWithPricing & {
   ticket_type: TicketType;
 };
 
@@ -29,8 +30,17 @@ interface EventDetailProps {
   onNavigate: (page: string) => void;
 }
 
+const MOCK_PROGRAM = [
+  '10h00 — Accueil et remise des Full Pass',
+  '11h00 — Cours intensifs avec les professeurs invités',
+  '15h00 — Workshops et sessions tous niveaux',
+  '21h00 — Soirée festival et shows partenaires',
+];
+
+const MOCK_LINEUP = ['Marlon & Cindy', 'Tina & Alex', 'Nexa DJs'];
+
 export function EventDetail({ eventId, onNavigate }: EventDetailProps) {
-  const { user, profile } = useAuth();
+  const { user } = useAuth();
   const { addEventTicketToCart } = useCart();
   const { t } = useLanguage();
   const [event, setEvent] = useState<EventWithTickets | null>(null);
@@ -38,10 +48,8 @@ export function EventDetail({ eventId, onNavigate }: EventDetailProps) {
   const [selections, setSelections] = useState<TicketSelection[]>([]);
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState('');
-
-  const isMember = profile?.platform_subscription_status === 'active' &&
-    profile?.platform_subscription_expires_at &&
-    new Date(profile.platform_subscription_expires_at) > new Date();
+  const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
+  const [lockMode, setLockMode] = useState(false);
 
   useEffect(() => {
     loadEvent();
@@ -54,12 +62,14 @@ export function EventDetail({ eventId, onNavigate }: EventDetailProps) {
         *,
         event_ticket_types (
           *,
-          ticket_type:ticket_types (*)
+          ticket_type:ticket_types (*),
+          price_tiers:event_ticket_price_tiers (label, price, starts_at, ends_at)
         )
       `)
       .eq('id', eventId)
       .in('event_status', ['published', 'upcoming'])
       .eq('is_active', true)
+      .eq('is_test', false)
       .maybeSingle();
 
     if (!error && data) {
@@ -96,6 +106,21 @@ export function EventDetail({ eventId, onNavigate }: EventDetailProps) {
 
   const getTotalQuantity = () => selections.reduce((sum, s) => sum + s.quantity, 0);
   const getTotalPrice = () => selections.reduce((sum, s) => sum + (s.quantity * s.unitPrice), 0);
+  const getLockTotalPrice = () => {
+    if (!lockMode || !event) return getTotalPrice();
+    return selections.reduce((sum, s) => {
+      const ett = event.event_ticket_types?.find(t => t.id === s.eventTicketTypeId);
+      const deposit = Number(ett?.price_lock_deposit_amount ?? 20);
+      return sum + s.quantity * deposit;
+    }, 0);
+  };
+  const descriptionPreview = event?.description && event.description.length > 220
+    ? `${event.description.slice(0, 220).trim()}…`
+    : event?.description;
+
+  const scrollToPurchase = () => {
+    document.getElementById('event-purchase')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
 
   const handleAddToCart = async () => {
     if (!user) {
@@ -107,8 +132,9 @@ export function EventDetail({ eventId, onNavigate }: EventDetailProps) {
     setError('');
 
     try {
+      const purchaseType = lockMode ? 'price_lock_deposit' : 'full_purchase';
       for (const selection of selections) {
-        await addEventTicketToCart(selection.eventTicketTypeId, selection.quantity);
+        await addEventTicketToCart(selection.eventTicketTypeId, selection.quantity, purchaseType);
       }
       onNavigate('cart');
     } catch (err: any) {
@@ -145,7 +171,7 @@ export function EventDetail({ eventId, onNavigate }: EventDetailProps) {
   const eventDate = new Date(event.start_date);
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-950 via-gray-900 to-gray-950 pt-20 pb-12 relative overflow-x-hidden">
+    <div className={`min-h-screen bg-gradient-to-b from-gray-950 via-gray-900 to-gray-950 pt-20 relative overflow-x-hidden ${isUpcoming ? 'pb-12' : 'pb-28 sm:pb-12'}`}>
       <BackgroundDecor />
 
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
@@ -168,10 +194,10 @@ export function EventDetail({ eventId, onNavigate }: EventDetailProps) {
         )}
 
         <div className={`bg-gray-900 bg-opacity-60 backdrop-blur-sm rounded-2xl border overflow-hidden mb-8 ${isUpcoming ? 'border-gray-700' : 'border-[#B8913D] border-opacity-30'}`}>
-          {event.image_url && (
+          {event.thumbnail_url && (
             <div className="relative h-80 bg-gray-800">
               <img
-                src={event.image_url}
+                src={event.thumbnail_url}
                 alt={event.title}
                 className={`w-full h-full object-cover ${isUpcoming ? 'opacity-60' : ''}`}
               />
@@ -213,7 +239,86 @@ export function EventDetail({ eventId, onNavigate }: EventDetailProps) {
               )}
             </div>
 
-            <p className="text-gray-300 leading-relaxed">{event.description}</p>
+            {!isUpcoming && (() => {
+              const tickets = (event.event_ticket_types || []).filter(ett => ett.is_active);
+              if (tickets.length === 0) return null;
+              const minTicket = tickets.reduce((a, b) => (currentPrice(a) <= currentPrice(b) ? a : b));
+              const price = currentPrice(minTicket);
+              const next = nextPrice(minTicket);
+              const nextAt = nextPriceChangeAt(minTicket);
+              const lockDeposit = Number(minTicket.price_lock_deposit_amount ?? 0);
+              const lockOk = priceLockAvailable(minTicket);
+              const deadline = priceLockDeadline(minTicket);
+              const homogeneous = tickets.every(t => currentPrice(t) === currentPrice(minTicket));
+              if (!homogeneous) return null;
+
+              return (
+              <div className="mb-8 rounded-2xl border border-[#D4AC5B]/35 bg-gradient-to-br from-[#B8913D]/15 via-gray-900/70 to-gray-950/80 p-5 sm:p-7 shadow-[0_18px_45px_rgba(0,0,0,0.2)]">
+                <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <div className="flex flex-wrap items-center gap-2 mb-3">
+                      <span className="text-xs font-bold tracking-[0.24em] text-[#D4AC5B] uppercase">Full Pass</span>
+                      {lockOk && (
+                        <span className="rounded-full border border-[#D4AC5B]/45 bg-[#D4AC5B]/10 px-2.5 py-1 text-[11px] font-semibold text-[#F0D38A]">Price Lock disponible</span>
+                      )}
+                    </div>
+                    <div className="flex items-end gap-3">
+                      <span className="text-4xl sm:text-5xl font-bold tracking-tight text-white">{price.toFixed(0)} €</span>
+                      <span className="pb-1 text-sm text-gray-400">tarif actuel</span>
+                    </div>
+                    {next !== null && nextAt && (
+                      <p className="mt-2 text-sm text-gray-300">Prochain tarif : <span className="font-semibold text-[#F0D38A]">{next.toFixed(0)} € à partir du {nextAt.toLocaleDateString('fr-FR')}</span></p>
+                    )}
+                  </div>
+                  {lockOk && (
+                    <div className="sm:max-w-[240px] sm:text-right">
+                      <p className="text-sm font-semibold text-white">Bloque ton tarif actuel avec {lockDeposit.toFixed(0)} €</p>
+                      {deadline && <p className="mt-1 text-xs leading-relaxed text-gray-400">Tarif garanti jusqu’au {deadline.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}</p>}
+                    </div>
+                  )}
+                </div>
+
+                <div className="mt-6 grid gap-3 sm:grid-cols-2">
+                  <button
+                    type="button"
+                    onClick={() => { setLockMode(false); scrollToPurchase(); }}
+                    className="inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-[#B8913D] to-[#D4AC5B] px-5 py-3.5 text-sm font-bold text-white shadow-[0_8px_24px_rgba(184,145,61,0.22)] transition-all hover:brightness-110"
+                  >
+                    Acheter maintenant — {price.toFixed(0)} €
+                  </button>
+                  {lockOk && (
+                    <button
+                      type="button"
+                      onClick={() => { setLockMode(true); scrollToPurchase(); }}
+                      className="inline-flex items-center justify-center rounded-xl border border-[#D4AC5B]/50 bg-[#D4AC5B]/10 px-5 py-3.5 text-sm font-semibold text-[#F0D38A] transition-all hover:bg-[#D4AC5B]/20"
+                    >
+                      Bloquer mon tarif — {lockDeposit.toFixed(0)} €
+                    </button>
+                  )}
+                </div>
+                {lockOk && (
+                  <p className="mt-4 text-[11px] leading-relaxed text-gray-500">Les {lockDeposit.toFixed(0)} € sont déduits du prix final. Si le Price Lock expire, la somme déjà versée reste déduite mais le tarif en vigueur s’applique.</p>
+                )}
+              </div>
+              );
+            })()}
+
+            <div className="border-t border-gray-800/80 pt-6">
+              <div className="flex items-center justify-between gap-4">
+                <h2 className="text-xl font-medium text-white">À propos du festival</h2>
+                {event.description && event.description.length > 220 && (
+                  <button
+                    type="button"
+                    onClick={() => setIsDescriptionExpanded(prev => !prev)}
+                    className="inline-flex shrink-0 items-center gap-1.5 text-sm font-semibold text-[#D4AC5B] transition-colors hover:text-[#F0D38A]"
+                  >
+                    {isDescriptionExpanded ? 'Voir moins' : 'Voir plus'}
+                    {isDescriptionExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                  </button>
+                )}
+              </div>
+              <p className="mt-3 text-gray-300 leading-relaxed">{isDescriptionExpanded ? event.description : descriptionPreview}</p>
+            </div>
           </div>
         </div>
 
@@ -235,15 +340,27 @@ export function EventDetail({ eventId, onNavigate }: EventDetailProps) {
             </button>
           </div>
         ) : (
-          <div className="bg-gray-900 bg-opacity-60 backdrop-blur-sm rounded-2xl border border-[#B8913D] border-opacity-30 p-4 sm:p-8">
-            <h2 className="text-xl sm:text-2xl font-light text-white mb-6">Sélectionnez vos billets</h2>
+          <div id="event-purchase" className="scroll-mt-24 bg-gray-900 bg-opacity-60 backdrop-blur-sm rounded-2xl border border-[#B8913D] border-opacity-30 p-4 sm:p-8">
+            <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <span className="text-[11px] font-bold tracking-[0.2em] text-[#D4AC5B] uppercase">Réservation</span>
+                <h2 className="mt-1 text-xl sm:text-2xl font-light text-white">Choisis ton Full Pass</h2>
+              </div>
+              <span className={`text-sm ${lockMode ? 'text-[#F0D38A]' : 'text-gray-400'}`}>
+                {lockMode ? 'Mode Price Lock : seule la caution sera facturée aujourd\u2019hui' : 'Tarif affiché selon la disponibilité'}
+              </span>
+            </div>
 
             <div className="space-y-4">
               {event.event_ticket_types
                 ?.filter(ett => ett.is_active)
                 .sort((a, b) => a.display_order - b.display_order)
                 .map((ett) => {
-                  const price = isMember && ett.member_price > 0 ? ett.member_price : ett.price;
+                  const price = currentPrice(ett);
+                  const next = nextPrice(ett);
+                  const nextAt = nextPriceChangeAt(ett);
+                  const lockOk = priceLockAvailable(ett);
+                  const lockDeposit = Number(ett.price_lock_deposit_amount ?? 0);
                   const available = ett.quantity_available !== null
                     ? ett.quantity_available - ett.quantity_sold
                     : 999;
@@ -276,14 +393,16 @@ export function EventDetail({ eventId, onNavigate }: EventDetailProps) {
 
                       <div className="flex items-center justify-between sm:justify-end gap-4 sm:gap-6">
                         <div className="text-left sm:text-right">
-                          {ett.member_price > 0 && ett.member_price < ett.price ? (
-                            <>
-                              <div className="text-sm text-gray-400">{ett.price.toFixed(2)}€</div>
-                              <div className="text-xl font-bold text-[#B8913D]">{ett.member_price.toFixed(2)}€</div>
-                              <div className="text-xs text-[#B8913D]">avec abonnement</div>
-                            </>
-                          ) : (
-                            <div className="text-xl font-bold text-[#B8913D]">{ett.price.toFixed(2)}€</div>
+                          <div className="text-xl font-bold text-[#B8913D]">{price.toFixed(2)}€</div>
+                          {next !== null && nextAt && (
+                            <p className="text-xs text-gray-400 mt-0.5">
+                              → {next.toFixed(2)}€ le {nextAt.toLocaleDateString('fr-FR')}
+                            </p>
+                          )}
+                          {lockOk && lockDeposit > 0 && (
+                            <p className="text-xs text-[#F0D38A] mt-0.5 flex items-center sm:justify-end gap-1">
+                              <Lock className="w-3 h-3" /> Price Lock : {lockDeposit.toFixed(0)} €
+                            </p>
                           )}
                         </div>
 
@@ -320,8 +439,10 @@ export function EventDetail({ eventId, onNavigate }: EventDetailProps) {
               <div className="mt-8 pt-6 border-t border-gray-700">
                 <div className="flex items-center justify-between mb-6">
                   <div>
-                    <p className="text-gray-400">Total ({getTotalQuantity()} billets)</p>
-                    <p className="text-3xl font-bold text-[#B8913D]">{getTotalPrice().toFixed(2)}€</p>
+                    <p className="text-gray-400">
+                      {lockMode ? `Total aujourd'hui (${getTotalQuantity()} caution${getTotalQuantity() > 1 ? 's' : ''} Price Lock)` : `Total (${getTotalQuantity()} billets)`}
+                    </p>
+                    <p className="text-3xl font-bold text-[#B8913D]">{getLockTotalPrice().toFixed(2)}€</p>
                   </div>
                   <button
                     onClick={handleAddToCart}
@@ -336,7 +457,67 @@ export function EventDetail({ eventId, onNavigate }: EventDetailProps) {
             )}
           </div>
         )}
+
+        {!isUpcoming && (
+          <div className="mt-8 grid gap-5 md:grid-cols-3">
+            <section className="rounded-2xl border border-gray-800 bg-gray-900/60 p-5">
+              <div className="mb-4 flex items-center gap-3">
+                <ListChecks className="h-5 w-5 text-[#D4AC5B]" />
+                <h2 className="font-semibold text-white">Programme</h2>
+              </div>
+              <ul className="space-y-2.5 text-sm leading-relaxed text-gray-400">
+                {MOCK_PROGRAM.map(item => <li key={item}>{item}</li>)}
+              </ul>
+            </section>
+
+            <section className="rounded-2xl border border-gray-800 bg-gray-900/60 p-5">
+              <div className="mb-4 flex items-center gap-3">
+                <Music className="h-5 w-5 text-[#D4AC5B]" />
+                <h2 className="font-semibold text-white">Line-up</h2>
+              </div>
+              <ul className="space-y-2.5 text-sm leading-relaxed text-gray-400">
+                {MOCK_LINEUP.map(item => <li key={item}>{item}</li>)}
+              </ul>
+            </section>
+
+            <section className="rounded-2xl border border-gray-800 bg-gray-900/60 p-5">
+              <div className="mb-4 flex items-center gap-3">
+                <Info className="h-5 w-5 text-[#D4AC5B]" />
+                <h2 className="font-semibold text-white">Informations pratiques</h2>
+              </div>
+              <ul className="space-y-2.5 text-sm leading-relaxed text-gray-400">
+                <li>Accès Full Pass inclus</li>
+                <li>Horaires détaillés communiqués avant l’événement</li>
+                <li>Billet nominatif à présenter à l’accueil</li>
+              </ul>
+            </section>
+          </div>
+        )}
       </div>
+
+      {!isUpcoming && (
+        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-[#D4AC5B]/20 bg-gray-950/95 px-4 py-3 backdrop-blur-xl sm:hidden">
+          <div className="mx-auto flex max-w-5xl items-center justify-between gap-4">
+            <div>
+              <p className="text-[10px] font-bold tracking-[0.18em] text-[#D4AC5B] uppercase">Nexa Pass</p>
+              <p className="text-lg font-bold text-white">
+                {(() => {
+                  const tickets = (event.event_ticket_types || []).filter(ett => ett.is_active);
+                  if (tickets.length === 0) return null;
+                  return `À partir de ${Math.round(Math.min(...tickets.map(t => currentPrice(t))))} €`;
+                })()}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={scrollToPurchase}
+              className="rounded-xl bg-gradient-to-r from-[#B8913D] to-[#D4AC5B] px-6 py-3 text-sm font-bold text-white shadow-[0_6px_20px_rgba(184,145,61,0.2)]"
+            >
+              Réserver
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

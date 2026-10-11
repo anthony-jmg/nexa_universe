@@ -1,14 +1,14 @@
 import { useState, useEffect, useMemo } from 'react';
-import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { supabase } from '../lib/supabase';
 import { BackgroundDecor } from '../components/BackgroundDecor';
 import { Database } from '../lib/database.types';
+import { minEventPrice, minNextEventPrice, EttWithPricing } from '../lib/tierPricing';
 import { Calendar, MapPin, ChevronRight, Clock, Bell } from 'lucide-react';
 
 type Event = Database['public']['Tables']['events']['Row'];
 type TicketType = Database['public']['Tables']['ticket_types']['Row'];
-type EventTicketType = Database['public']['Tables']['event_ticket_types']['Row'] & {
+type EventTicketType = EttWithPricing & {
   ticket_type: TicketType;
 };
 
@@ -21,16 +21,11 @@ interface EventsProps {
 }
 
 export function Events({ onNavigate }: EventsProps) {
-  const { profile } = useAuth();
   const { t } = useLanguage();
   const [events, setEvents] = useState<EventWithTickets[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 9;
-
-  const isMember = profile?.platform_subscription_status === 'active' &&
-    profile?.platform_subscription_expires_at &&
-    new Date(profile.platform_subscription_expires_at) > new Date();
 
   useEffect(() => {
     loadEvents();
@@ -43,11 +38,12 @@ export function Events({ onNavigate }: EventsProps) {
         *,
         event_ticket_types (
           *,
-          ticket_type:ticket_types (*)
+          ticket_type:ticket_types (*),
+          price_tiers:event_ticket_price_tiers (label, price, starts_at, ends_at)
         )
-      `)
-      .in('event_status', ['published', 'upcoming'])
+      `)      .in('event_status', ['published', 'upcoming'])
       .eq('is_active', true)
+      .eq('is_test', false)
       .order('start_date', { ascending: true });
 
     if (error) {
@@ -59,19 +55,9 @@ export function Events({ onNavigate }: EventsProps) {
     setLoading(false);
   };
 
-  const getMinPrice = (event: EventWithTickets) => {
-    if (!event.event_ticket_types || event.event_ticket_types.length === 0) return null;
-    const prices = event.event_ticket_types.filter(ett => ett.is_active).map(ett => ett.price);
-    return prices.length > 0 ? Math.min(...prices) : null;
-  };
+  const getMinPrice = (event: EventWithTickets) => minEventPrice(event);
 
-  const getMinMemberPrice = (event: EventWithTickets) => {
-    if (!event.event_ticket_types || event.event_ticket_types.length === 0) return null;
-    const memberPrices = event.event_ticket_types
-      .filter(ett => ett.is_active && ett.member_price > 0)
-      .map(ett => ett.member_price);
-    return memberPrices.length > 0 ? Math.min(...memberPrices) : null;
-  };
+  const getNextPrice = (event: EventWithTickets) => minNextEventPrice(event);
 
   const getAvailableTickets = (event: EventWithTickets) => {
     if (!event.event_ticket_types) return 0;
@@ -130,7 +116,6 @@ export function Events({ onNavigate }: EventsProps) {
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 sm:gap-6 lg:gap-5">
                   {currentEvents.map((event) => {
                     const minPrice = getMinPrice(event);
-                    const minMemberPrice = getMinMemberPrice(event);
                     const availableTickets = getAvailableTickets(event);
                     const eventDate = new Date(event.start_date);
                     const isAlmostFull = event.max_attendees && availableTickets < event.max_attendees * 0.2;
@@ -141,9 +126,9 @@ export function Events({ onNavigate }: EventsProps) {
                         className="bg-gray-900 bg-opacity-60 backdrop-blur-sm rounded-xl sm:rounded-2xl lg:rounded-xl shadow-xl hover:shadow-2xl hover:shadow-[#B8913D]/20 transition-all overflow-hidden group border border-[#B8913D] border-opacity-30"
                       >
                         <div className="relative h-56 sm:h-64 lg:h-48 bg-gray-800 overflow-hidden">
-                          {event.image_url ? (
+                          {event.thumbnail_url ? (
                             <img
-                              src={event.image_url}
+                              src={event.thumbnail_url}
                               alt={event.title}
                               className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
                             />
@@ -197,28 +182,22 @@ export function Events({ onNavigate }: EventsProps) {
                           <div className="flex items-center justify-between pt-4 border-t border-gray-700">
                             <div>
                               {minPrice !== null ? (
-                                <>
-                                  {minMemberPrice && minMemberPrice < minPrice ? (
-                                    <>
-                                      <div className="flex items-baseline space-x-2">
-                                        <span className="text-sm text-gray-400">Prix normal:</span>
-                                        <span className="text-base font-medium text-gray-400">{minPrice.toFixed(2)}€</span>
-                                      </div>
-                                      <div className="flex items-baseline space-x-2 mt-1">
-                                        <span className="text-2xl font-bold text-[#B8913D]">{minMemberPrice.toFixed(2)}€</span>
-                                        <span className="text-xs text-[#B8913D]">avec abonnement</span>
-                                      </div>
-                                    </>
-                                  ) : (
-                                    <div className="flex items-baseline space-x-2">
-                                      <span className="text-sm text-gray-400">À partir de</span>
-                                      <span className="text-2xl font-bold text-[#B8913D]">{minPrice.toFixed(2)}€</span>
-                                    </div>
-                                  )}
-                                </>
+                                <div className="flex items-baseline space-x-2">
+                                  <span className="text-sm text-gray-400">À partir de</span>
+                                  <span className="text-2xl font-bold text-[#B8913D]">{minPrice.toFixed(2)}€</span>
+                                </div>
                               ) : (
                                 <span className="text-gray-400">Prix à venir</span>
                               )}
+                              {(() => {
+                                const next = getNextPrice(event);
+                                if (!next) return null;
+                                return (
+                                  <p className="text-xs text-gray-400 mt-1">
+                                    Prochain tarif à partir de {next.price.toFixed(0)} € le {next.changeAt.toLocaleDateString('fr-FR')}
+                                  </p>
+                                );
+                              })()}
                             </div>
 
                             <button
@@ -298,9 +277,9 @@ export function Events({ onNavigate }: EventsProps) {
                         </div>
 
                         <div className="relative h-56 sm:h-64 lg:h-48 bg-gray-800 overflow-hidden">
-                          {event.image_url ? (
+                          {event.thumbnail_url ? (
                             <img
-                              src={event.image_url}
+                              src={event.thumbnail_url}
                               alt={event.title}
                               className="w-full h-full object-cover opacity-60"
                             />

@@ -2,6 +2,16 @@
 @tailwind components;
 @tailwind utilities;
 
+@layer utilities {
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+}
+
 @layer base {
   body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
@@ -167,5 +177,39 @@
 
   .animate-shimmer {
     animation: shimmer 2s infinite;
+  }
+
+  .animate-hero-rise {
+    animation: heroRise 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
+  .animate-menu-slide {
+    animation: menuSlide 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .delay-100 { animation-delay: 0.1s; }
+  .delay-200 { animation-delay: 0.2s; }
+  .delay-300 { animation-delay: 0.3s; }
+  .delay-400 { animation-delay: 0.4s; }
+  .delay-500 { animation-delay: 0.5s; }
+
+  @keyframes heroRise {
+    0% { transform: translateY(28px); opacity: 0; }
+    100% { transform: translateY(0px); opacity: 1; }
+  }
+
+  @keyframes menuSlide {
+    0% { transform: translateY(-12px); opacity: 0; }
+    100% { transform: translateY(0px); opacity: 1; }
+  }
+
+  @keyframes nudge {
+    0%, 100% { transform: translateX(0); }
+    30% { transform: translateX(-8px); }
+    60% { transform: translateX(6px); }
+  }
+
+  .animate-nudge {
+    animation: nudge 1.5s ease-out 1s 2;
   }
 }

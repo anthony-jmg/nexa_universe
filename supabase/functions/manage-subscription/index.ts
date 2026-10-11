@@ -10,7 +10,7 @@ const corsHeaders = {
 
 interface ManageSubscriptionRequest {
   action: "cancel" | "reactivate";
-  subscription_type: "platform" | "professor";
+  subscription_type: "professor";
   professor_id?: string;
   cancellation_reason?: string;
   cancellation_feedback?: string;
@@ -82,15 +82,7 @@ Deno.serve(async (req: Request) => {
 
     let subscriptionId: string | null = null;
 
-    if (subscription_type === "platform") {
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("stripe_subscription_id")
-        .eq("id", user.id)
-        .maybeSingle();
-
-      subscriptionId = profile?.stripe_subscription_id;
-    } else if (subscription_type === "professor" && professor_id) {
+    if (subscription_type === "professor" && professor_id) {
       const { data: profSub } = await supabase
         .from("professor_subscriptions")
         .select("stripe_subscription_id")
@@ -171,25 +163,7 @@ Deno.serve(async (req: Request) => {
         let canRefund = false;
         let waiverReason = null;
 
-        if (subscription_type === "platform") {
-          const { data: refundCalc } = await supabase
-            .rpc("calculate_platform_refund_amount", { user_id_param: user.id });
-
-          refundAmount = refundCalc || 0;
-          canRefund = refundAmount > 0;
-
-          if (!canRefund) {
-            const { data: profile } = await supabase
-              .from("profiles")
-              .select("platform_withdrawal_right_waived, platform_withdrawal_waiver_reason")
-              .eq("id", user.id)
-              .maybeSingle();
-
-            if (profile?.platform_withdrawal_right_waived) {
-              waiverReason = profile.platform_withdrawal_waiver_reason;
-            }
-          }
-        } else if (professor_id) {
+        if (professor_id) {
           const { data: refundCalc } = await supabase
             .rpc("calculate_professor_refund_amount", {
               user_id_param: user.id,
@@ -295,18 +269,7 @@ Deno.serve(async (req: Request) => {
         });
       }
 
-      if (subscription_type === "platform") {
-        await supabase
-          .from("profiles")
-          .update({
-            subscription_cancel_at_period_end: !request_refund,
-            platform_cancellation_reason: cancellation_reason,
-            platform_cancellation_feedback: cancellation_feedback,
-            platform_cancelled_at: now,
-            updated_at: now,
-          })
-          .eq("id", user.id);
-      } else if (subscription_type === "professor" && professor_id) {
+      if (subscription_type === "professor" && professor_id) {
         await supabase
           .from("professor_subscriptions")
           .update({
@@ -340,16 +303,6 @@ Deno.serve(async (req: Request) => {
       await stripe.subscriptions.update(subscriptionId, {
         cancel_at_period_end: false,
       });
-
-      if (subscription_type === "platform") {
-        await supabase
-          .from("profiles")
-          .update({
-            subscription_cancel_at_period_end: false,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", user.id);
-      }
 
       return new Response(
         JSON.stringify({

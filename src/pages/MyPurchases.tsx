@@ -6,7 +6,6 @@ import { supabase } from '../lib/supabase';
 import { Database } from '../lib/database.types';
 import { BackgroundDecor } from '../components/BackgroundDecor';
 import {
-  Crown,
   User,
   Video,
   ShoppingBag,
@@ -18,10 +17,12 @@ import {
   Ticket,
   MapPin,
   Download,
+  Lock,
   X,
   XCircle
 } from 'lucide-react';
 import QRCode from 'qrcode';
+import { startPriceLockBalanceCheckout } from '../lib/priceLock';
 
 type ProfessorSubscription = Database['public']['Tables']['professor_subscriptions']['Row'] & {
   professors: {
@@ -100,6 +101,31 @@ interface AttendeeWithDetails {
   };
 }
 
+interface PriceLockTier {
+  price: number | string;
+  starts_at: string;
+  ends_at: string | null;
+}
+
+interface PriceLockWithEvent {
+  id: string;
+  locked_price: number;
+  deposit_amount: number;
+  total_paid: number;
+  remaining_amount: number;
+  expires_at: string | null;
+  status: string;
+  event_ticket_types: {
+    id: string;
+    price_tiers: PriceLockTier[];
+  } | null;
+  events: {
+    id: string;
+    title: string;
+    start_date: string;
+  };
+}
+
 interface MyPurchasesProps {
   onNavigate: (page: string, params?: any) => void;
 }
@@ -114,10 +140,13 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
   const [videoPurchases, setVideoPurchases] = useState<VideoPurchase[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [tickets, setTickets] = useState<AttendeeWithDetails[]>([]);
+  const [priceLocks, setPriceLocks] = useState<PriceLockWithEvent[]>([]);
+  const [payingLockId, setPayingLockId] = useState<string | null>(null);
   const [selectedTicket, setSelectedTicket] = useState<AttendeeWithDetails | null>(null);
   const [qrCodeUrl, setQrCodeUrl] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [verifyingPayment, setVerifyingPayment] = useState(false);
+  const [errorPay, setErrorPay] = useState('');
 
   useEffect(() => {
     if (!user) {
@@ -206,7 +235,8 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
       loadProgramPurchases(),
       loadVideoPurchases(),
       loadOrders(),
-      loadTickets()
+      loadTickets(),
+      loadPriceLocks()
     ]);
     setLoading(false);
   };
@@ -330,6 +360,46 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
     }
   };
 
+  const loadPriceLocks = async () => {
+    if (!user) return;
+
+    const { data, error } = await supabase
+      .from('price_locks')
+      .select(`
+        id,
+        locked_price,
+        deposit_amount,
+        total_paid,
+        remaining_amount,
+        expires_at,
+        status,
+        event_ticket_types (
+          id,
+          price_tiers:event_ticket_price_tiers (price, starts_at, ends_at)
+        ),
+        events (id, title, start_date)
+      `)
+      .eq('user_id', user.id)
+      .in('status', ['active', 'expired'])
+      .order('created_at', { ascending: false });
+
+    if (!error && data) {
+      setPriceLocks(data as unknown as PriceLockWithEvent[]);
+    }
+  };
+
+  const handlePayBalance = async (lock: PriceLockWithEvent) => {
+    setPayingLockId(lock.id);
+    setErrorPay('');
+    try {
+      const checkoutUrl = await startPriceLockBalanceCheckout(lock);
+      window.location.href = checkoutUrl;
+    } catch (err: any) {
+      setErrorPay(err.message || 'Erreur lors du démarrage du paiement.');
+      setPayingLockId(null);
+    }
+  };
+
   const generateQRCode = async (data: string) => {
     try {
       const url = await QRCode.toDataURL(data, {
@@ -427,6 +497,13 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
             <span>Annule</span>
           </span>
         );
+      case 'awaiting_balance':
+        return (
+          <span className="inline-flex items-center space-x-1 px-3 py-1 bg-[#D4AC5B] bg-opacity-20 text-[#F0D38A] rounded-full text-sm border border-[#D4AC5B] border-opacity-50">
+            <Clock className="w-4 h-4" />
+            <span>Solde à payer</span>
+          </span>
+        );
       default:
         return (
           <span className="inline-flex items-center space-x-1 px-3 py-1 bg-green-900 bg-opacity-40 text-green-400 rounded-full text-sm border border-green-600 border-opacity-40">
@@ -460,37 +537,6 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
             <div className="w-12 sm:w-16 h-1 bg-gradient-to-r from-transparent via-[#B8913D] to-transparent rounded-full"></div>
           </div>
           <p className="text-sm sm:text-base text-gray-400 px-4">{t('purchases.subtitle')}</p>
-        </div>
-
-        <div className="bg-gradient-to-br from-gray-800/60 to-gray-900/60 backdrop-blur-sm border border-gray-700/50 rounded-2xl sm:rounded-3xl p-4 sm:p-6 mb-6 sm:mb-8 shadow-xl">
-          <div className="flex items-center space-x-3 sm:space-x-4">
-            <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-br from-[#B8913D] to-[#D4AC5B] rounded-xl sm:rounded-2xl flex items-center justify-center shadow-lg flex-shrink-0">
-              <Crown className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <h3 className="text-base sm:text-lg md:text-xl font-medium text-white mb-1 truncate">Abonnement Plateforme</h3>
-              <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-                <span className={`px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm font-medium border ${getSubscriptionStatusColor(profile.platform_subscription_status)}`}>
-                  {profile.platform_subscription_status === 'active' ? 'Actif' :
-                   profile.platform_subscription_status === 'trial' ? 'Essai' : 'Inactif'}
-                </span>
-                {profile.platform_subscription_expires_at && (
-                  <span className="text-gray-400 text-xs sm:text-sm flex items-center space-x-1">
-                    <Calendar className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
-                    <span className="truncate">
-                      Expire le {new Date(profile.platform_subscription_expires_at).toLocaleDateString('fr-FR')}
-                    </span>
-                  </span>
-                )}
-              </div>
-              {profile.platform_subscription_expires_at && isSubscriptionExpiringSoon(profile.platform_subscription_expires_at) && (
-                <div className="mt-2 flex items-center space-x-2 text-yellow-400 text-xs sm:text-sm">
-                  <AlertCircle className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
-                  <span>Votre abonnement expire bientôt</span>
-                </div>
-              )}
-            </div>
-          </div>
         </div>
 
         <div className="mb-6 sm:mb-8">
@@ -808,13 +854,7 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
               <div className="bg-gradient-to-br from-gray-800/60 to-gray-900/60 backdrop-blur-sm border border-gray-700/50 rounded-2xl sm:rounded-3xl p-8 sm:p-12 text-center">
                 <Package className="w-12 h-12 sm:w-16 sm:h-16 text-gray-600 mx-auto mb-4" />
                 <h3 className="text-lg sm:text-xl font-medium text-white mb-2 px-2">Aucune commande</h3>
-                <p className="text-sm sm:text-base text-gray-400 mb-6 px-4">Commandez des produits dans notre boutique</p>
-                <button
-                  onClick={() => onNavigate('shop')}
-                  className="px-5 sm:px-6 py-2.5 sm:py-3 bg-gradient-to-r from-[#B8913D] to-[#D4AC5B] text-white text-sm sm:text-base rounded-full hover:shadow-xl transition-all hover:scale-105"
-                >
-                  Visiter la boutique
-                </button>
+                <p className="text-sm sm:text-base text-gray-400 px-4">Vos commandes passées apparaîtront ici</p>
               </div>
             ) : (
               orders.map((order) => (
@@ -835,11 +875,6 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
                            order.status === 'paid' ? 'Payée' :
                            order.status === 'pending' ? 'En attente' : 'Annulée'}
                         </span>
-                        {order.is_member_order && (
-                          <span className="px-2 sm:px-3 py-1 bg-[#B8913D]/20 text-[#B8913D] rounded-full text-xs font-medium border border-[#B8913D]/30">
-                            Prix membre
-                          </span>
-                        )}
                       </div>
                       <div className="flex flex-wrap items-center gap-3 sm:gap-4 text-xs sm:text-sm text-gray-400">
                         <span className="flex items-center space-x-1">
@@ -882,7 +917,80 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
           </div>
         ) : (
           <div className="space-y-6 sm:space-y-8">
-            {tickets.length === 0 ? (
+            {priceLocks.map((lock) => {
+              const now = Date.now();
+              const tiers = ((lock.event_ticket_types?.price_tiers || []) as PriceLockTier[]);
+              const currentTier = tiers
+                .filter(t => new Date(t.starts_at).getTime() <= now && (!t.ends_at || new Date(t.ends_at).getTime() > now))
+                .sort((a, b) => new Date(b.starts_at).getTime() - new Date(a.starts_at).getTime())[0];
+              const currentPrice = currentTier ? Number(currentTier.price) : null;
+              const isExpired = lock.status === 'expired' ||
+                (lock.expires_at && new Date(lock.expires_at).getTime() < now);
+              const newBalance = currentPrice != null
+                ? Math.max(0, currentPrice - Number(lock.total_paid))
+                : null;
+
+              return (
+              <div
+                key={`lock-${lock.id}`}
+                className="bg-gradient-to-br from-[#D4AC5B]/10 to-gray-900/60 backdrop-blur-sm border border-[#D4AC5B]/40 rounded-xl sm:rounded-2xl p-4 sm:p-6"
+              >
+                <div className="flex flex-col sm:flex-row items-start justify-between gap-4">
+                  <div className="flex-1 w-full min-w-0">
+                    <div className="flex flex-wrap items-center gap-2 mb-2">
+                      <Lock className="w-4 h-4 text-[#F0D38A] flex-shrink-0" />
+                      <h3 className="text-base sm:text-lg font-medium text-white">Price Lock</h3>
+                      <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${
+                        isExpired
+                          ? 'border-gray-500/50 bg-gray-500/10 text-gray-300'
+                          : 'border-[#D4AC5B]/50 bg-[#D4AC5B]/10 text-[#F0D38A]'
+                      }`}>
+                        {isExpired ? 'Expiré' : 'Actif'}
+                      </span>
+                    </div>
+                    <p className="text-sm text-gray-300 mb-1">{lock.events?.title}</p>
+                    {lock.expires_at && (
+                      <p className="text-xs text-gray-400">
+                        {isExpired
+                          ? `Expiré le ${new Date(lock.expires_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}`
+                          : `Prix garanti jusqu'au ${new Date(lock.expires_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}`}
+                      </p>
+                    )}
+                    <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs sm:text-sm text-gray-400 mt-2">
+                      <span>Prix bloqué : <span className="text-white font-medium">{Number(lock.locked_price).toFixed(0)} €</span></span>
+                      <span>Déjà payé : <span className="text-white font-medium">{Number(lock.total_paid).toFixed(0)} €</span></span>
+                      {isExpired ? (
+                        <>
+                          <span>Tarif actuel : <span className="text-white font-medium">{currentPrice != null ? `${currentPrice.toFixed(0)} €` : '—'}</span></span>
+                          <span>Nouveau solde : <span className="text-[#F0D38A] font-semibold">{newBalance != null ? `${newBalance.toFixed(0)} €` : '—'}</span></span>
+                        </>
+                      ) : (
+                        <span>Solde : <span className="text-[#F0D38A] font-semibold">{Number(lock.remaining_amount).toFixed(0)} €</span></span>
+                      )}
+                    </div>
+                  </div>
+                  {isExpired ? (
+                    <button
+                      onClick={() => handlePayBalance(lock)}
+                      disabled={payingLockId === lock.id || newBalance == null || newBalance <= 0}
+                      className="w-full sm:w-auto px-5 py-2.5 bg-gradient-to-r from-[#D4AC5B] to-[#B8913D] text-gray-950 text-sm font-semibold rounded-lg hover:shadow-lg hover:shadow-[#D4AC5B]/30 transition-all disabled:opacity-50 whitespace-nowrap"
+                    >
+                      {payingLockId === lock.id ? 'Redirection...' : `Payer le nouveau solde — ${newBalance != null ? newBalance.toFixed(0) : '—'} €`}
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => handlePayBalance(lock)}
+                      disabled={payingLockId === lock.id || Number(lock.remaining_amount) <= 0}
+                      className="w-full sm:w-auto px-5 py-2.5 bg-gradient-to-r from-[#D4AC5B] to-[#B8913D] text-gray-950 text-sm font-semibold rounded-lg hover:shadow-lg hover:shadow-[#D4AC5B]/30 transition-all disabled:opacity-50 whitespace-nowrap"
+                    >
+                      {payingLockId === lock.id ? 'Redirection...' : `Payer le solde — ${Number(lock.remaining_amount).toFixed(0)} €`}
+                    </button>
+                  )}
+                </div>
+              </div>
+              );
+            })}
+            {tickets.length === 0 && priceLocks.length === 0 ? (
               <div className="bg-gradient-to-br from-gray-800/60 to-gray-900/60 backdrop-blur-sm border border-gray-700/50 rounded-2xl sm:rounded-3xl p-8 sm:p-12 text-center">
                 <Ticket className="w-12 h-12 sm:w-16 sm:h-16 text-gray-600 mx-auto mb-4" />
                 <h3 className="text-lg sm:text-xl font-medium text-white mb-2 px-2">Aucun billet</h3>

@@ -1,6 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import Stripe from "npm:stripe@17.6.0";
 import { createClient } from "npm:@supabase/supabase-js@2.57.4";
+import { createPriceLockAfterPayment } from "../_shared/price-lock.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -152,12 +153,106 @@ async function handleCheckoutCompleted(
     ? session.payment_intent
     : session.payment_intent?.id;
 
+  if (paymentType === "price_lock_deposit") {
+    const ticketTypeId = session.metadata?.event_ticket_type_id || session.metadata?.target_id;
+    if (ticketTypeId && paymentIntentId) {
+      const result = await createPriceLockAfterPayment(
+        supabase,
+        userId,
+        ticketTypeId,
+        paymentIntentId,
+        (session.amount_total || 0) / 100
+      );
+      if (result.error) {
+        console.error("Failed to create price lock:", result.error);
+        return;
+      }
+
+      const { data: existingPayment } = await supabase
+        .from("stripe_payments")
+        .select("id")
+        .eq("stripe_payment_intent_id", paymentIntentId)
+        .maybeSingle();
+
+      if (!existingPayment) {
+        await supabase.from("stripe_payments").insert({
+          user_id: userId,
+          stripe_payment_intent_id: paymentIntentId,
+          stripe_customer_id: session.customer as string,
+          amount: (session.amount_total || 0) / 100,
+          currency: session.currency || "eur",
+          status: "succeeded",
+          payment_type: "price_lock_deposit",
+          price_lock_id: result.lockId,
+          metadata: session.metadata,
+        });
+      }
+
+      console.log(`Price lock ${result.lockId} created for user ${userId}`);
+      return;
+    }
+  }
+
+  if (paymentType === "price_lock_balance") {
+    const lockId = session.metadata?.price_lock_id || session.metadata?.target_id;
+    if (lockId && paymentIntentId) {
+      const balanceAmount = (session.amount_total || 0) / 100;
+
+      // Enregistre le solde via la fonction backend existante (idempotente,
+      // une seule fois, montant exact exigé, statut -> 'completed').
+      const { data: completedLock, error: recordError } = await supabase.rpc(
+        "record_price_lock_payment",
+        {
+          p_lock_id: lockId,
+          p_amount: balanceAmount,
+          p_stripe_payment_intent_id: paymentIntentId,
+        }
+      );
+      if (recordError) {
+        console.error("Failed to record price lock balance payment:", recordError);
+        return;
+      }
+
+      // Convertit les détenteurs en attente de solde en Full Pass confirmés.
+      const { error: completeError } = await supabase.rpc(
+        "complete_price_lock_attendees",
+        { p_lock_id: lockId }
+      );
+      if (completeError) {
+        console.error(`Failed to complete attendees for lock ${lockId}:`, completeError);
+      }
+
+      const { data: existingPayment } = await supabase
+        .from("stripe_payments")
+        .select("id")
+        .eq("stripe_payment_intent_id", paymentIntentId)
+        .maybeSingle();
+
+      if (!existingPayment) {
+        await supabase.from("stripe_payments").insert({
+          user_id: completedLock?.user_id || userId,
+          stripe_payment_intent_id: paymentIntentId,
+          stripe_customer_id: session.customer as string,
+          amount: balanceAmount,
+          currency: session.currency || "eur",
+          status: "succeeded",
+          payment_type: "price_lock_balance",
+          price_lock_id: lockId,
+          metadata: session.metadata,
+        });
+      }
+
+      console.log(`Price lock ${lockId} balance paid (${balanceAmount} €), status: ${completedLock?.status}`);
+      return;
+    }
+  }
+
   if (paymentType === "order") {
     const orderId = session.metadata?.order_id;
     if (orderId) {
       const { data: orderItems } = await supabase
         .from("order_items")
-        .select("product_id, quantity, item_type")
+        .select("id, product_id, quantity, item_type, event_ticket_type_id, purchase_type")
         .eq("order_id", orderId);
 
       const hasPhysicalProducts = orderItems?.some((item: any) => item.item_type === "product" && item.product_id);
@@ -190,26 +285,66 @@ async function handleCheckoutCompleted(
         }
       }
 
+      // Price Lock : le lock n'est créé qu'ici, après paiement confirmé.
+      // Les règles (snapshot du prix, fenêtre, quota, limites utilisateur)
+      // restent appliquées par le trigger backend existant.
+      let orderPriceLockId: string | null = null;
+      const priceLockItems = (orderItems || []).filter(
+        (item: any) => item.purchase_type === "price_lock_deposit" && item.event_ticket_type_id
+      );
+      for (const item of priceLockItems) {
+        const result = await createPriceLockAfterPayment(
+          supabase,
+          userId,
+          item.event_ticket_type_id,
+          paymentIntentId,
+          (session.amount_total || 0) / 100
+        );
+        if (result.error) {
+          console.error(`Failed to create price lock for order item ${item.id}:`, result.error);
+          continue;
+        }
+        if (!orderPriceLockId && result.lockId) {
+          orderPriceLockId = result.lockId;
+        }
+        if (result.lockId && item.id) {
+          await supabase
+            .from("price_locks")
+            .update({ order_item_id: item.id })
+            .eq("id", result.lockId)
+            .is("order_item_id", null);
+        }
+      }
+
       const { error: rpcError } = await supabase.rpc("convert_pending_to_actual_attendees", { p_order_id: orderId });
       if (rpcError) {
         console.error(`Failed to convert pending attendees for order ${orderId}:`, rpcError);
       }
 
       if (paymentIntentId) {
-        await supabase.from("stripe_payments").insert({
-          user_id: userId,
-          stripe_payment_intent_id: paymentIntentId,
-          stripe_customer_id: session.customer as string,
-          amount: (session.amount_total || 0) / 100,
-          currency: session.currency || "eur",
-          status: "succeeded",
-          payment_type: "order",
-          order_id: orderId,
-          metadata: session.metadata,
-        });
+        const { data: existingOrderPayment } = await supabase
+          .from("stripe_payments")
+          .select("id")
+          .eq("stripe_payment_intent_id", paymentIntentId)
+          .maybeSingle();
+
+        if (!existingOrderPayment) {
+          await supabase.from("stripe_payments").insert({
+            user_id: userId,
+            stripe_payment_intent_id: paymentIntentId,
+            stripe_customer_id: session.customer as string,
+            amount: (session.amount_total || 0) / 100,
+            currency: session.currency || "eur",
+            status: "succeeded",
+            payment_type: "order",
+            order_id: orderId,
+            price_lock_id: orderPriceLockId,
+            metadata: session.metadata,
+          });
+        }
       }
 
-      console.log(`Order ${orderId} paid: status set to '${newStatus}', stock updated, reservations released, attendees created`);
+      console.log(`Order ${orderId} paid: status set to '${newStatus}', stock updated, reservations released, attendees created, price locks: ${priceLockItems.length}`);
     }
   } else if (paymentType === "video") {
     const videoId = session.metadata?.video_id;
@@ -330,26 +465,7 @@ async function handleSubscriptionChange(
   const status = isActive ? "active" : "cancelled";
   const cancelAtPeriodEnd = subscription.cancel_at_period_end;
 
-  if (paymentType === "platform_subscription") {
-    const priceId = subscription.items.data[0]?.price.id;
-    const priceAmount = subscription.items.data[0]?.price.unit_amount || 0;
-    const pricePaid = priceAmount / 100;
-
-    await supabase
-      .from("profiles")
-      .update({
-        platform_subscription_status: status,
-        platform_subscription_expires_at: new Date(subscription.current_period_end * 1000).toISOString(),
-        stripe_subscription_id: subscription.id,
-        stripe_price_id: priceId,
-        platform_subscription_price_paid: pricePaid,
-        subscription_cancel_at_period_end: cancelAtPeriodEnd,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", userId);
-
-    console.log(`Updated platform subscription for user ${userId}: ${status} at ${pricePaid}/month`);
-  } else if (paymentType === "professor_subscription" && professorId) {
+  if (paymentType === "professor_subscription" && professorId) {
     const priceAmount = subscription.items.data[0]?.price.unit_amount || 0;
     const pricePaid = priceAmount / 100;
 
@@ -400,20 +516,7 @@ async function handleSubscriptionDeleted(
     return;
   }
 
-  if (paymentType === "platform_subscription") {
-    await supabase
-      .from("profiles")
-      .update({
-        platform_subscription_status: "cancelled",
-        stripe_subscription_id: null,
-        stripe_price_id: null,
-        subscription_cancel_at_period_end: false,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", userId);
-
-    console.log(`Cancelled platform subscription for user ${userId}`);
-  } else if (paymentType === "professor_subscription" && professorId) {
+  if (paymentType === "professor_subscription" && professorId) {
     await supabase
       .from("professor_subscriptions")
       .update({

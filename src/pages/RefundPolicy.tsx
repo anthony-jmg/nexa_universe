@@ -102,14 +102,6 @@ export default function RefundPolicy({ onNavigate }: RefundPolicyProps) {
               <h3 className="text-lg font-semibold text-white mb-3">What Counts as Using Benefits?</h3>
               <div className="space-y-3 ml-4">
                 <div className="bg-gray-900/50 border border-gray-700 rounded-lg p-4">
-                  <h4 className="font-semibold text-white mb-2">Platform Subscription:</h4>
-                  <ul className="space-y-1 text-sm ml-4 list-disc">
-                    <li>Using your subscriber discount on ANY purchase (videos, programs, products)</li>
-                    <li>Accessing platform-exclusive content</li>
-                  </ul>
-                </div>
-
-                <div className="bg-gray-900/50 border border-gray-700 rounded-lg p-4">
                   <h4 className="font-semibold text-white mb-2">Professor Subscription:</h4>
                   <ul className="space-y-1 text-sm ml-4 list-disc">
                     <li>Using the professor's subscriber discount on ANY purchase</li>
@@ -155,22 +147,11 @@ export default function RefundPolicy({ onNavigate }: RefundPolicyProps) {
 
               <div className="space-y-4">
                 <div className="bg-gray-900/50 border border-gray-700 rounded-lg p-4">
-                  <h3 className="font-semibold text-white mb-2">Platform Subscription</h3>
-                  <ul className="space-y-1 text-sm ml-4">
-                    <li>14-day withdrawal period applies (if no benefits used)</li>
-                    <li>Automatic waiver if you use subscriber discounts</li>
-                    <li>Recurring monthly billing</li>
-                    <li>Cancel anytime through your account</li>
-                  </ul>
-                </div>
-
-                <div className="bg-gray-900/50 border border-gray-700 rounded-lg p-4">
                   <h3 className="font-semibold text-white mb-2">Professor Subscriptions</h3>
                   <ul className="space-y-1 text-sm ml-4">
                     <li>14-day withdrawal period applies (if no benefits used)</li>
                     <li>Automatic waiver if you use professor discounts</li>
                     <li>Recurring monthly billing</li>
-                    <li>Independent from platform subscription</li>
                   </ul>
                 </div>
 

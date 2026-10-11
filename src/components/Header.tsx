@@ -1,4 +1,4 @@
-import { Menu, X, User, Shield, ShoppingCart, LayoutDashboard, Heart, Package, ChevronDown, GraduationCap, Users, Store, Bell, LogOut, LogIn, UserPlus } from 'lucide-react';
+import { Menu, X, User, Shield, ShoppingCart, LayoutDashboard, Heart, Package, ChevronDown, GraduationCap, Users, MapPin, Bell, LogOut, LogIn, UserPlus } from 'lucide-react';
 import { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useCart } from '../contexts/CartContext';
@@ -7,7 +7,6 @@ import { useLanguage } from '../contexts/LanguageContext';
 import { LanguageSelector } from './LanguageSelector';
 import NotificationDropdown from './NotificationDropdown';
 import { getAvatarUrl } from './AvatarUpload';
-import SubscriberBadge from './SubscriberBadge';
 
 interface HeaderProps {
   onNavigate: (page: string) => void;
@@ -32,7 +31,7 @@ export function Header({ onNavigate, currentPage }: HeaderProps) {
   return (
     <header className="fixed top-0 left-0 right-0 z-50 bg-gray-900/80 backdrop-blur-xl border-b border-gray-800/50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-12 sm:h-14 lg:h-12">
+        <div className="flex items-center justify-between h-14 sm:h-14 lg:h-12">
           <button
             onClick={() => onNavigate('landing')}
             className="flex items-center group"
@@ -40,7 +39,7 @@ export function Header({ onNavigate, currentPage }: HeaderProps) {
             <img
               src="/nexa-logo.png"
               alt="NEXA"
-              className="h-7 sm:h-9 md:h-10 lg:h-7 w-auto transition-transform group-hover:scale-105 drop-shadow-[0_0_10px_rgba(212,172,91,0.3)]"
+              className="h-8 sm:h-9 md:h-10 lg:h-7 w-auto transition-transform group-hover:scale-105 drop-shadow-[0_0_10px_rgba(212,172,91,0.3)]"
             />
           </button>
 
@@ -75,7 +74,7 @@ export function Header({ onNavigate, currentPage }: HeaderProps) {
                       : 'text-gray-300 hover:text-white hover:bg-white/5'
                   }`}
                 >
-                  {t('nav.shop')}
+                  Nexa Pass
                 </button>
                 {profile?.role !== 'admin' && (
                   <>
@@ -159,9 +158,6 @@ export function Header({ onNavigate, currentPage }: HeaderProps) {
                     )}
                     <span className="hidden lg:inline flex items-center gap-1">
                       {profile?.full_name || t('nav.account')}
-                      {profile?.platform_subscription_status === 'active' && (
-                        <SubscriberBadge className="ml-1" />
-                      )}
                     </span>
                     <ChevronDown className={`w-3 h-3 lg:w-4 lg:h-4 transition-transform ${userMenuOpen ? 'rotate-180' : ''}`} />
                   </button>
@@ -220,7 +216,7 @@ export function Header({ onNavigate, currentPage }: HeaderProps) {
                   onClick={() => onNavigate('shop')}
                   className="px-3 py-1.5 lg:px-3 lg:py-1.5 text-xs lg:text-sm font-medium text-gray-300 hover:text-white hover:bg-white/5 rounded-lg transition-all"
                 >
-                  {t('nav.shop')}
+                  Nexa Pass
                 </button>
                 <LanguageSelector />
                 <button
@@ -253,8 +249,9 @@ export function Header({ onNavigate, currentPage }: HeaderProps) {
       </div>
 
       {mobileMenuOpen && (
-        <div className="md:hidden bg-gray-900/95 backdrop-blur-xl border-t border-gray-800/50">
-          <div className="px-4 py-4 space-y-2">
+        <div className="md:hidden bg-gray-900/95 backdrop-blur-xl border-t border-gray-800/50 animate-menu-slide shadow-2xl">
+          <div className="px-4 py-4 space-y-1.5 relative">
+            <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-gold-500/40 to-transparent"></div>
             {user ? (
               <>
                 <button
@@ -289,8 +286,8 @@ export function Header({ onNavigate, currentPage }: HeaderProps) {
                   className="block w-full text-left px-4 py-3 text-sm font-medium text-gray-300 hover:text-white hover:bg-white/5 rounded-xl transition-all"
                 >
                   <span className="flex items-center space-x-3">
-                    <Store className="w-5 h-5 text-gold-400" />
-                    <span>Shop</span>
+                    <MapPin className="w-5 h-5 text-gold-400" />
+                    <span>Nexa Pass</span>
                   </span>
                 </button>
                 {profile?.role !== 'admin' && (
@@ -409,6 +406,9 @@ export function Header({ onNavigate, currentPage }: HeaderProps) {
                     <span>Déconnexion</span>
                   </span>
                 </button>
+                <div className="pt-3 px-4">
+                  <LanguageSelector />
+                </div>
               </>
             ) : (
               <>
@@ -444,11 +444,14 @@ export function Header({ onNavigate, currentPage }: HeaderProps) {
                   className="block w-full text-left px-4 py-3 text-sm font-medium text-gray-300 hover:text-white hover:bg-white/5 rounded-xl transition-all"
                 >
                   <span className="flex items-center space-x-3">
-                    <Store className="w-5 h-5 text-gold-400" />
-                    <span>Shop</span>
+                    <MapPin className="w-5 h-5 text-gold-400" />
+                    <span>Nexa Pass</span>
                   </span>
                 </button>
                 <div className="border-t border-gray-800/50 my-2"></div>
+                <div className="px-4 py-1.5">
+                  <LanguageSelector />
+                </div>
                 <button
                   onClick={() => {
                     onNavigate('signin');

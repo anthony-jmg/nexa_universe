@@ -1,11 +1,10 @@
 import { useState, useEffect } from 'react';
-import { User, CreditCard, Settings, CheckCircle, XCircle, Calendar, Users, Globe, Award, Percent, X, AlertTriangle, RefreshCw, GraduationCap, Plus, ShoppingBag, Video, BookOpen, Receipt, ChevronDown, ChevronUp } from 'lucide-react';
+import { User, CreditCard, Settings, CheckCircle, XCircle, Calendar, Users, Award, Percent, X, AlertTriangle, RefreshCw, GraduationCap, Plus, ShoppingBag, Video, BookOpen, Receipt, ChevronDown, ChevronUp } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { supabase } from '../lib/supabase';
 import { BackgroundDecor } from '../components/BackgroundDecor';
 import { useToast } from '../contexts/ToastContext';
-import { handlePlatformSubscriptionCheckout } from '../lib/stripe';
 import { useSubscription } from '../hooks/useSubscription';
 import { AvatarUpload, getAvatarUrl } from '../components/AvatarUpload';
 import CancellationModal from '../components/CancellationModal';
@@ -45,9 +44,6 @@ interface AccountProps {
   onNavigate: (page: string) => void;
 }
 
-const PLATFORM_SUBSCRIPTION_MONTHLY = 8.99;
-const PLATFORM_SUBSCRIPTION_YEARLY = 89;
-
 export function Account({ onNavigate }: AccountProps) {
   const { profile, refreshProfile } = useAuth();
   const { t } = useLanguage();
@@ -60,10 +56,8 @@ export function Account({ onNavigate }: AccountProps) {
   const [message, setMessage] = useState('');
   const [professorSubscriptions, setProfessorSubscriptions] = useState<ProfessorSubscription[]>([]);
   const [showCancelModal, setShowCancelModal] = useState(false);
-  const [showPlanSelectionModal, setShowPlanSelectionModal] = useState(false);
-  const [cancelTarget, setCancelTarget] = useState<{ type: 'platform' | 'professor'; id?: string; name?: string } | null>(null);
+  const [cancelTarget, setCancelTarget] = useState<{ type: 'professor'; id?: string; name?: string } | null>(null);
   const [cancelling, setCancelling] = useState(false);
-  const [checkoutLoading, setCheckoutLoading] = useState(false);
 
   const [professorBio, setProfessorBio] = useState('');
   const [professorSpecialties, setProfessorSpecialties] = useState<string[]>([]);
@@ -352,10 +346,6 @@ export function Account({ onNavigate }: AccountProps) {
     setTimeout(() => setProfessorMessage(''), 3000);
   };
 
-  const hasActiveSubscription = profile?.platform_subscription_status === 'active' &&
-    profile?.platform_subscription_expires_at &&
-    new Date(profile.platform_subscription_expires_at) > new Date();
-
   const formatDate = (dateString: string | null) => {
     if (!dateString) return 'N/A';
     return new Date(dateString).toLocaleDateString('en-US', {
@@ -365,8 +355,8 @@ export function Account({ onNavigate }: AccountProps) {
     });
   };
 
-  const handleOpenCancelModal = (type: 'platform' | 'professor', id?: string, name?: string) => {
-    setCancelTarget({ type, id, name });
+  const handleOpenCancelModal = (id?: string, name?: string) => {
+    setCancelTarget({ type: 'professor', id, name });
     setShowCancelModal(true);
   };
 
@@ -382,20 +372,9 @@ export function Account({ onNavigate }: AccountProps) {
     return daysSinceCreation <= 14;
   };
 
-  const getPlatformSubscriptionCreatedAt = (): string | null => {
-    return profile?.platform_subscription_created_at || profile?.created_at || null;
-  };
-
   const getProfessorSubscriptionCreatedAt = (subscriptionId: string): string | null => {
     const sub = professorSubscriptions.find(s => s.id === subscriptionId);
     return sub?.subscription_created_at || sub?.started_at || null;
-  };
-
-  const getPlatformWithdrawalStatus = () => {
-    return {
-      waived: profile?.platform_withdrawal_right_waived || false,
-      reason: profile?.platform_withdrawal_waiver_reason || undefined
-    };
   };
 
   const getProfessorWithdrawalStatus = (subscriptionId: string) => {
@@ -411,14 +390,7 @@ export function Account({ onNavigate }: AccountProps) {
 
     setCancelling(true);
     try {
-      if (cancelTarget.type === 'platform') {
-        await cancelSubscription('platform', undefined, reason, feedback, requestRefund);
-        if (requestRefund) {
-          showToast('Refund request submitted successfully. You will receive your refund within 5-10 business days.', 'success');
-        } else {
-          showToast('Your subscription will be cancelled at the end of the billing period', 'success');
-        }
-      } else if (cancelTarget.type === 'professor' && cancelTarget.id) {
+      if (cancelTarget.type === 'professor' && cancelTarget.id) {
         await cancelSubscription('professor', cancelTarget.id, reason, feedback, requestRefund);
         if (requestRefund) {
           showToast('Refund request submitted successfully. You will receive your refund within 5-10 business days.', 'success');
@@ -438,34 +410,14 @@ export function Account({ onNavigate }: AccountProps) {
     }
   };
 
-  const handleReactivateSubscription = async (subscriptionType: 'platform' | 'professor', professorId?: string) => {
+  const handleReactivateSubscription = async (professorId?: string) => {
     try {
-      await reactivateSubscription(subscriptionType, professorId);
+      await reactivateSubscription('professor', professorId);
       showToast('Subscription reactivated successfully', 'success');
-      await refreshProfile();
-      if (subscriptionType === 'professor') {
-        await loadProfessorSubscriptions();
-      }
+      await loadProfessorSubscriptions();
     } catch (error) {
       console.error('Error reactivating subscription:', error);
       showToast(error instanceof Error ? error.message : 'Error reactivating subscription', 'error');
-    }
-  };
-
-  const handleSubscribeToPlatform = () => {
-    setShowPlanSelectionModal(true);
-  };
-
-  const handlePlanSelection = async (planType: 'monthly' | 'yearly') => {
-    try {
-      setShowPlanSelectionModal(false);
-      setCheckoutLoading(true);
-      const price = planType === 'monthly' ? PLATFORM_SUBSCRIPTION_MONTHLY : PLATFORM_SUBSCRIPTION_YEARLY;
-      await handlePlatformSubscriptionCheckout(price, planType);
-    } catch (error) {
-      console.error('Error starting checkout:', error);
-      setCheckoutLoading(false);
-      showToast(error instanceof Error ? error.message : 'Error starting checkout', 'error');
     }
   };
 
@@ -789,111 +741,6 @@ export function Account({ onNavigate }: AccountProps) {
 
                 <div className="space-y-6">
                   <div className="bg-gray-800/50 backdrop-blur-sm rounded-2xl p-6 border border-[#B8913D] border-opacity-30">
-                    <div className="flex items-start justify-between mb-4">
-                      <div className="flex items-start space-x-3">
-                        <div className="w-12 h-12 bg-gradient-to-br from-[#B8913D] to-[#A07F35] rounded-xl flex items-center justify-center">
-                          <Globe className="w-6 h-6 text-white" />
-                        </div>
-                        <div>
-                          <h3 className="font-medium text-white mb-1">{t('account.subscription.platformTitle')}</h3>
-                          <div className="flex items-center space-x-2 mb-3">
-                            {hasActiveSubscription ? (
-                              profile.subscription_cancel_at_period_end ? (
-                                <>
-                                  <AlertTriangle className="w-5 h-5 text-yellow-500" />
-                                  <span className="text-yellow-400 font-medium">Résiliation programmée</span>
-                                </>
-                              ) : (
-                                <>
-                                  <CheckCircle className="w-5 h-5 text-green-600" />
-                                  <span className="text-green-600 font-medium">{t('account.subscription.active')}</span>
-                                </>
-                              )
-                            ) : (
-                              <>
-                                <XCircle className="w-5 h-5 text-gray-400" />
-                                <span className="text-gray-400 font-medium">{t('account.subscription.inactive')}</span>
-                              </>
-                            )}
-                          </div>
-                          {hasActiveSubscription && (
-                            <div className="text-sm text-gray-400 flex items-center">
-                              <Calendar className="w-4 h-4 mr-1" />
-                              {t('account.subscription.expiresOn')} {formatDate(profile.platform_subscription_expires_at)}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                    {hasActiveSubscription ? (
-                      <div className="mt-4">
-                        {profile.subscription_cancel_at_period_end && (
-                          <div className="mb-4 p-4 bg-yellow-900/30 border border-yellow-500/50 rounded-lg flex items-start space-x-3">
-                            <AlertTriangle className="w-5 h-5 text-yellow-500 flex-shrink-0 mt-0.5" />
-                            <div className="flex-1">
-                              <p className="text-sm text-yellow-200 mb-2">
-                                Your subscription will be cancelled on {formatDate(profile.platform_subscription_expires_at)}
-                              </p>
-                              <button
-                                onClick={() => handleReactivateSubscription('platform')}
-                                className="flex items-center space-x-2 text-sm text-yellow-400 hover:text-yellow-300 transition-colors"
-                              >
-                                <RefreshCw className="w-4 h-4" />
-                                <span>Reactivate Subscription</span>
-                              </button>
-                            </div>
-                          </div>
-                        )}
-                        <div className="space-y-2 mb-4">
-                          <div className="flex items-start space-x-2 text-sm text-gray-300">
-                            <Award className="w-4 h-4 text-[#B8913D] mt-0.5 flex-shrink-0" />
-                            <span>{t('account.subscription.benefit1')}</span>
-                          </div>
-                          <div className="flex items-start space-x-2 text-sm text-gray-300">
-                            <Award className="w-4 h-4 text-[#B8913D] mt-0.5 flex-shrink-0" />
-                            <span>{t('account.subscription.benefit2')}</span>
-                          </div>
-                          <div className="flex items-start space-x-2 text-sm text-gray-300">
-                            <Award className="w-4 h-4 text-[#B8913D] mt-0.5 flex-shrink-0" />
-                            <span>{t('account.subscription.benefit3')}</span>
-                          </div>
-                        </div>
-                        {!profile.subscription_cancel_at_period_end && (
-                          <button
-                            onClick={() => handleOpenCancelModal('platform')}
-                            className="w-full px-6 py-3 bg-red-900/30 border border-red-500/50 text-red-400 font-medium rounded-lg hover:bg-red-900/50 transition-colors"
-                          >
-                            {t('account.subscription.cancelSubscription')}
-                          </button>
-                        )}
-                      </div>
-                    ) : (
-                      <div className="mt-4">
-                        <ul className="space-y-2 mb-4">
-                          <li className="flex items-start space-x-2 text-sm text-gray-300">
-                            <Award className="w-4 h-4 text-[#B8913D] mt-0.5 flex-shrink-0" />
-                            <span>{t('account.subscription.benefit1')}</span>
-                          </li>
-                          <li className="flex items-start space-x-2 text-sm text-gray-300">
-                            <Award className="w-4 h-4 text-[#B8913D] mt-0.5 flex-shrink-0" />
-                            <span>{t('account.subscription.benefit2')}</span>
-                          </li>
-                          <li className="flex items-start space-x-2 text-sm text-gray-300">
-                            <Award className="w-4 h-4 text-[#B8913D] mt-0.5 flex-shrink-0" />
-                            <span>{t('account.subscription.benefit3')}</span>
-                          </li>
-                        </ul>
-                        <button
-                          onClick={handleSubscribeToPlatform}
-                          className="w-full px-6 py-3 bg-gradient-to-r from-[#B8913D] to-[#A07F35] text-white font-medium rounded-lg hover:shadow-xl transition-all"
-                        >
-                          {t('account.subscription.subscribeToPlatform')}
-                        </button>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="bg-gray-800/50 backdrop-blur-sm rounded-2xl p-6 border border-[#B8913D] border-opacity-30">
                     <div className="flex items-start space-x-3 mb-4">
                       <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center">
                         <Users className="w-6 h-6 text-white" />
@@ -1125,169 +972,29 @@ export function Account({ onNavigate }: AccountProps) {
         </div>
       </div>
 
-      {showPlanSelectionModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-3 sm:p-4">
-          <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl max-w-4xl w-full border border-gray-700/50 overflow-hidden max-h-[95vh] overflow-y-auto">
-            <div className="p-4 sm:p-6">
-              <div className="flex items-start justify-between mb-4 sm:mb-6">
-                <div>
-                  <h3 className="text-lg sm:text-2xl font-medium text-white mb-1 sm:mb-2">
-                    {t('account.subscription.modal.chooseYourPlan')}
-                  </h3>
-                  <p className="text-xs sm:text-sm text-gray-400">
-                    {t('account.subscription.modal.accessAllPremium')}
-                  </p>
-                </div>
-                <button
-                  onClick={() => setShowPlanSelectionModal(false)}
-                  className="text-gray-400 hover:text-white transition-colors ml-3 flex-shrink-0"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3 sm:gap-6">
-                <div
-                  onClick={() => handlePlanSelection('monthly')}
-                  className="bg-gray-900/50 rounded-xl p-3 sm:p-6 border border-gray-700/50 hover:border-[#B8913D]/50 transition-all cursor-pointer group hover:transform hover:scale-105"
-                >
-                  <div className="flex items-center justify-between mb-2 sm:mb-4">
-                    <div className="min-w-0">
-                      <h4 className="text-sm sm:text-xl font-medium text-white mb-0.5 sm:mb-1 truncate">{t('account.subscription.modal.monthly')}</h4>
-                      <p className="text-xs text-gray-400 hidden sm:block">{t('account.subscription.modal.flexibleCommitment')}</p>
-                    </div>
-                    <Calendar className="w-5 h-5 sm:w-8 sm:h-8 text-[#B8913D] flex-shrink-0 ml-1" />
-                  </div>
-
-                  <div className="mb-3 sm:mb-6">
-                    <div className="flex items-baseline flex-wrap gap-x-1">
-                      <span className="text-2xl sm:text-4xl font-bold text-white">{PLATFORM_SUBSCRIPTION_MONTHLY}€</span>
-                      <span className="text-xs sm:text-sm text-gray-400">{t('account.subscription.modal.perMonth')}</span>
-                    </div>
-                  </div>
-
-                  <ul className="space-y-1.5 sm:space-y-3 mb-3 sm:mb-6">
-                    <li className="flex items-start space-x-1.5 sm:space-x-2 text-gray-300">
-                      <CheckCircle className="w-3.5 h-3.5 sm:w-5 sm:h-5 text-[#B8913D] mt-0.5 flex-shrink-0" />
-                      <span className="text-xs sm:text-sm">{t('account.subscription.modal.benefit1')}</span>
-                    </li>
-                    <li className="flex items-start space-x-1.5 sm:space-x-2 text-gray-300">
-                      <CheckCircle className="w-3.5 h-3.5 sm:w-5 sm:h-5 text-[#B8913D] mt-0.5 flex-shrink-0" />
-                      <span className="text-xs sm:text-sm">{t('account.subscription.modal.benefit2')}</span>
-                    </li>
-                    <li className="flex items-start space-x-1.5 sm:space-x-2 text-gray-300">
-                      <CheckCircle className="w-3.5 h-3.5 sm:w-5 sm:h-5 text-[#B8913D] mt-0.5 flex-shrink-0" />
-                      <span className="text-xs sm:text-sm">{t('account.subscription.modal.benefit3')}</span>
-                    </li>
-                  </ul>
-
-                  <button className="w-full px-2 sm:px-6 py-2 sm:py-3 bg-gradient-to-r from-[#B8913D] to-[#9A7B2F] text-white text-xs sm:text-base font-medium rounded-lg hover:from-[#9A7B2F] hover:to-[#B8913D] transition-all group-hover:shadow-lg">
-                    {t('account.subscription.modal.chooseMonthly')}
-                  </button>
-                </div>
-
-                <div
-                  onClick={() => handlePlanSelection('yearly')}
-                  className="bg-gradient-to-br from-[#B8913D]/20 to-[#9A7B2F]/10 rounded-xl p-3 sm:p-6 border-2 border-[#B8913D] hover:border-[#B8913D] transition-all cursor-pointer relative group hover:transform hover:scale-105"
-                >
-                  <div className="absolute -top-2.5 -right-2 sm:-top-3 sm:-right-3 bg-gradient-to-r from-[#B8913D] to-[#9A7B2F] text-white text-xs font-bold px-2 sm:px-3 py-0.5 sm:py-1 rounded-full">
-                    {t('account.subscription.modal.savePercent', { percent: '17' })}
-                  </div>
-
-                  <div className="flex items-center justify-between mb-2 sm:mb-4">
-                    <div className="min-w-0">
-                      <h4 className="text-sm sm:text-xl font-medium text-white mb-0.5 sm:mb-1 truncate">{t('account.subscription.modal.annual')}</h4>
-                      <p className="text-xs text-[#B8913D]">{t('account.subscription.modal.bestOffer')}</p>
-                    </div>
-                    <Award className="w-5 h-5 sm:w-8 sm:h-8 text-[#B8913D] flex-shrink-0 ml-1" />
-                  </div>
-
-                  <div className="mb-3 sm:mb-6">
-                    <div className="flex items-baseline flex-wrap gap-x-1 mb-0.5 sm:mb-1">
-                      <span className="text-2xl sm:text-4xl font-bold text-white">{PLATFORM_SUBSCRIPTION_YEARLY}€</span>
-                      <span className="text-xs sm:text-sm text-gray-400">{t('account.subscription.modal.perYear')}</span>
-                    </div>
-                    <p className="text-xs text-[#B8913D]">{t('account.subscription.modal.orPerMonth', { price: '7.42' })}</p>
-                  </div>
-
-                  <ul className="space-y-1.5 sm:space-y-3 mb-3 sm:mb-6">
-                    <li className="flex items-start space-x-1.5 sm:space-x-2 text-gray-300">
-                      <CheckCircle className="w-3.5 h-3.5 sm:w-5 sm:h-5 text-[#B8913D] mt-0.5 flex-shrink-0" />
-                      <span className="text-xs sm:text-sm">{t('account.subscription.modal.benefit1')}</span>
-                    </li>
-                    <li className="flex items-start space-x-1.5 sm:space-x-2 text-gray-300">
-                      <CheckCircle className="w-3.5 h-3.5 sm:w-5 sm:h-5 text-[#B8913D] mt-0.5 flex-shrink-0" />
-                      <span className="text-xs sm:text-sm">{t('account.subscription.modal.benefit2')}</span>
-                    </li>
-                    <li className="flex items-start space-x-1.5 sm:space-x-2 text-gray-300">
-                      <CheckCircle className="w-3.5 h-3.5 sm:w-5 sm:h-5 text-[#B8913D] mt-0.5 flex-shrink-0" />
-                      <span className="text-xs sm:text-sm">{t('account.subscription.modal.benefit3')}</span>
-                    </li>
-                  </ul>
-
-                  <button className="w-full px-2 sm:px-6 py-2 sm:py-3 bg-gradient-to-r from-[#B8913D] to-[#9A7B2F] text-white text-xs sm:text-base font-medium rounded-lg hover:from-[#9A7B2F] hover:to-[#B8913D] transition-all shadow-lg group-hover:shadow-xl">
-                    {t('account.subscription.modal.chooseAnnual')}
-                  </button>
-                </div>
-              </div>
-
-              <p className="text-center text-xs sm:text-sm text-gray-400 mt-4 sm:mt-6">
-                {t('account.subscription.modal.securePayment')}
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {checkoutLoading && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex flex-col items-center justify-center z-50">
-          <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl p-8 border border-gray-700/50 flex flex-col items-center space-y-5 max-w-xs w-full mx-4">
-            <div className="w-16 h-16 rounded-full border-4 border-gray-700 border-t-[#B8913D] animate-spin" />
-            <div className="text-center">
-              <p className="text-white font-medium text-lg mb-1">Redirection en cours...</p>
-              <p className="text-gray-400 text-sm">Vous allez être redirigé vers la page de paiement sécurisé</p>
-            </div>
-            <div className="flex items-center space-x-2 text-xs text-gray-500">
-              <svg className="w-4 h-4 text-[#B8913D]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-              </svg>
-              <span>Paiement sécurisé via Stripe</span>
-            </div>
-          </div>
-        </div>
-      )}
-
       <CancellationModal
         isOpen={showCancelModal}
         onClose={handleCloseCancelModal}
         onConfirm={handleConfirmCancel}
-        subscriptionType={cancelTarget?.type || 'platform'}
+        subscriptionType="professor"
         professorName={cancelTarget?.name}
         isWithinWithdrawalPeriod={
-          cancelTarget?.type === 'platform'
-            ? isWithinWithdrawalPeriod(getPlatformSubscriptionCreatedAt())
-            : cancelTarget?.id
+          cancelTarget?.id
             ? isWithinWithdrawalPeriod(getProfessorSubscriptionCreatedAt(cancelTarget.id))
             : false
         }
         subscriptionStartDate={
-          cancelTarget?.type === 'platform'
-            ? formatDate(getPlatformSubscriptionCreatedAt())
-            : cancelTarget?.id
+          cancelTarget?.id
             ? formatDate(getProfessorSubscriptionCreatedAt(cancelTarget.id))
             : 'N/A'
         }
         withdrawalRightWaived={
-          cancelTarget?.type === 'platform'
-            ? getPlatformWithdrawalStatus().waived
-            : cancelTarget?.id
+          cancelTarget?.id
             ? getProfessorWithdrawalStatus(cancelTarget.id).waived
             : false
         }
         withdrawalWaiverReason={
-          cancelTarget?.type === 'platform'
-            ? getPlatformWithdrawalStatus().reason
-            : cancelTarget?.id
+          cancelTarget?.id
             ? getProfessorWithdrawalStatus(cancelTarget.id).reason
             : undefined
         }

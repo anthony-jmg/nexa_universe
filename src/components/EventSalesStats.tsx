@@ -11,6 +11,7 @@ import {
   AlertCircle,
   BarChart3,
   UserCheck,
+  Lock,
 } from 'lucide-react';
 
 interface EventSalesStatsProps {
@@ -22,13 +23,30 @@ interface EventSalesStatsProps {
 interface TicketStats {
   ticket_type_name: string;
   price: number;
+  tier_label: string | null;
+  next_tier_label: string | null;
+  next_price: number | null;
+  next_price_change_at: string | null;
+  tier_alert: string | null;
   member_price: number;
+  nexa_cost: number | null;
   quantity_available: number | null;
   quantity_sold: number;
   confirmed_count: number;
+  awaiting_count: number;
+  active_locks: number;
   pending_count: number;
   checked_in_count: number;
   revenue: number;
+}
+
+interface PriceLockStats {
+  active: number;
+  completed: number;
+  expired: number;
+  cancelled: number;
+  total: number;
+  depositsCollected: number;
 }
 
 interface OrderStats {
@@ -45,13 +63,14 @@ interface RecentAttendee {
   attendee_last_name: string;
   attendee_email: string;
   ticket_type_name: string;
-  checked_in: boolean;
+  check_in_status: string;
   checked_in_at: string | null;
   created_at: string;
 }
 
 export function EventSalesStats({ eventId, eventTitle, onClose }: EventSalesStatsProps) {
   const [ticketStats, setTicketStats] = useState<TicketStats[]>([]);
+  const [lockStats, setLockStats] = useState<PriceLockStats | null>(null);
   const [orderStats, setOrderStats] = useState<OrderStats | null>(null);
   const [recentAttendees, setRecentAttendees] = useState<RecentAttendee[]>([]);
   const [loading, setLoading] = useState(true);
@@ -66,7 +85,7 @@ export function EventSalesStats({ eventId, eventTitle, onClose }: EventSalesStat
     setLoading(true);
     setError('');
     try {
-      await Promise.all([loadTicketStats(), loadOrderStats(), loadRecentAttendees()]);
+      await Promise.all([loadTicketStats(), loadOrderStats(), loadRecentAttendees(), loadLockStats()]);
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -83,7 +102,8 @@ export function EventSalesStats({ eventId, eventTitle, onClose }: EventSalesStat
         member_price,
         quantity_available,
         quantity_sold,
-        ticket_type:ticket_types (name)
+        ticket_type:ticket_types (name),
+        price_tiers:event_ticket_price_tiers (label, price, starts_at, ends_at)
       `)
       .eq('event_id', eventId);
 
@@ -92,32 +112,85 @@ export function EventSalesStats({ eventId, eventTitle, onClose }: EventSalesStat
     const statsPromises = (ettData || []).map(async (ett: any) => {
       const { data: attendees } = await supabase
         .from('event_attendees')
-        .select('id, checked_in')
+        .select('id, check_in_status')
         .eq('event_ticket_type_id', ett.id);
 
-      const confirmedCount = attendees?.length || 0;
-      const checkedInCount = attendees?.filter((a) => a.checked_in).length || 0;
+      // Un détenteur de Price Lock actif (solde non payé) n'est pas une vente définitive.
+      const confirmedAttendees = (attendees || []).filter((a) => a.check_in_status !== 'awaiting_balance');
+      const confirmedCount = confirmedAttendees.length;
+      const awaitingCount = (attendees || []).filter((a) => a.check_in_status === 'awaiting_balance').length;
+      const checkedInCount = confirmedAttendees.filter((a) => a.check_in_status === 'checked_in').length;
+
+      const { count: activeLocks } = await supabase
+        .from('price_locks')
+        .select('id', { count: 'exact', head: true })
+        .eq('event_ticket_type_id', ett.id)
+        .eq('status', 'active');
 
       const { count: pendingCount } = await supabase
         .from('pending_event_attendees')
         .select('id', { count: 'exact', head: true })
         .eq('event_ticket_type_id', ett.id);
 
+      const now = Date.now();
+      const tiers = ((ett.price_tiers || []) as Array<{ label: string; price: number | string; starts_at: string; ends_at: string | null }>)
+        .map(t => ({ ...t, price: Number(t.price), start: new Date(t.starts_at).getTime(), end: t.ends_at ? new Date(t.ends_at).getTime() : null }))
+        .sort((a, b) => a.start - b.start);
+      const active = [...tiers].reverse().find(t => t.start <= now && (t.end === null || t.end > now)) ?? null;
+      const next = tiers.find(t => t.start > now) ?? null;
+      const price = active ? active.price : Number(ett.price);
+
+      let tierAlert: string | null = null;
+      if (!active) {
+        tierAlert = 'Aucun palier actif : le prix affiché est en repli legacy.';
+      } else if (!next) {
+        tierAlert = 'Aucun palier futur programmé.';
+      }
+
       return {
         ticket_type_name: ett.ticket_type?.name || 'Inconnu',
-        price: ett.price,
+        price,
+        tier_label: active?.label ?? null,
+        next_tier_label: next?.label ?? null,
+        next_price: next ? next.price : null,
+        next_price_change_at: next ? new Date(next.start).toISOString() : null,
+        tier_alert: tierAlert,
         member_price: ett.member_price,
+        nexa_cost: ett.nexa_cost,
         quantity_available: ett.quantity_available,
         quantity_sold: ett.quantity_sold || confirmedCount,
         confirmed_count: confirmedCount,
+        awaiting_count: awaitingCount,
+        active_locks: activeLocks || 0,
         pending_count: pendingCount || 0,
         checked_in_count: checkedInCount,
-        revenue: confirmedCount * ett.price,
+        revenue: confirmedCount * price,
       } as TicketStats;
     });
 
     const stats = await Promise.all(statsPromises);
     setTicketStats(stats);
+  };
+
+  const loadLockStats = async () => {
+    const { data, error } = await supabase
+      .from('price_locks')
+      .select('status, total_paid')
+      .eq('event_id', eventId);
+
+    if (error) throw error;
+
+    const rows = data || [];
+    const byStatus = (s: string) => rows.filter((l: any) => l.status === s).length;
+
+    setLockStats({
+      active: byStatus('active'),
+      completed: byStatus('completed'),
+      expired: byStatus('expired'),
+      cancelled: byStatus('cancelled'),
+      total: rows.length,
+      depositsCollected: rows.reduce((sum, l: any) => sum + Number(l.total_paid || 0), 0),
+    });
   };
 
   const loadOrderStats = async () => {
@@ -194,8 +267,9 @@ export function EventSalesStats({ eventId, eventTitle, onClose }: EventSalesStat
 
     const { data: attendees, error } = await supabase
       .from('event_attendees')
-      .select('attendee_first_name, attendee_last_name, attendee_email, event_ticket_type_id, checked_in, checked_in_at, created_at')
+      .select('attendee_first_name, attendee_last_name, attendee_email, event_ticket_type_id, check_in_status, checked_in_at, created_at')
       .in('event_ticket_type_id', ettIdList)
+      .neq('check_in_status', 'awaiting_balance')
       .order('created_at', { ascending: false })
       .limit(20);
 
@@ -210,6 +284,8 @@ export function EventSalesStats({ eventId, eventTitle, onClose }: EventSalesStat
   };
 
   const totalConfirmed = ticketStats.reduce((s, t) => s + t.confirmed_count, 0);
+  const totalAwaiting = ticketStats.reduce((s, t) => s + t.awaiting_count, 0);
+  const totalActiveLocks = ticketStats.reduce((s, t) => s + t.active_locks, 0);
   const totalPending = ticketStats.reduce((s, t) => s + t.pending_count, 0);
   const totalCheckedIn = ticketStats.reduce((s, t) => s + t.checked_in_count, 0);
   const totalRevenue = orderStats?.total_revenue || 0;
@@ -217,6 +293,10 @@ export function EventSalesStats({ eventId, eventTitle, onClose }: EventSalesStat
     (s, t) => s + (t.quantity_available ?? 0),
     0
   );
+
+  const lockConversion = lockStats && lockStats.total > 0
+    ? Math.round((lockStats.completed / lockStats.total) * 100)
+    : null;
 
   const fillRate =
     totalCapacity > 0 ? Math.round((totalConfirmed / totalCapacity) * 100) : null;
@@ -284,6 +364,28 @@ export function EventSalesStats({ eventId, eventTitle, onClose }: EventSalesStat
               />
             </div>
 
+            {lockStats && (
+              <div className="bg-gray-800 bg-opacity-60 rounded-xl border border-gray-700 p-5">
+                <h3 className="text-sm font-semibold text-gray-300 uppercase tracking-wide mb-4 flex items-center space-x-2">
+                  <Lock className="w-4 h-4 text-[#D4AC5B]" />
+                  <span>Price Locks</span>
+                </h3>
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                  <OrderStat label="Actifs" value={lockStats.active} color="blue" />
+                  <OrderStat label="Complétés" value={lockStats.completed} color="green" />
+                  <OrderStat label="Expirés" value={lockStats.expired} color="orange" />
+                  <OrderStat label="Annulés" value={lockStats.cancelled} color="red" />
+                  <div className="text-center">
+                    <p className="text-2xl font-semibold text-white">{lockConversion !== null ? `${lockConversion}%` : '—'}</p>
+                    <p className="text-xs text-gray-400 mt-1">Lock → Full Pass</p>
+                  </div>
+                </div>
+                <p className="text-xs text-gray-400 mt-3">
+                  {lockStats.depositsCollected.toFixed(2)} € de versements encaissés · {totalAwaiting} participant{totalAwaiting !== 1 ? 's' : ''} en attente de solde (non comptés comme vendus)
+                </p>
+              </div>
+            )}
+
             {orderStats && (
               <div className="bg-gray-800 bg-opacity-60 rounded-xl border border-gray-700 p-5">
                 <h3 className="text-sm font-semibold text-gray-300 uppercase tracking-wide mb-4 flex items-center space-x-2">
@@ -324,15 +426,28 @@ export function EventSalesStats({ eventId, eventTitle, onClose }: EventSalesStat
                           <div>
                             <p className="font-medium text-white">{ts.ticket_type_name}</p>
                             <p className="text-sm text-gray-400">
-                              {ts.price} € &nbsp;·&nbsp; Membre : {ts.member_price} €
+                              Prix actuel : {ts.price} € {ts.tier_label && <span className="text-gray-500">({ts.tier_label})</span>}
+                              {ts.next_price !== null && ts.next_price_change_at && (
+                                <> · Prochain palier « {ts.next_tier_label} » : {ts.next_price} € (hausse le {new Date(ts.next_price_change_at).toLocaleDateString('fr-FR')})</>
+                              )}
                             </p>
+                            {ts.tier_alert && (
+                              <p className="text-xs text-orange-400 mt-0.5 flex items-center gap-1">
+                                <AlertCircle className="w-3 h-3" /> {ts.tier_alert}
+                              </p>
+                            )}
+                            {ts.nexa_cost !== null && (
+                              <p className="text-xs text-gray-400 mt-0.5">
+                                Coût Nexa : {ts.nexa_cost} € · Marge brute : {(ts.price - ts.nexa_cost).toFixed(2)} € / billet
+                              </p>
+                            )}
                           </div>
                           <span className="text-lg font-semibold text-[#B8913D]">
                             {ts.revenue.toFixed(2)} €
                           </span>
                         </div>
 
-                        <div className="grid grid-cols-3 gap-3 text-sm">
+                        <div className="grid grid-cols-4 gap-3 text-sm">
                           <div className="text-center bg-gray-900 bg-opacity-50 rounded-lg p-2">
                             <p className="text-xl font-semibold text-white">{ts.confirmed_count}</p>
                             <p className="text-gray-400 text-xs">Confirmés</p>
@@ -340,6 +455,10 @@ export function EventSalesStats({ eventId, eventTitle, onClose }: EventSalesStat
                           <div className="text-center bg-gray-900 bg-opacity-50 rounded-lg p-2">
                             <p className="text-xl font-semibold text-green-400">{ts.checked_in_count}</p>
                             <p className="text-gray-400 text-xs">Enregistrés</p>
+                          </div>
+                          <div className="text-center bg-gray-900 bg-opacity-50 rounded-lg p-2">
+                            <p className="text-xl font-semibold text-[#F0D38A]">{ts.active_locks}</p>
+                            <p className="text-gray-400 text-xs">Locks actifs</p>
                           </div>
                           <div className="text-center bg-gray-900 bg-opacity-50 rounded-lg p-2">
                             <p className="text-xl font-semibold text-orange-400">{ts.pending_count}</p>
@@ -402,12 +521,12 @@ export function EventSalesStats({ eventId, eventTitle, onClose }: EventSalesStat
               ) : (
                 <div className="divide-y divide-gray-700 max-h-72 overflow-y-auto">
                   {recentAttendees
-                    .filter((a) => activeSection === 'overview' || a.checked_in)
+                    .filter((a) => activeSection === 'overview' || a.check_in_status === 'checked_in')
                     .map((attendee, i) => (
                       <div key={i} className="flex items-center justify-between px-5 py-3">
                         <div className="flex items-center space-x-3 min-w-0">
                           <div className="flex-shrink-0">
-                            {attendee.checked_in ? (
+                            {attendee.check_in_status === 'checked_in' ? (
                               <CheckCircle className="w-4 h-4 text-green-400" />
                             ) : (
                               <Clock className="w-4 h-4 text-gray-500" />
@@ -424,7 +543,7 @@ export function EventSalesStats({ eventId, eventTitle, onClose }: EventSalesStat
                           <span className="text-xs bg-gray-700 text-gray-300 px-2 py-1 rounded-full">
                             {attendee.ticket_type_name}
                           </span>
-                          {attendee.checked_in && attendee.checked_in_at && (
+                          {attendee.check_in_status === 'checked_in' && attendee.checked_in_at && (
                             <p className="text-xs text-green-400 mt-1">
                               {new Date(attendee.checked_in_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
                             </p>

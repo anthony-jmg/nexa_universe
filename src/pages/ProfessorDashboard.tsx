@@ -21,7 +21,7 @@ interface ProgramFormData {
   level: 'beginner' | 'intermediate' | 'advanced' | 'all_levels';
   price: number;
   thumbnail_url: string;
-  visibility: 'public' | 'private' | 'subscribers_only' | 'paid' | 'platform';
+  visibility: 'public' | 'private' | 'subscribers_only' | 'paid';
 }
 
 interface VideoFormData {
@@ -32,7 +32,7 @@ interface VideoFormData {
   cloudflare_video_id: string;
   thumbnail_url: string;
   program_id: string | null;
-  visibility: 'public' | 'private' | 'subscribers_only' | 'paid' | 'platform';
+  visibility: 'public' | 'private' | 'subscribers_only' | 'paid';
   program_order_index: number;
 }
 
@@ -632,8 +632,6 @@ export function ProfessorDashboard({ onNavigate }: ProfessorDashboardProps) {
         return <Lock className="w-4 h-4" />;
       case 'paid':
         return <Check className="w-4 h-4" />;
-      case 'platform':
-        return <Lock className="w-4 h-4" />;
       default:
         return <Eye className="w-4 h-4" />;
     }
@@ -649,8 +647,6 @@ export function ProfessorDashboard({ onNavigate }: ProfessorDashboardProps) {
         return 'Abonnés uniquement';
       case 'paid':
         return 'Payant';
-      case 'platform':
-        return 'NEXA Academy';
       default:
         return visibility;
     }
@@ -1379,7 +1375,7 @@ export function ProfessorDashboard({ onNavigate }: ProfessorDashboardProps) {
                           setProgramForm({
                             ...programForm,
                             visibility: newVisibility,
-                            price: (newVisibility === 'public' || newVisibility === 'subscribers_only' || newVisibility === 'platform') ? 0 : programForm.price
+                            price: (newVisibility === 'public' || newVisibility === 'subscribers_only') ? 0 : programForm.price
                           });
                         }}
                         className="w-full px-4 py-3 bg-gray-900/50 border border-gray-600 rounded-lg focus:ring-2 focus:ring-[#B8913D] focus:border-[#B8913D] outline-none transition-all text-white"
@@ -1387,7 +1383,6 @@ export function ProfessorDashboard({ onNavigate }: ProfessorDashboardProps) {
                         <option value="public">Public</option>
                         <option value="paid">Payant (achat à l'unité)</option>
                         <option value="subscribers_only">Abonnés uniquement</option>
-                        <option value="platform">NEXA Academy (abonnement plateforme)</option>
                         <option value="private">Privé</option>
                       </select>
                     </div>
@@ -1615,9 +1610,9 @@ export function ProfessorDashboard({ onNavigate }: ProfessorDashboardProps) {
                                   <span className="font-medium text-blue-400">Abonnés</span>
                                   <span className="text-gray-400 hidden sm:inline">•</span>
                                 </>
-                              ) : program.visibility === 'platform' ? (
+                              ) : program.visibility === 'private' ? (
                                 <>
-                                  <span className="font-medium text-blue-400">NEXA Academy</span>
+                                  <span className="font-medium text-gray-400">Privé</span>
                                   <span className="text-gray-400 hidden sm:inline">•</span>
                                 </>
                               ) : null}
@@ -1748,7 +1743,6 @@ export function ProfessorDashboard({ onNavigate }: ProfessorDashboardProps) {
                         <option value="public">Public</option>
                         <option value="paid">Payant (achat à l'unité)</option>
                         <option value="subscribers_only">Abonnés uniquement</option>
-                        <option value="platform">NEXA Academy (abonnement plateforme)</option>
                         <option value="private">Privé</option>
                       </select>
                     </div>

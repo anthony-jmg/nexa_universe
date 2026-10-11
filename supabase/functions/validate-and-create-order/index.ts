@@ -22,6 +22,9 @@ interface OrderItem {
   event_ticket_type_id?: string;
   quantity: number;
   selected_size?: string;
+  purchase_type?: string;
+  price_snapshot?: number;
+  deposit_amount?: number;
   attendees?: AttendeeInfo[];
 }
 
@@ -47,6 +50,10 @@ interface ValidatedItem {
   quantity: number;
   unit_price: number;
   selected_size?: string;
+  purchase_type: string;
+  locked_price_snapshot?: number;
+  deposit_amount?: number;
+  price_tier_id?: string;
 }
 
 Deno.serve(async (req: Request) => {
@@ -149,31 +156,19 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    const { data: userProfile } = await supabase
-      .from("profiles")
-      .select(
-        "platform_subscription_status, platform_subscription_expires_at"
-      )
-      .eq("id", user.id)
-      .maybeSingle();
-
-    const isMember =
-      userProfile?.platform_subscription_status === "active" &&
-      userProfile?.platform_subscription_expires_at &&
-      new Date(userProfile.platform_subscription_expires_at) > new Date();
-
     let totalAmount = 0;
     const validatedItems: ValidatedItem[] = [];
     const stockReservations: Array<{
       product_id: string;
       quantity: number;
     }> = [];
+    const orderEventsWithDeposit = new Set<string>();
 
     for (const item of requestData.items) {
       if (item.product_id) {
         const { data: product } = await supabase
           .from("products")
-          .select("id, name, price, member_price")
+          .select("id, name, price")
           .eq("id", item.product_id)
           .maybeSingle();
 
@@ -220,10 +215,7 @@ Deno.serve(async (req: Request) => {
           );
         }
 
-        const price =
-          isMember && product.member_price > 0
-            ? product.member_price
-            : product.price;
+        const price = product.price;
         totalAmount += price * item.quantity;
 
         validatedItems.push({
@@ -242,6 +234,10 @@ Deno.serve(async (req: Request) => {
           });
         }
       } else if (item.event_ticket_type_id) {
+        const purchaseType = item.purchase_type === 'price_lock_deposit' ? 'price_lock_deposit' : 'full_purchase';
+        const cartPriceSnapshot = item.price_snapshot != null ? Number(item.price_snapshot) : null;
+        const cartDepositAmount = item.deposit_amount != null ? Number(item.deposit_amount) : null;
+
         const { data: eventTicketType } = await supabase
           .from("event_ticket_types")
           .select(
@@ -249,9 +245,15 @@ Deno.serve(async (req: Request) => {
             id,
             event_id,
             price,
-            member_price,
             quantity_available,
             quantity_sold,
+            is_active,
+            price_lock_enabled,
+            price_lock_deposit_amount,
+            price_increase_date,
+            price_lock_opens_at,
+            sale_end_date,
+            max_per_order,
             ticket_types (name),
             events (title)
           `
@@ -274,14 +276,160 @@ Deno.serve(async (req: Request) => {
           );
         }
 
+        if (eventTicketType.is_active === false) {
+          return new Response(
+            JSON.stringify({ error: "Ce billet n'est plus disponible à la vente." }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
+        let unitPrice = Number(eventTicketType.price);
+        // Prix relu côté base depuis le palier actif (source de vérité unique)
+        const { data: pricing, error: pricingError } = await supabase
+          .rpc("get_event_ticket_pricing", { p_event_ticket_type_id: eventTicketType.id })
+          .maybeSingle();
+        if (pricingError || !pricing || pricing.current_price == null) {
+          return new Response(
+            JSON.stringify({ error: "Impossible de déterminer le tarif actuel de ce billet. Actualise la page." }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+        unitPrice = Number(pricing.current_price);
+        let lockedPriceSnapshot: number | undefined;
+        let depositAmount: number | undefined;
+
+        if (purchaseType === "price_lock_deposit") {
+          // Un seul Price Lock par festival et par commande, indépendamment du type de billet
+          if (orderEventsWithDeposit.has(eventTicketType.event_id)) {
+            return new Response(
+              JSON.stringify({ error: "Un seul Price Lock est autorisé par festival." }),
+              { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+          }
+          if (item.quantity !== 1) {
+            return new Response(
+              JSON.stringify({ error: "Un Price Lock est toujours limité à une quantité de 1." }),
+              { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+          }
+          // Règles Price Lock vérifiées côté serveur, montant = dépôt officiel du billet
+          if (!eventTicketType.price_lock_enabled) {
+            return new Response(
+              JSON.stringify({ error: "Price Lock non disponible pour ce billet." }),
+              { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+          }
+          if (!eventTicketType.price_increase_date) {
+            return new Response(
+              JSON.stringify({ error: "Aucune hausse tarifaire programmée pour ce billet." }),
+              { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+          }
+          const now = Date.now();
+          const increaseAt = new Date(eventTicketType.price_increase_date).getTime();
+          const opensAt = eventTicketType.price_lock_opens_at
+            ? new Date(eventTicketType.price_lock_opens_at).getTime()
+            : increaseAt - 10 * 24 * 60 * 60 * 1000;
+          if (now < opensAt) {
+            return new Response(
+              JSON.stringify({
+                error: "Le Price Lock n'est pas encore ouvert pour ce billet.",
+                code: "PRICE_LOCK_CLOSED",
+                event_ticket_type_id: eventTicketType.id,
+              }),
+              {
+                status: 409,
+                headers: { ...corsHeaders, "Content-Type": "application/json" },
+              }
+            );
+          }
+          if (now >= increaseAt) {
+            return new Response(
+              JSON.stringify({
+                error: "Ce Price Lock n'est plus disponible pour ce tarif.",
+                code: "PRICE_LOCK_CLOSED",
+                event_ticket_type_id: eventTicketType.id,
+                current_price: unitPrice,
+              }),
+              {
+                status: 409,
+                headers: { ...corsHeaders, "Content-Type": "application/json" },
+              }
+            );
+          }
+          if (eventTicketType.sale_end_date && now >= new Date(eventTicketType.sale_end_date).getTime()) {
+            return new Response(
+              JSON.stringify({ error: "Ventes closes pour ce billet." }),
+              { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+          }
+
+          const { count: sameType } = await supabase
+            .from("price_locks")
+            .select("id", { count: "exact", head: true })
+            .eq("user_id", user.id)
+            .eq("event_ticket_type_id", eventTicketType.id)
+            .eq("status", "active");
+          if ((sameType ?? 0) > 0) {
+            return new Response(
+              JSON.stringify({ error: "Tu as déjà un Price Lock actif pour ce billet." }),
+              { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+          }
+
+          const { count: activeForEvent } = await supabase
+            .from("price_locks")
+            .select("id", { count: "exact", head: true })
+            .eq("user_id", user.id)
+            .eq("event_id", eventTicketType.event_id)
+            .eq("status", "active");
+          if ((activeForEvent ?? 0) > 0) {
+            return new Response(
+              JSON.stringify({ error: "Tu as déjà un Price Lock actif pour ce festival." }),
+              { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+          }
+
+          const { count: activeLocks } = await supabase
+            .from("price_locks")
+            .select("id", { count: "exact", head: true })
+            .eq("user_id", user.id)
+            .eq("status", "active");
+          if ((activeLocks ?? 0) >= 2) {
+            return new Response(
+              JSON.stringify({ error: "Maximum 2 Price Locks actifs simultanément." }),
+              { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+          }
+
+          lockedPriceSnapshot = unitPrice;
+          depositAmount = Number(eventTicketType.price_lock_deposit_amount);
+          if (depositAmount >= unitPrice) {
+            return new Response(
+              JSON.stringify({ error: "Le dépôt Price Lock doit être inférieur au tarif actuel." }),
+              { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+          }
+          unitPrice = depositAmount;
+          orderEventsWithDeposit.add(eventTicketType.event_id);
+        }
+
         if (eventTicketType.quantity_available !== null) {
+          let locksForType = 0;
+          if (purchaseType === "price_lock_deposit") {
+            const { count } = await supabase
+              .from("price_locks")
+              .select("id", { count: "exact", head: true })
+              .eq("event_ticket_type_id", eventTicketType.id)
+              .eq("status", "active");
+            locksForType = count ?? 0;
+          }
           const available =
-            eventTicketType.quantity_available -
-            eventTicketType.quantity_sold;
+            eventTicketType.quantity_available - eventTicketType.quantity_sold - locksForType;
           if (available < item.quantity) {
             return new Response(
               JSON.stringify({
-                error: `Insufficient tickets available. Only ${available} left.`,
+                error: `Insufficient tickets available. Only ${Math.max(0, available)} left.`,
               }),
               {
                 status: 400,
@@ -294,25 +442,66 @@ Deno.serve(async (req: Request) => {
           }
         }
 
-        const price =
-          isMember &&
-          eventTicketType.member_price > 0
-            ? eventTicketType.member_price
-            : eventTicketType.price;
-
-        totalAmount += price * item.quantity;
-
         const eventTitle =
           (eventTicketType.events as any)?.title ?? "Event";
         const ticketName =
           (eventTicketType.ticket_types as any)?.name ?? "Ticket";
+
+        // Revalidation du prix : si le montant du panier ne correspond plus au
+        // palier actif (ou au dépôt), on ne crée PAS la commande — le frontend
+        // met à jour le panier et redemande une confirmation utilisateur.
+        if (purchaseType === "full_purchase" && cartPriceSnapshot != null) {
+          const drifted = Math.abs(unitPrice - cartPriceSnapshot) >= 0.01;
+          if (drifted) {
+            return new Response(
+              JSON.stringify({
+                error: "Le tarif de ce billet a évolué depuis l'ajout au panier.",
+                code: "PRICE_CHANGED",
+                event_ticket_type_id: eventTicketType.id,
+                cart_price: cartPriceSnapshot,
+                current_price: unitPrice,
+                ticket_name: `${eventTitle} - ${ticketName}`,
+              }),
+              {
+                status: 409,
+                headers: { ...corsHeaders, "Content-Type": "application/json" },
+              }
+            );
+          }
+        }
+        if (purchaseType === "price_lock_deposit" && cartDepositAmount != null) {
+          const depositDrifted = Math.abs(depositAmount! - cartDepositAmount) >= 0.01;
+          if (depositDrifted) {
+            return new Response(
+              JSON.stringify({
+                error: "Le versement Price Lock a changé depuis l'ajout au panier.",
+                code: "PRICE_CHANGED",
+                event_ticket_type_id: eventTicketType.id,
+                cart_price: cartDepositAmount,
+                current_price: depositAmount,
+                ticket_name: `${eventTitle} - ${ticketName}`,
+              }),
+              {
+                status: 409,
+                headers: { ...corsHeaders, "Content-Type": "application/json" },
+              }
+            );
+          }
+        }
+
+        totalAmount += unitPrice * item.quantity;
 
         validatedItems.push({
           item_type: "event_ticket",
           event_ticket_type_id: eventTicketType.id,
           product_name: `${eventTitle} - ${ticketName}`,
           quantity: item.quantity,
-          unit_price: price,
+          unit_price: unitPrice,
+          purchase_type: purchaseType,
+          price_tier_id: (pricing as any)?.current_tier_id ?? undefined,
+          ...(purchaseType === "price_lock_deposit"
+            ? { locked_price_snapshot: lockedPriceSnapshot!, deposit_amount: depositAmount! }
+            : {}),
         });
       } else {
         return new Response(
@@ -352,7 +541,7 @@ Deno.serve(async (req: Request) => {
       .insert({
         user_id: user.id,
         total_amount: totalAmount,
-        is_member_order: isMember,
+        is_member_order: false,
         shipping_name: requestData.shipping_info.name,
         shipping_email: requestData.shipping_info.email,
         shipping_phone: requestData.shipping_info.phone || "",
@@ -382,6 +571,13 @@ Deno.serve(async (req: Request) => {
       quantity: item.quantity,
       unit_price: item.unit_price,
       selected_size: item.selected_size || null,
+      price_tier_id: item.price_tier_id || null,
+      purchase_type:
+        item.item_type === "event_ticket" && item.purchase_type === "price_lock_deposit"
+          ? "price_lock_deposit"
+          : null,
+      locked_price_snapshot: item.locked_price_snapshot ?? null,
+      deposit_amount: item.deposit_amount ?? null,
     }));
 
     const { error: itemsError } = await supabase
@@ -429,7 +625,8 @@ Deno.serve(async (req: Request) => {
       (item) => item.item_type === "event_ticket"
     );
     for (const item of eventItems) {
-      const attendeesForTicket = requestData.attendees_by_ticket?.[item.event_ticket_type_id!] || [];
+      const attendeeKey = `${item.event_ticket_type_id}::${item.purchase_type}`;
+      const attendeesForTicket = requestData.attendees_by_ticket?.[attendeeKey] || [];
 
       for (let i = 0; i < item.quantity; i++) {
         const qrCode = `EVT-${order.id}-${item.event_ticket_type_id}-${i}-${Date.now()}`;
@@ -449,6 +646,7 @@ Deno.serve(async (req: Request) => {
               event_id: ticketType.event_id,
               user_id: user.id,
               event_ticket_type_id: item.event_ticket_type_id,
+              purchase_type: item.purchase_type,
               qr_code: qrCode,
               expires_at: new Date(
                 Date.now() + 30 * 60 * 1000
@@ -480,11 +678,12 @@ Deno.serve(async (req: Request) => {
           product_name: item.product_name,
           quantity: item.quantity,
           unit_price: item.unit_price,
+          price_tier_id: item.price_tier_id ?? null,
           details: item.selected_size
-            ? { size: item.selected_size }
+            ? { size: item.selected_size, purchase_type: item.purchase_type }
             : item.event_ticket_type_id
-              ? { event_ticket: "true" }
-              : {},
+              ? { event_ticket: "true", purchase_type: item.purchase_type }
+              : { purchase_type: item.purchase_type },
         })),
       }),
       {

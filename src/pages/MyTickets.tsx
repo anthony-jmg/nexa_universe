@@ -146,6 +146,13 @@ export function MyTickets({ onNavigate }: MyTicketsProps) {
             <span>Annule</span>
           </span>
         );
+      case 'awaiting_balance':
+        return (
+          <span className="inline-flex items-center space-x-1 px-3 py-1 bg-[#D4AC5B] bg-opacity-20 text-[#F0D38A] rounded-full text-sm border border-[#D4AC5B] border-opacity-50">
+            <Clock className="w-4 h-4" />
+            <span>Solde à payer</span>
+          </span>
+        );
       default:
         return (
           <span className="inline-flex items-center space-x-1 px-3 py-1 bg-green-900 bg-opacity-40 text-green-400 rounded-full text-sm border border-green-600 border-opacity-40">

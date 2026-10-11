@@ -15,7 +15,7 @@ function validateCheckoutRequest(data: any): string[] {
 
   if (!data.payment_type) {
     errors.push('payment_type is required');
-  } else if (!['order', 'video', 'program', 'professor_subscription', 'event_ticket', 'platform_subscription'].includes(data.payment_type)) {
+  } else if (!'order,video,program,professor_subscription,event_ticket,price_lock_deposit,price_lock_balance'.split(',').includes(data.payment_type)) {
     errors.push('Invalid payment_type');
   }
 
@@ -69,7 +69,7 @@ function validateCheckoutRequest(data: any): string[] {
 }
 
 interface CheckoutRequest {
-  payment_type: "order" | "video" | "program" | "professor_subscription" | "event_ticket" | "platform_subscription";
+  payment_type: (typeof VALID_PAYMENT_TYPES)[number];
   items: CheckoutItem[];
   success_url: string;
   cancel_url: string;
@@ -83,6 +83,117 @@ interface CheckoutItem {
   price: number;
   quantity: number;
   metadata?: Record<string, string>;
+}
+
+// Price Lock : paiement du solde — le montant est TOUJOURS relu depuis la ligne
+// réelle du lock (price_locks.remaining_amount). Le client ne transmet qu'un
+// identifiant de lock ; le montant de la requête est ignoré.
+async function resolvePriceLockBalance(
+  supabase: any,
+  userId: string,
+  lockId: string
+): Promise<{ error?: string; name?: string; amount?: number }> {
+  if (!lockId) return { error: 'Price Lock introuvable.' };
+
+  const { data: lock } = await supabase
+    .from('price_locks')
+    .select('id, user_id, status, remaining_amount, locked_price, deposit_amount, event_ticket_type_id, ticket_type:event_ticket_types(ticket_type:ticket_types(name))')
+    .eq('id', lockId)
+    .maybeSingle();
+
+  if (!lock) return { error: 'Price Lock introuvable.' };
+  if (lock.user_id !== userId) return { error: 'Ce Price Lock ne vous appartient pas.' };
+  if (lock.status !== 'active') return { error: 'Ce Price Lock n\u2019est plus actif.' };
+
+  const remaining = Number(lock.remaining_amount);
+  if (!Number.isFinite(remaining) || remaining <= 0) {
+    return { error: 'Aucun solde restant sur ce Price Lock.' };
+  }
+
+  const ticketName = (lock as any).ticket_type?.ticket_type?.name || 'Billet';
+  return {
+    name: `Solde Price Lock — ${ticketName}`,
+    amount: remaining,
+  };
+}
+
+// Price Lock : premier versement — montant et règles TOUJOURS fixés côté serveur
+// depuis la fonction centrale de paliers (event_ticket_price_tiers). Le client
+// ne transmet qu'un identifiant de billet ; le montant de la requête est ignoré.
+async function resolvePriceLockDeposit(
+  supabase: any,
+  userId: string,
+  ticketTypeId: string
+): Promise<{ error?: string; name?: string; amount?: number }> {
+  if (!ticketTypeId) return { error: 'Billet introuvable pour le Price Lock.' };
+
+  const { data: ett } = await supabase
+    .from('event_ticket_types')
+    .select('id, price, price_lock_enabled, price_lock_deposit_amount, price_increase_date, price_lock_opens_at, is_active, event_id, ticket_type:ticket_types(name)')
+    .eq('id', ticketTypeId)
+    .maybeSingle();
+
+  if (!ett) return { error: 'Billet introuvable pour le Price Lock.' };
+  if (!ett.is_active) return { error: 'Ce billet n’est plus disponible à la vente.' };
+  if (!ett.price_lock_enabled) return { error: 'Price Lock non disponible pour ce billet.' };
+  if (!ett.price_increase_date) return { error: 'Aucune hausse tarifaire programmée pour ce billet.' };
+
+  // Prix courant = palier actif lu côté base (source de vérité unique)
+  const { data: pricing, error: pricingError } = await supabase
+    .rpc('get_event_ticket_pricing', { p_event_ticket_type_id: ticketTypeId })
+    .maybeSingle();
+  if (pricingError) return { error: 'Impossible de déterminer le tarif actuel.' };
+  if (!pricing || pricing.current_price == null) {
+    return { error: 'Aucun tarif actif pour ce billet. Contacte le support.' };
+  }
+
+  const now = Date.now();
+  const increaseAt = new Date(ett.price_increase_date).getTime();
+  const opensAt = ett.price_lock_opens_at
+    ? new Date(ett.price_lock_opens_at).getTime()
+    : increaseAt - 10 * 24 * 60 * 60 * 1000;
+
+  if (now < opensAt) return { error: 'Le Price Lock n’est pas encore ouvert pour ce billet.' };
+  if (now >= increaseAt) return { error: 'Price Lock fermé pour ce billet : la hausse est déjà passée.' };
+
+  // Un seul Price Lock actif par utilisateur et par billet
+  const { count: sameType } = await supabase
+    .from('price_locks')
+    .select('id', { count: 'exact', head: true })
+    .eq('user_id', userId)
+    .eq('event_ticket_type_id', ticketTypeId)
+    .eq('status', 'active');
+  if ((sameType ?? 0) > 0) {
+    return { error: 'Tu as déjà un Price Lock actif pour ce billet.' };
+  }
+
+  // Max 2 Price Locks actifs simultanément par utilisateur
+  const { count: activeLocks } = await supabase
+    .from('price_locks')
+    .select('id', { count: 'exact', head: true })
+    .eq('user_id', userId)
+    .eq('status', 'active');
+  if ((activeLocks ?? 0) >= 2) {
+    return { error: 'Maximum 2 Price Locks actifs simultanément.' };
+  }
+
+  // Quota : quantity_sold + locks actifs < quantity_available
+  if (ett.quantity_available !== null && ett.quantity_available !== undefined) {
+    const { count: locksForType } = await supabase
+      .from('price_locks')
+      .select('id', { count: 'exact', head: true })
+      .eq('event_ticket_type_id', ticketTypeId)
+      .eq('status', 'active');
+    if (ett.quantity_sold + (locksForType ?? 0) >= ett.quantity_available) {
+      return { error: 'Quota Price Lock épuisé pour ce billet.' };
+    }
+  }
+
+  const ticketName = (ett as any).ticket_type?.name || 'Billet';
+  return {
+    name: `Price Lock — ${ticketName}`,
+    amount: Number(ett.price_lock_deposit_amount),
+  };
 }
 
 Deno.serve(async (req: Request) => {
@@ -178,6 +289,46 @@ Deno.serve(async (req: Request) => {
 
     const { payment_type, items, success_url, cancel_url, metadata = {}, price_id } = requestData;
 
+    // Price Lock : le montant facturé est recalculé côté serveur depuis le billet réel
+    let resolvedItems = items;
+    if (payment_type === 'price_lock_deposit') {
+      const ticketTypeId = metadata.event_ticket_type_id || metadata.target_id;
+      const resolved = await resolvePriceLockDeposit(supabase, user.id, ticketTypeId);
+      if (resolved.error) {
+        return new Response(
+          JSON.stringify({ error: resolved.error }),
+          {
+            status: 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          }
+        );
+      }
+      resolvedItems = [{
+        id: ticketTypeId!,
+        name: resolved.name!,
+        price: resolved.amount!,
+        quantity: 1,
+      }];
+    } else if (payment_type === 'price_lock_balance') {
+      const lockId = metadata.price_lock_id || metadata.target_id;
+      const resolved = await resolvePriceLockBalance(supabase, user.id, lockId);
+      if (resolved.error) {
+        return new Response(
+          JSON.stringify({ error: resolved.error }),
+          {
+            status: 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          }
+        );
+      }
+      resolvedItems = [{
+        id: lockId!,
+        name: resolved.name!,
+        price: resolved.amount!,
+        quantity: 1,
+      }];
+    }
+
     // Resolve professor's Stripe Connect account for direct payouts
     let professorConnectAccountId: string | null = null;
     let platformFeePercentage = 20;
@@ -250,7 +401,7 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    const isSubscription = payment_type === "platform_subscription" || payment_type === "professor_subscription";
+    const isSubscription = payment_type === "professor_subscription";
 
     let session;
     let totalAmount: number;
@@ -327,7 +478,7 @@ Deno.serve(async (req: Request) => {
         });
       }
     } else {
-      const lineItems = items.map((item) => {
+      const lineItems = resolvedItems.map((item) => {
         const sanitizedMetadata: Record<string, string> = {};
         if (item.metadata) {
           for (const [k, v] of Object.entries(item.metadata)) {
@@ -347,7 +498,7 @@ Deno.serve(async (req: Request) => {
         };
       });
 
-      totalAmount = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+      totalAmount = resolvedItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
 
       const paymentIntentData = professorConnectAccountId
         ? {

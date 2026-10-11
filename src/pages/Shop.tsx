@@ -6,7 +6,18 @@ import { useDebounce } from '../hooks/useDebounce';
 import { supabase } from '../lib/supabase';
 import { BackgroundDecor } from '../components/BackgroundDecor';
 import { Database } from '../lib/database.types';
-import { ShoppingBag, Calendar, MapPin, Shirt, Check, ShoppingCart, Search, X, Clock, Users, Ticket, AlertCircle, ChevronLeft, ChevronRight, Images, Info } from 'lucide-react';
+import { ShoppingBag, Calendar, MapPin, Shirt, Check, CheckCircle, ShoppingCart, Search, X, Clock, Users, Ticket, AlertCircle, ChevronLeft, ChevronRight, Images, Lock } from 'lucide-react';
+import { PriceLockModal } from '../components/PriceLockModal';
+import { PriceLockExplainer } from '../components/PriceLockExplainer';
+import { fetchPriceLockSummary, fetchUserPriceLock, verifyPriceLockPayment, PriceLockSummary, PriceLockRecord } from '../lib/priceLock';
+import { currentPrice, nextPrice, nextPriceChangeAt, priceLockDeadline, priceLockAvailable, minEventPrice, minNextEventPrice } from '../lib/tierPricing';
+
+const PRICE_LOCK_DEPOSIT = 20;
+const PRICE_INCREASE_STEP = 15;
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+const formatDateShort = (date: Date) =>
+  date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
 
 type Product = Database['public']['Tables']['products']['Row'];
 type ProductSize = Database['public']['Tables']['product_sizes']['Row'];
@@ -38,14 +49,44 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
   const lightboxTouchX = useRef<number | null>(null);
   const [events, setEvents] = useState<EventWithTickets[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<'merchandise' | 'events'>('merchandise');
+  const [filter, setFilter] = useState<'merchandise' | 'events'>('events');
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [selectedEvent, setSelectedEvent] = useState<EventWithTickets | null>(null);
   const [selectedSize, setSelectedSize] = useState('');
   const [quantity, setQuantity] = useState(1);
   const [ticketQuantities, setTicketQuantities] = useState<Record<string, number>>({});
+  const [quickAddLockMode, setQuickAddLockMode] = useState(false);
+  const [quickAddError, setQuickAddError] = useState('');
+  const [quickAddNotice, setQuickAddNotice] = useState('');
+  const [eventLockExists, setEventLockExists] = useState(false);
   const [success, setSuccess] = useState('');
   const [detailEvent, setDetailEvent] = useState<EventWithTickets | null>(null);
+  const [pendingEventId, setPendingEventId] = useState<string | null>(null);
+  const [highlightedEventId, setHighlightedEventId] = useState<string | null>(null);
+  const [priceLockModal, setPriceLockModal] = useState<{ event: EventWithTickets; ticketTypeId?: string } | null>(null);
+  const [priceLockPickerEvent, setPriceLockPickerEvent] = useState<EventWithTickets | null>(null);
+  const [priceLockSummary, setPriceLockSummary] = useState<PriceLockSummary | null>(null);
+  const [priceLockExisting, setPriceLockExisting] = useState<PriceLockRecord | null>(null);
+  const [priceLockChecking, setPriceLockChecking] = useState(false);
+  const [priceLockError, setPriceLockError] = useState('');
+  const [priceLockResult, setPriceLockResult] = useState<{ status: 'success' | 'cancelled'; lock: PriceLockRecord | null } | null>(null);
+
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const priceLockStatus = urlParams.get('price_lock');
+    const sessionId = urlParams.get('session_id');
+
+    if (priceLockStatus === 'success' && sessionId) {
+      (async () => {
+        const lock = await verifyPriceLockPayment(sessionId);
+        setPriceLockResult({ status: lock ? 'success' : 'cancelled', lock });
+        window.history.replaceState({}, '', window.location.pathname);
+      })();
+    } else if (priceLockStatus === 'cancelled') {
+      setPriceLockResult({ status: 'cancelled', lock: null });
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+  }, []);
   const [lightboxImage, setLightboxImage] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
@@ -54,10 +95,6 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
   const [totalEventsCount, setTotalEventsCount] = useState(0);
   const [totalProductsCount, setTotalProductsCount] = useState(0);
   const itemsPerPage = 12;
-
-  const isMember = profile?.platform_subscription_status === 'active' &&
-    profile?.platform_subscription_expires_at &&
-    new Date(profile.platform_subscription_expires_at) > new Date();
 
   useEffect(() => {
     if (filter === 'merchandise') {
@@ -71,7 +108,12 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
     if (!initialProductId) return;
     const openInitialProduct = async () => {
       const { data: product } = await supabase.from('products').select('*').eq('id', initialProductId).maybeSingle();
-      if (!product) return;
+      if (!product) {
+        // Deep-link festival depuis la Landing : on retrouvera la carte dans la
+        // liste une fois les événements chargés (voir l'effet de scroll ci-dessous).
+        setPendingEventId(initialProductId);
+        return;
+      }
       const [sizesResult, imagesResult] = await Promise.all([
         supabase.from('product_sizes').select('*').eq('product_id', initialProductId).order('order_index'),
         supabase.from('product_images').select('*').eq('product_id', initialProductId).order('order_index'),
@@ -88,6 +130,22 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
     };
     openInitialProduct();
   }, [initialProductId]);
+
+  // Scroll fluide vers la carte du festival ciblé + mise en évidence temporaire.
+  useEffect(() => {
+    if (loading || !pendingEventId) return;
+    const card = document.getElementById(`event-card-${pendingEventId}`);
+    if (card) {
+      card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      setHighlightedEventId(pendingEventId);
+      const t = setTimeout(() => setHighlightedEventId(null), 3000);
+      setPendingEventId(null);
+      return () => clearTimeout(t);
+    }
+    // Événement non présent (filtre, page, indisponible) : Nexa Pass s'affiche
+    // normalement, on consomme simplement l'ID transmis.
+    setPendingEventId(null);
+  }, [loading, pendingEventId, filter]);
 
   const loadProducts = async () => {
     setLoading(true);
@@ -152,11 +210,13 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
         *,
         event_ticket_types (
           *,
-          ticket_type:ticket_types (*)
+          ticket_type:ticket_types (*),
+          price_tiers:event_ticket_price_tiers (label, price, starts_at, ends_at)
         )
       `, { count: 'exact' })
       .in('event_status', ['published', 'upcoming'])
       .eq('is_active', true)
+      .eq('is_test', false)
       .gte('start_date', new Date().toISOString());
 
     if (debouncedSearchQuery.trim()) {
@@ -179,23 +239,7 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
   };
 
   const getMinEventPrice = useCallback((event: EventWithTickets) => {
-    if (!event.event_ticket_types || event.event_ticket_types.length === 0) return null;
-
-    const prices = event.event_ticket_types
-      .filter(ett => ett.is_active)
-      .map(ett => ett.price);
-
-    return prices.length > 0 ? Math.min(...prices) : null;
-  }, []);
-
-  const getMinMemberPrice = useCallback((event: EventWithTickets) => {
-    if (!event.event_ticket_types || event.event_ticket_types.length === 0) return null;
-
-    const memberPrices = event.event_ticket_types
-      .filter(ett => ett.is_active && ett.member_price > 0)
-      .map(ett => ett.member_price);
-
-    return memberPrices.length > 0 ? Math.min(...memberPrices) : null;
+    return minEventPrice(event as any);
   }, []);
 
   const getAvailableTickets = useCallback((event: EventWithTickets) => {
@@ -209,11 +253,28 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
       }, 0);
   }, []);
 
+  const getPriceLockInfo = useCallback((event: EventWithTickets) => {
+    const activeEtts = (event.event_ticket_types || []).filter(ett => ett.is_active);
+    const lockEligible = activeEtts.filter(ett => priceLockAvailable(ett as any));
+    if (lockEligible.length === 0) return null;
+
+    const minNext = minNextEventPrice(event as any);
+    const cheapest = activeEtts.reduce((a, b) => (currentPrice(b as any) < currentPrice(a as any) ? b : a));
+    const deadline = priceLockDeadline(cheapest as any);
+    return {
+      lockAvailable: true,
+      deposit: Number(cheapest.price_lock_deposit_amount ?? PRICE_LOCK_DEPOSIT),
+      nextPrice: minNext?.price ?? null,
+      increaseDate: minNext ? formatDateShort(minNext.changeAt) : null,
+      guaranteeEnd: deadline ? formatDateShort(deadline) : null,
+    };
+  }, []);
+
   const filteredProducts = useMemo(() => {
     if (filter !== 'merchandise' || priceRange === 'all') return products;
 
     return products.filter((product) => {
-      const price = isMember ? product.member_price : product.price;
+      const price = product.price;
       const matchesPrice =
         priceRange === 'all' ||
         (priceRange === 'under25' && price < 25) ||
@@ -222,7 +283,7 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
 
       return matchesPrice;
     });
-  }, [products, filter, isMember, priceRange]);
+  }, [products, filter, priceRange]);
 
   const filteredEvents = useMemo(() => {
     if (filter !== 'events' || priceRange === 'all') return events;
@@ -255,6 +316,57 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
   useEffect(() => {
     setCurrentPage(1);
   }, [filter, debouncedSearchQuery, priceRange]);
+
+  const openPriceLockModal = async (event: EventWithTickets, eventTicketTypeId?: string) => {
+    if (!user) {
+      onNavigate('signin');
+      return;
+    }
+
+    const eligible = (event.event_ticket_types || []).filter(ett =>
+      ett.is_active && priceLockAvailable(ett as any)
+    );
+    const target = eventTicketTypeId
+      ? eligible.find(ett => ett.id === eventTicketTypeId)
+      : eligible.length === 1
+        ? eligible[0]
+        : undefined;
+
+    if (!target) {
+      if (eligible.length > 1) {
+        setPriceLockPickerEvent(event);
+        return;
+      }
+      setPriceLockError('Le Price Lock n’est pas disponible pour ce festival.');
+      return;
+    }
+
+    setPriceLockChecking(true);
+    setPriceLockError('');
+    setPriceLockModal({ event, ticketTypeId: target.id });
+
+    const [summaryResult, existingLock] = await Promise.all([
+      fetchPriceLockSummary(event.id, event.title, target.id),
+      fetchUserPriceLock(target.id),
+    ]);
+
+    if ('error' in summaryResult) {
+      setPriceLockError(summaryResult.error);
+      setPriceLockChecking(false);
+      return;
+    }
+
+    setPriceLockSummary(summaryResult);
+    setPriceLockExisting(existingLock);
+    setPriceLockChecking(false);
+  };
+
+  const closePriceLockModal = () => {
+    setPriceLockModal(null);
+    setPriceLockSummary(null);
+    setPriceLockExisting(null);
+    setPriceLockError('');
+  };
 
   const handleAddToCart = (product: Product, size?: string) => {
     if (!user) {
@@ -291,7 +403,7 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
     }
   };
 
-  const handleAddEventTicketToCart = (event: EventWithTickets, eventTicketTypeId?: string) => {
+  const handleAddEventTicketToCart = (event: EventWithTickets, eventTicketTypeId?: string, purchaseType: 'full_purchase' | 'price_lock_deposit' = 'full_purchase') => {
     if (!user) {
       onNavigate('signin');
       return;
@@ -300,12 +412,24 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
     if (event.event_ticket_types && event.event_ticket_types.length > 1 && !eventTicketTypeId) {
       setSelectedEvent(event);
       setTicketQuantities({});
+      setQuickAddError('');
+      setQuickAddNotice('');
+      setEventLockExists(false);
+      if (user) {
+        supabase
+          .from('price_locks')
+          .select('id', { count: 'exact', head: true })
+          .eq('user_id', user.id)
+          .eq('event_id', event.id)
+          .eq('status', 'active')
+          .then(({ count }) => setEventLockExists((count ?? 0) > 0));
+      }
       return;
     }
 
     const ticketTypeId = eventTicketTypeId || event.event_ticket_types?.[0]?.id;
     if (ticketTypeId) {
-      addEventTicketToCart(ticketTypeId, quantity);
+      addEventTicketToCart(ticketTypeId, quantity, purchaseType);
       setSuccess('Billet ajouté au panier');
       setSelectedEvent(null);
       setQuantity(1);
@@ -313,16 +437,23 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
     }
   };
 
-  const handleQuickAddEventTicket = () => {
+  const handleQuickAddEventTicket = async () => {
     if (!selectedEvent) return;
 
     const ticketsToAdd = Object.entries(ticketQuantities).filter(([_, qty]) => qty > 0);
 
     if (ticketsToAdd.length === 0) return;
 
-    ticketsToAdd.forEach(([ticketTypeId, qty]) => {
-      addEventTicketToCart(ticketTypeId, qty);
-    });
+    const purchaseType = quickAddLockMode ? 'price_lock_deposit' : 'full_purchase';
+
+    try {
+      for (const [ticketTypeId, qty] of ticketsToAdd) {
+        await addEventTicketToCart(ticketTypeId, quickAddLockMode ? 1 : qty, purchaseType);
+      }
+    } catch (error: any) {
+      setQuickAddError(error?.message || 'Impossible d’ajouter ce billet au panier.');
+      return;
+    }
 
     const totalTickets = ticketsToAdd.reduce((sum, [_, qty]) => sum + qty, 0);
     setSuccess(`${totalTickets} billet${totalTickets > 1 ? 's' : ''} ajouté${totalTickets > 1 ? 's' : ''} au panier`);
@@ -340,19 +471,15 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
       <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 relative z-10">
         <div className="mb-4 sm:mb-7 lg:mb-4 text-center">
           <h1 className="text-xl sm:text-3xl md:text-4xl lg:text-2xl xl:text-3xl font-light text-white mb-1.5 sm:mb-2 lg:mb-1.5 px-2">
-            {t('shop.header.brand')} <span className="text-[#B8913D]">{t('shop.header.title')}</span>
+            NEXA <span className="text-[#B8913D]">PASS</span>
           </h1>
           <div className="flex justify-center mb-2 sm:mb-3 lg:mb-2">
             <div className="w-10 sm:w-16 lg:w-12 h-0.5 sm:h-1 lg:h-0.5 bg-gradient-to-r from-transparent via-[#B8913D] to-transparent rounded-full"></div>
           </div>
-          <p className="text-xs sm:text-base lg:text-sm text-gray-400 px-2">{t('shop.header.subtitle')}</p>
-          {isMember && (
-            <div className="mt-2 sm:mt-4 lg:mt-2 inline-flex items-center space-x-1.5 sm:space-x-2 lg:space-x-1.5 px-2.5 py-1 sm:px-4 sm:py-2 lg:px-3 lg:py-1.5 bg-[#B8913D] bg-opacity-10 rounded-full">
-              <Check className="w-3 h-3 lg:w-2.5 lg:h-2.5 text-[#B8913D]" />
-              <span className="text-xs sm:text-sm lg:text-xs font-medium text-[#B8913D]">{t('shop.header.memberActive')}</span>
-            </div>
-          )}
+          <p className="text-xs sm:text-base lg:text-sm text-gray-400 px-2">Réserve tes festivals avant que les prix augmentent.</p>
         </div>
+
+        <PriceLockExplainer />
 
         {success && (
           <div className="mb-3 sm:mb-6 p-2.5 sm:p-4 bg-green-900 bg-opacity-40 backdrop-blur-sm border border-green-600 border-opacity-40 rounded-lg sm:rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0">
@@ -392,66 +519,10 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
             </div>
           </div>
 
-          <div className="flex justify-center">
-            <div className="inline-flex flex-wrap gap-1 sm:gap-2 justify-center items-center bg-gray-900 bg-opacity-40 backdrop-blur-sm px-2 py-1.5 sm:px-6 sm:py-3 rounded-full border border-[#B8913D] border-opacity-20">
-              <span className="text-[10px] sm:text-sm font-medium text-gray-400 mr-0.5 sm:mr-2 w-full sm:w-auto text-center sm:text-left mb-1 sm:mb-0">{t('shop.filters.priceLabel')}</span>
-              <button
-                onClick={() => setPriceRange('all')}
-                className={`px-2 py-1 sm:px-4 sm:py-2 rounded-full text-[10px] sm:text-sm font-medium transition-all ${
-                  priceRange === 'all'
-                    ? 'bg-gradient-to-r from-[#B8913D] to-[#A07F35] text-white shadow-lg'
-                    : 'bg-gray-800 bg-opacity-50 text-gray-300 hover:text-white hover:bg-opacity-70 border border-[#B8913D] border-opacity-20'
-                }`}
-              >
-                {t('shop.filters.all')}
-              </button>
-              <button
-                onClick={() => setPriceRange('under25')}
-                className={`px-2 py-1 sm:px-4 sm:py-2 rounded-full text-[10px] sm:text-sm font-medium transition-all ${
-                  priceRange === 'under25'
-                    ? 'bg-gradient-to-r from-[#B8913D] to-[#A07F35] text-white shadow-lg'
-                    : 'bg-gray-800 bg-opacity-50 text-gray-300 hover:text-white hover:bg-opacity-70 border border-[#B8913D] border-opacity-20'
-                }`}
-              >
-                {t('shop.filters.under25')}
-              </button>
-              <button
-                onClick={() => setPriceRange('25to50')}
-                className={`px-2 py-1 sm:px-4 sm:py-2 rounded-full text-[10px] sm:text-sm font-medium transition-all ${
-                  priceRange === '25to50'
-                    ? 'bg-gradient-to-r from-[#B8913D] to-[#A07F35] text-white shadow-lg'
-                    : 'bg-gray-800 bg-opacity-50 text-gray-300 hover:text-white hover:bg-opacity-70 border border-[#B8913D] border-opacity-20'
-                }`}
-              >
-                {t('shop.filters.range25to50')}
-              </button>
-              <button
-                onClick={() => setPriceRange('over50')}
-                className={`px-2 py-1 sm:px-4 sm:py-2 rounded-full text-[10px] sm:text-sm font-medium transition-all ${
-                  priceRange === 'over50'
-                    ? 'bg-gradient-to-r from-[#B8913D] to-[#A07F35] text-white shadow-lg'
-                    : 'bg-gray-800 bg-opacity-50 text-gray-300 hover:text-white hover:bg-opacity-70 border border-[#B8913D] border-opacity-20'
-                }`}
-              >
-                {t('shop.filters.over50')}
-              </button>
-            </div>
-          </div>
         </div>
 
         <div className="flex justify-center mb-4 sm:mb-8">
           <div className="inline-flex space-x-1.5 sm:space-x-3 p-1 sm:p-2 bg-gray-900 bg-opacity-60 backdrop-blur-sm rounded-full shadow-lg border border-[#B8913D] border-opacity-30">
-            <button
-              onClick={() => setFilter('merchandise')}
-              className={`px-3 py-2 sm:px-6 sm:py-3 rounded-full text-xs sm:text-base font-medium transition-all flex items-center space-x-1 sm:space-x-2 ${
-                filter === 'merchandise'
-                  ? 'bg-gradient-to-r from-[#B8913D] to-[#A07F35] text-white shadow-lg scale-105'
-                  : 'text-gray-300 hover:text-white hover:bg-gray-800 hover:bg-opacity-50'
-              }`}
-            >
-              <Shirt className="w-3 h-3 sm:w-4 sm:h-4" />
-              <span>{t('shop.tabs.merchandise')}</span>
-            </button>
             <button
               onClick={() => setFilter('events')}
               className={`px-3 py-2 sm:px-6 sm:py-3 rounded-full text-xs sm:text-base font-medium transition-all flex items-center space-x-1 sm:space-x-2 ${
@@ -485,16 +556,21 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
               <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4">
                 {(currentItems as EventWithTickets[]).map((event) => {
                 const minPrice = getMinEventPrice(event);
-                const minMemberPrice = getMinMemberPrice(event);
                 const availableTickets = getAvailableTickets(event);
                 const eventDate = new Date(event.start_date);
-                const isAlmostFull = event.max_attendees && availableTickets < event.max_attendees * 0.2;
                 const isUpcoming = event.event_status === 'upcoming';
+                const isFull = !isUpcoming && availableTickets === 0;
+                const priceLock = getPriceLockInfo(event);
 
                 return (
                   <div
                     key={event.id}
-                    className="bg-gray-900 bg-opacity-60 backdrop-blur-sm rounded-xl shadow-lg hover:shadow-xl hover:shadow-[#B8913D]/20 transition-all overflow-hidden group border border-[#B8913D] border-opacity-30 flex flex-col"
+                    id={`event-card-${event.id}`}
+                    className={`bg-gray-900/70 backdrop-blur-sm rounded-2xl shadow-lg hover:shadow-xl hover:shadow-[#B8913D]/20 hover:border-[#D4AC5B]/60 transition-all overflow-hidden group border flex flex-col ${
+                      highlightedEventId === event.id
+                        ? 'border-[#D4AC5B] shadow-[0_0_24px_rgba(212,172,91,0.35)]'
+                        : 'border-[#D4AC5B]/30'
+                    }`}
                   >
                     <div className="relative h-36 sm:h-40 bg-gray-800 overflow-hidden flex-shrink-0">
                       {(event as any).thumbnail_url ? (
@@ -508,7 +584,7 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
                           <Calendar className="w-10 h-10 text-[#B8913D] opacity-40" />
                         </div>
                       )}
-                      <div className="absolute inset-0 bg-gradient-to-t from-gray-900/80 via-transparent to-transparent"></div>
+                      <div className="absolute inset-0 bg-gradient-to-t from-gray-950/85 via-transparent to-gray-950/25"></div>
                       {(event as any).thumbnail_url && (
                         <button
                           onClick={(e) => { e.stopPropagation(); setLightboxImage((event as any).thumbnail_url); }}
@@ -519,130 +595,108 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
                         </button>
                       )}
 
-                      {isUpcoming && (
-                        <div className="absolute top-2 left-2 px-2 py-0.5 bg-[#B8913D] bg-opacity-90 text-white text-[10px] font-bold rounded-full flex items-center gap-1">
-                          <Clock className="w-2.5 h-2.5" />
-                          Bientôt disponible
-                        </div>
-                      )}
-                      {!isUpcoming && isAlmostFull && (
-                        <div className="absolute top-2 right-2 px-2 py-0.5 bg-red-600 bg-opacity-90 text-white text-[10px] font-bold rounded-full">
-                          Places limitées
-                        </div>
-                      )}
-
-                      <div className="absolute bottom-2 left-3 right-3">
-                        <h3 className="text-sm sm:text-base font-semibold text-white leading-tight line-clamp-2 group-hover:text-[#B8913D] transition-colors">
-                          {event.title}
-                        </h3>
+                      <div className="absolute top-2 left-2">
+                        {isUpcoming ? (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-gray-950/85 backdrop-blur-sm text-gray-300 text-[10px] font-semibold rounded-full border border-gray-600">
+                            <Clock className="w-2.5 h-2.5" />
+                            Bientôt disponible
+                          </span>
+                        ) : isFull ? (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-gray-950/90 text-gray-300 text-[10px] font-semibold rounded-full border border-gray-700">
+                            Complet
+                          </span>
+                        ) : priceLock?.lockAvailable ? (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-gray-950/85 backdrop-blur-sm text-[#F0D38A] text-[10px] font-semibold rounded-full border border-[#D4AC5B]/50">
+                            <Lock className="w-2.5 h-2.5" />
+                            Price Lock disponible
+                          </span>
+                        ) : null}
                       </div>
                     </div>
 
-                    <div className="p-3 flex flex-col flex-1">
-                      <div className="space-y-1.5 mb-3">
-                        <div className="flex items-center space-x-2 text-gray-300">
+                    <div className="flex flex-1 flex-col p-4">
+                      <h3 className="text-base font-semibold text-white leading-snug line-clamp-2 group-hover:text-[#D4AC5B] transition-colors">
+                        {event.title}
+                      </h3>
+                      <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-400">
+                        <span className="inline-flex items-center gap-1">
                           <Calendar className="w-3.5 h-3.5 text-[#B8913D] flex-shrink-0" />
-                          <span className="text-xs">
-                            {eventDate.toLocaleDateString('fr-FR', {
-                              weekday: 'short',
-                              day: 'numeric',
-                              month: 'short',
-                              year: 'numeric'
-                            })} · {eventDate.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
-                          </span>
-                        </div>
-
+                          {eventDate.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
+                        </span>
                         {event.location && (
-                          <div className="flex items-center space-x-2 text-gray-300">
+                          <span className="inline-flex items-center gap-1 min-w-0">
                             <MapPin className="w-3.5 h-3.5 text-[#B8913D] flex-shrink-0" />
-                            <span className="text-xs truncate">{event.location}</span>
-                          </div>
+                            <span className="truncate">{event.location}</span>
+                          </span>
                         )}
-
                       </div>
 
-                      {!isUpcoming && event.event_ticket_types && event.event_ticket_types.filter(ett => ett.is_active).length > 0 && (
-                        <div className="mb-3 space-y-1">
-                          {event.event_ticket_types.filter(ett => ett.is_active).slice(0, 2).map((ett) => {
-                            const hasDiscount = ett.member_price > 0 && ett.member_price < ett.price;
-                            const ticketsLeft = ett.quantity_available === null ? 999 : ett.quantity_available - ett.quantity_sold;
+                      <div className="my-3 h-px bg-gradient-to-r from-transparent via-[#D4AC5B]/25 to-transparent"></div>
 
-                            return (
-                              <div key={ett.id} className="flex items-center justify-between px-2 py-1.5 bg-gray-800 bg-opacity-60 rounded-lg">
-                                <div className="flex items-center gap-1.5 min-w-0">
-                                  <span className="text-xs text-white truncate">{ett.ticket_type.name}</span>
-                                  {ticketsLeft < 10 && ticketsLeft > 0 && (
-                                    <span className="text-[10px] text-red-400 flex-shrink-0">({ticketsLeft})</span>
-                                  )}
-                                </div>
-                                <div className="flex items-baseline gap-1 flex-shrink-0 ml-2">
-                                  {hasDiscount && (
-                                    <span className="text-[10px] text-gray-400 line-through">{ett.price.toFixed(0)}€</span>
-                                  )}
-                                  <span className="text-xs font-bold text-[#B8913D]">
-                                    {hasDiscount ? ett.member_price.toFixed(0) : ett.price.toFixed(0)}€
-                                  </span>
-                                </div>
-                              </div>
-                            );
-                          })}
-                          {event.event_ticket_types.filter(ett => ett.is_active).length > 2 && (
-                            <p className="text-[10px] text-gray-500 text-center">+{event.event_ticket_types.filter(ett => ett.is_active).length - 2} autres types</p>
-                          )}
+                      <div>
+                        <span className="text-[10px] font-bold tracking-[0.18em] text-[#D4AC5B] uppercase">Prix actuel</span>
+                        {isUpcoming ? (
+                          <div className="mt-1">
+                            <span className="text-sm font-medium text-[#B8913D]">Tarif à venir</span>
+                            <p className="mt-0.5 text-[11px] text-gray-400">Les ventes ouvriront prochainement.</p>
+                          </div>
+                        ) : minPrice !== null ? (
+                          <div className="mt-0.5 text-3xl font-bold tracking-tight text-white">
+                            {Math.round(minPrice)}&nbsp;<span className="text-xl">€</span>
+                          </div>
+                        ) : (
+                          <div className="mt-1 text-sm font-medium text-gray-400">Prix à venir</div>
+                        )}
+                        {priceLock?.nextPrice != null && !isUpcoming && (
+                          <>
+                            <p className="mt-1 text-xs text-gray-400">
+                              Prochain tarif : <span className="font-semibold text-gray-200">{priceLock.nextPrice} €</span>
+                            </p>
+                            <p className="text-[11px] text-gray-400">À partir du {priceLock.increaseDate}</p>
+                          </>
+                        )}
+                      </div>
+
+                      {priceLock?.lockAvailable && !isUpcoming && (
+                        <div className="mt-3 rounded-xl border border-[#D4AC5B]/30 bg-[#D4AC5B]/[0.06] px-3 py-2.5">
+                          <p className="flex items-center gap-1.5 text-[10px] font-bold tracking-[0.14em] text-[#D4AC5B] uppercase">
+                            <Lock className="w-2.5 h-2.5" />
+                            Price Lock
+                          </p>
+                          <p className="mt-1 text-xs font-semibold text-white">Verse {priceLock.deposit} € pour bloquer ce tarif</p>
+                          <p className="text-[11px] text-gray-400">{Math.round(minPrice)} € garanti jusqu’au {priceLock.guaranteeEnd}</p>
+                          <p className="text-[11px] text-gray-400">{PRICE_LOCK_DEPOSIT} € déduits du montant final.</p>
                         </div>
                       )}
 
-                      <div className="flex items-center justify-between mt-auto pt-2.5 border-t border-gray-700/50">
-                        <div>
-                          {isUpcoming ? (
-                            <div className="flex items-center gap-1.5">
-                              <Clock className="w-3.5 h-3.5 text-[#B8913D]" />
-                              <span className="text-xs font-medium text-[#B8913D]">Bientôt disponible</span>
-                            </div>
-                          ) : minPrice !== null ? (
-                            minMemberPrice && minMemberPrice < minPrice ? (
-                              <div>
-                                <div className="text-[10px] text-gray-400 line-through">{minPrice.toFixed(2)}€</div>
-                                <div className="flex items-baseline gap-1">
-                                  <span className="text-base font-bold text-[#B8913D]">{minMemberPrice.toFixed(2)}€</span>
-                                  <span className="text-[9px] text-[#B8913D]">abo</span>
-                                </div>
-                              </div>
-                            ) : (
-                              <div>
-                                <div className="text-[10px] text-gray-400">À partir de</div>
-                                <span className="text-base font-bold text-[#B8913D]">{minPrice.toFixed(2)}€</span>
-                              </div>
-                            )
-                          ) : (
-                            <span className="text-xs text-gray-400">Prix à venir</span>
-                          )}
-                        </div>
-
-                        <div className="flex items-center gap-1.5">
+                      {isUpcoming ? (
+                        <button
+                          onClick={() => setDetailEvent(event)}
+                          className="mt-auto w-full px-3 py-2.5 rounded-xl text-xs font-semibold bg-gradient-to-r from-[#B8913D] to-[#D4AC5B] text-white hover:shadow-lg hover:shadow-[#B8913D]/40 transition-all"
+                        >
+                          Voir les détails
+                        </button>
+                      ) : (
+                        <div className="mt-auto grid grid-cols-2 gap-2 pt-4">
+                          <button
+                            onClick={priceLock?.lockAvailable ? () => handleAddEventTicketToCart(event) : () => setDetailEvent(event)}
+                            disabled={isFull}
+                            className={`px-2 py-2.5 rounded-xl text-xs font-semibold transition-all ${
+                              isFull
+                                ? 'bg-gray-800 text-gray-500 cursor-not-allowed'
+                                : 'bg-gradient-to-r from-[#B8913D] to-[#D4AC5B] text-white hover:shadow-lg hover:shadow-[#B8913D]/40'
+                            }`}
+                          >
+                            {isFull ? 'Complet' : 'Acheter ou réserver'}
+                          </button>
                           <button
                             onClick={() => setDetailEvent(event)}
-                            className="px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center space-x-1 bg-gray-800 text-gray-300 border border-gray-700 hover:border-[#B8913D] hover:text-[#B8913D] hover:bg-gray-700"
+                            className="px-2 py-2.5 rounded-xl text-xs font-semibold border border-gray-600 text-gray-300 hover:bg-gray-800 hover:text-white transition-all"
                           >
-                            <Info className="w-3 h-3" />
-                            <span>Détails</span>
+                            Voir les détails
                           </button>
-                          {!isUpcoming && (
-                            <button
-                              onClick={() => handleAddEventTicketToCart(event)}
-                              disabled={availableTickets === 0}
-                              className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center space-x-1 ${
-                                availableTickets === 0
-                                  ? 'bg-gray-800 text-gray-500 cursor-not-allowed'
-                                  : 'bg-gradient-to-r from-[#B8913D] to-[#A07F35] text-white hover:shadow-lg hover:shadow-[#B8913D]/40 hover:scale-105'
-                              }`}
-                            >
-                              <ShoppingBag className="w-3 h-3" />
-                              <span>{availableTickets === 0 ? 'Complet' : 'Réserver'}</span>
-                            </button>
-                          )}
                         </div>
-                      </div>
+                      )}
                     </div>
                   </div>
                 );
@@ -680,18 +734,15 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
           <div className="text-center py-12 bg-gray-900 bg-opacity-60 backdrop-blur-sm rounded-2xl border border-[#B8913D] border-opacity-30">
             <ShoppingBag className="w-16 h-16 text-[#B8913D] opacity-50 mx-auto mb-4" />
             <p className="text-gray-300">
-              {searchQuery || priceRange !== 'all'
-                ? t('shop.empty.filtered')
-                : `${t('shop.empty.no')} ${filter === 'merchandise' ? t('shop.empty.product') : t('shop.empty.event')} ${t('shop.empty.available')}`}
+              {searchQuery
+                ? 'Aucun événement ne correspond à votre recherche'
+                : 'Aucun événement disponible pour le moment'}
             </p>
           </div>
         ) : (
           <>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
               {(currentItems as Product[]).map((product) => {
-              const price = isMember ? product.member_price : product.price;
-              const originalPrice = product.price;
-              const discount = isMember && product.member_price < product.price;
 
               return (
                 <div
@@ -757,11 +808,6 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
                           </>
                         )}
 
-                        {discount && (
-                          <div className="absolute top-2 right-2 sm:top-4 sm:right-4 px-2 py-0.5 sm:px-3 sm:py-1 bg-gradient-to-r from-[#B8913D] to-[#A07F35] text-white text-[10px] sm:text-xs font-bold rounded-full shadow-lg">
-                            {t('shop.product.memberBadge')}
-                          </div>
-                        )}
                         {(productSizesMap[product.id] || []).every(s => s.stock_quantity === 0) && (productSizesMap[product.id] || []).length > 0 && (
                           <div className="absolute inset-0 bg-black bg-opacity-70 flex items-center justify-center">
                             <span className="px-3 py-1.5 sm:px-4 sm:py-2 bg-red-600 text-white text-xs sm:text-base font-medium rounded-lg">
@@ -799,28 +845,11 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
 
                     <div className="flex items-end justify-between mb-3 sm:mb-4">
                       <div className="w-full">
-                        {product.member_price < product.price ? (
-                          <>
-                            <div className="flex items-baseline space-x-1 sm:space-x-2">
-                              <span className="text-[10px] sm:text-sm text-gray-400">Prix normal:</span>
-                              <span className="text-xs sm:text-base font-medium text-gray-400 line-through">
-                                {product.price.toFixed(2)}€
-                              </span>
-                            </div>
-                            <div className="flex items-baseline space-x-1 sm:space-x-2 mt-0.5 sm:mt-1">
-                              <span className="text-lg sm:text-2xl font-bold text-[#B8913D]">
-                                {product.member_price.toFixed(2)}€
-                              </span>
-                              <span className="text-[9px] sm:text-xs text-[#B8913D]">avec abo</span>
-                            </div>
-                          </>
-                        ) : (
-                          <div className="flex items-baseline space-x-2">
-                            <span className="text-lg sm:text-2xl font-bold text-[#B8913D]">
-                              {product.price.toFixed(2)}€
-                            </span>
-                          </div>
-                        )}
+                        <div className="flex items-baseline space-x-2">
+                          <span className="text-lg sm:text-2xl font-bold text-[#B8913D]">
+                            {product.price.toFixed(2)}€
+                          </span>
+                        </div>
                       </div>
                     </div>
 
@@ -975,7 +1004,6 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
                   <h4 className="text-xs font-semibold text-[#B8913D] uppercase tracking-wider mb-2">Tarifs</h4>
                   <div className="space-y-2">
                     {detailEvent.event_ticket_types.filter(ett => ett.is_active).map((ett) => {
-                      const hasDiscount = ett.member_price > 0 && ett.member_price < ett.price;
                       const ticketsLeft = ett.quantity_available === null ? null : ett.quantity_available - ett.quantity_sold;
                       return (
                         <div key={ett.id} className="flex items-center justify-between px-3 py-2 bg-gray-800 bg-opacity-60 rounded-lg">
@@ -992,15 +1020,7 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
                             )}
                           </div>
                           <div className="text-right ml-4">
-                            {hasDiscount ? (
-                              <>
-                                <div className="text-xs text-gray-400 line-through">{ett.price.toFixed(2)}€</div>
-                                <div className="text-base font-bold text-[#B8913D]">{ett.member_price.toFixed(2)}€</div>
-                                <div className="text-[10px] text-[#B8913D]">avec abo</div>
-                              </>
-                            ) : (
-                              <div className="text-base font-bold text-[#B8913D]">{ett.price.toFixed(2)}€</div>
-                            )}
+                            <div className="text-base font-bold text-[#B8913D]">{currentPrice(ett as any).toFixed(2)}€</div>
                           </div>
                         </div>
                       );
@@ -1026,7 +1046,7 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
                 {!isDetailUpcoming && (
                   <button
                     onClick={() => {
-                      handleAddEventTicketToCart(detailEvent);
+                      handleAddEventTicketToCart(detailEvent, undefined, 'full_purchase');
                       setDetailEvent(null);
                     }}
                     disabled={getAvailableTickets(detailEvent) === 0}
@@ -1053,12 +1073,92 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
             <h3 className="text-lg sm:text-2xl font-medium text-white mb-1.5 sm:mb-2">{selectedEvent.title}</h3>
             <p className="text-xs sm:text-sm text-gray-400 mb-4 sm:mb-6">Sélectionnez les quantités pour chaque type de billet</p>
 
+            {quickAddError && (
+              <div className="mb-4 p-3 bg-red-900/40 border border-red-600/40 rounded-lg">
+                <p className="text-xs text-red-300 leading-relaxed">{quickAddError}</p>
+              </div>
+            )}
+
+            {quickAddNotice && !quickAddError && (
+              <div className="mb-4 p-3 bg-blue-900/30 border border-blue-700/40 rounded-lg">
+                <p className="text-xs text-blue-200 leading-relaxed">{quickAddNotice}</p>
+              </div>
+            )}
+
+            {eventLockExists && (
+              <div className="mb-4 p-3 bg-[#B8913D]/10 border border-[#D4AC5B]/40 rounded-lg">
+                <p className="text-xs text-[#F0D38A] font-medium">Tu as déjà un Price Lock actif pour ce festival.</p>
+                <p className="text-[11px] text-gray-400 mt-0.5">Un seul Price Lock est autorisé par compte et par événement. Le mode achat comptant reste disponible.</p>
+              </div>
+            )}
+
+            <div className="mb-4 sm:mb-6">
+              <h4 className="text-base sm:text-lg font-medium text-white text-center mb-3">Comment souhaites-tu réserver ton pass ?</h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3">
+                <button
+                  onClick={() => {
+                    setQuickAddLockMode(false);
+                    setQuickAddNotice('');
+                  }}
+                  className={`flex items-start gap-3 px-4 py-4 sm:py-3.5 rounded-xl text-left transition-all border ${
+                    !quickAddLockMode
+                      ? 'border-[#D4AC5B] bg-[#D4AC5B]/15 shadow-lg shadow-[#D4AC5B]/10'
+                      : 'border-gray-700 bg-gray-800/50 text-gray-300 hover:border-gray-600'
+                  }`}
+                >
+                  <ShoppingBag className={`w-5 h-5 flex-shrink-0 mt-0.5 ${!quickAddLockMode ? 'text-[#D4AC5B]' : 'text-gray-400'}`} />
+                  <span className="flex-1 min-w-0">
+                    <span className="block text-sm font-semibold text-white">Acheter maintenant</span>
+                    <span className="block text-[11px] sm:text-xs text-gray-400 mt-0.5">Paie ton Full Pass en totalité aujourd’hui.</span>
+                  </span>
+                  {!quickAddLockMode && <CheckCircle className="w-5 h-5 text-[#D4AC5B] flex-shrink-0" />}
+                </button>
+                <button
+                  onClick={() => {
+                    setQuickAddLockMode(true);
+                    setTicketQuantities(prev => {
+                      const next: Record<string, number> = {};
+                      let kept = false;
+                      selectedEvent.event_ticket_types?.forEach(t => {
+                        if (t.is_active && priceLockAvailable(t as any)) {
+                          const q = Math.min(1, prev[t.id] || 0);
+                          if (q > 0 && !kept) {
+                            next[t.id] = 1;
+                            kept = true;
+                          }
+                        }
+                      });
+                      return next;
+                    });
+                    setQuickAddNotice('En mode Price Lock, un seul pass peut être bloqué par festival.');
+                  }}
+                  className={`flex items-start gap-3 px-4 py-4 sm:py-3.5 rounded-xl text-left transition-all border ${
+                    quickAddLockMode
+                      ? 'border-[#D4AC5B] bg-[#D4AC5B]/15 shadow-lg shadow-[#D4AC5B]/10'
+                      : 'border-gray-700 bg-gray-800/50 text-gray-300 hover:border-gray-600'
+                  }`}
+                >
+                  <Lock className={`w-5 h-5 flex-shrink-0 mt-0.5 ${quickAddLockMode ? 'text-[#D4AC5B]' : 'text-gray-400'}`} />
+                  <span className="flex-1 min-w-0">
+                    <span className="block text-sm font-semibold text-white">Price Lock</span>
+                    <span className="block text-[11px] sm:text-xs text-gray-400 mt-0.5">Bloque le tarif avec le versement prévu pour ce billet et paie le solde plus tard.</span>
+                  </span>
+                  {quickAddLockMode && <CheckCircle className="w-5 h-5 text-[#D4AC5B] flex-shrink-0" />}
+                </button>
+              </div>
+            </div>
+
             <div className="mb-4 sm:mb-6 space-y-2.5 sm:space-y-4">
               {selectedEvent.event_ticket_types?.filter(ett => ett.is_active).map((ett) => {
-                const price = isMember && ett.member_price > 0 ? ett.member_price : ett.price;
-                const hasDiscount = ett.member_price > 0 && ett.member_price < ett.price;
+                const price = currentPrice(ett as any);
                 const ticketsLeft = ett.quantity_available === null ? 999 : ett.quantity_available - ett.quantity_sold;
                 const currentQty = ticketQuantities[ett.id] || 0;
+                const lockEligible = priceLockAvailable(ett as any);
+                const showLock = quickAddLockMode && lockEligible;
+                const maxQty = showLock ? 1 : Math.min(10, ticketsLeft);
+                const otherTypeSelected = quickAddLockMode && currentQty === 0 && Object.entries(ticketQuantities).some(([id, q]) => q > 0 && id !== ett.id);
+                const priceLockUnavailable = quickAddLockMode && (eventLockExists || !lockEligible);
+                const qtyControlsDisabled = priceLockUnavailable || otherTypeSelected;
 
                 return (
                   <div
@@ -1066,6 +1166,8 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
                     className={`p-3 sm:p-4 rounded-lg border transition-all ${
                       ticketsLeft <= 0
                         ? 'bg-gray-800 bg-opacity-50 border-gray-700 opacity-50'
+                        : qtyControlsDisabled
+                        ? 'bg-gray-800 bg-opacity-50 border-gray-700 opacity-60 cursor-not-allowed'
                         : currentQty > 0
                         ? 'bg-gradient-to-r from-[#B8913D]/20 to-[#A07F35]/20 border-[#B8913D]'
                         : 'bg-gray-800 bg-opacity-50 border-gray-700 hover:border-[#B8913D] hover:border-opacity-50'
@@ -1089,23 +1191,40 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
                         )}
                       </div>
                       <div className="text-right ml-2 sm:ml-4">
-                        {hasDiscount ? (
+                        {quickAddLockMode && !lockEligible ? (
+                          <div className="text-[11px] sm:text-xs text-gray-400 mt-1">Price Lock indisponible</div>
+                        ) : showLock ? (
                           <>
-                            <div className="text-[10px] sm:text-xs text-gray-400 line-through">
-                              {ett.price.toFixed(2)}€
+                            <div className="text-[10px] uppercase tracking-wide text-gray-400">Prix bloqué</div>
+                            <div className="text-base sm:text-xl font-bold text-[#B8913D]">{price.toFixed(2)}€</div>
+                            <div className="text-[11px] sm:text-xs text-gray-300 mt-1">
+                              À payer aujourd’hui : <span className="font-semibold text-white">{Number(ett.price_lock_deposit_amount).toFixed(0)} €</span>
                             </div>
-                            <div className="text-base sm:text-xl font-bold text-[#B8913D]">
-                              {ett.member_price.toFixed(2)}€
+                            <div className="text-[11px] sm:text-xs text-gray-300">
+                              Solde plus tard : <span className="font-semibold text-[#F0D38A]">{Math.max(0, price - Number(ett.price_lock_deposit_amount)).toFixed(0)} €</span>
                             </div>
-                            <div className="text-[9px] sm:text-xs text-[#B8913D]">avec abo</div>
                           </>
                         ) : (
-                          <div className="text-base sm:text-xl font-bold text-[#B8913D]">
-                            {ett.price.toFixed(2)}€
-                          </div>
+                          <>
+                            <div className="text-[10px] uppercase tracking-wide text-gray-400">Prix</div>
+                            <div className="text-base sm:text-xl font-bold text-[#B8913D]">{price.toFixed(2)}€</div>
+                            <div className="text-[11px] sm:text-xs text-gray-300 mt-1">
+                              À payer aujourd’hui : <span className="font-semibold text-white">{price.toFixed(0)} €</span>
+                            </div>
+                          </>
                         )}
                       </div>
                     </div>
+                    {showLock && (() => {
+                      const deadline = priceLockDeadline(ett as any);
+                      if (!deadline) return null;
+                      return (
+                        <div className="mb-2 sm:mb-3 flex items-center gap-1.5 text-[11px] text-[#F0D38A]">
+                          <Lock className="w-3 h-3 flex-shrink-0" />
+                          <span>Prix garanti jusqu’au {deadline.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}</span>
+                        </div>
+                      );
+                    })()}
 
                     <div className="flex items-center space-x-2 sm:space-x-3">
                       <label className="text-xs sm:text-sm font-medium text-gray-300 min-w-[50px] sm:min-w-[70px]">
@@ -1120,7 +1239,7 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
                               [ett.id]: newQty
                             }));
                           }}
-                          disabled={ticketsLeft <= 0 || currentQty === 0}
+                          disabled={ticketsLeft <= 0 || currentQty === 0 || qtyControlsDisabled}
                           className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-gray-700 text-white text-sm sm:text-base font-bold hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                         >
                           -
@@ -1128,28 +1247,33 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
                         <input
                           type="number"
                           min="0"
-                          max={Math.min(10, ticketsLeft)}
+                          max={maxQty}
                           value={currentQty}
                           onChange={(e) => {
                             const value = parseInt(e.target.value) || 0;
-                            const newQty = Math.max(0, Math.min(value, Math.min(10, ticketsLeft)));
+                            if (showLock && value > 1) {
+                              setTicketQuantities(prev => ({ ...prev, [ett.id]: 1 }));
+                              setQuickAddNotice('Un seul Price Lock est autorisé par compte et par festival. Pour bloquer un autre pass pour ce festival, l\u2019autre participant doit utiliser son propre compte Nexa.');
+                              return;
+                            }
+                            const newQty = Math.max(0, Math.min(value, maxQty));
                             setTicketQuantities(prev => ({
                               ...prev,
                               [ett.id]: newQty
                             }));
                           }}
-                          disabled={ticketsLeft <= 0}
+                          disabled={ticketsLeft <= 0 || qtyControlsDisabled}
                           className="w-14 sm:w-20 px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-base bg-gray-800 border border-gray-700 rounded-lg focus:ring-2 focus:ring-[#B8913D] focus:border-[#B8913D] outline-none text-white text-center disabled:opacity-50 disabled:cursor-not-allowed"
                         />
                         <button
                           onClick={() => {
-                            const newQty = Math.min(Math.min(10, ticketsLeft), currentQty + 1);
+                            const newQty = Math.min(maxQty, currentQty + 1);
                             setTicketQuantities(prev => ({
                               ...prev,
                               [ett.id]: newQty
                             }));
                           }}
-                          disabled={ticketsLeft <= 0 || currentQty >= Math.min(10, ticketsLeft)}
+                          disabled={ticketsLeft <= 0 || currentQty >= maxQty || qtyControlsDisabled}
                           className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-gray-700 text-white text-sm sm:text-base font-bold hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                         >
                           +
@@ -1157,10 +1281,13 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
                       </div>
                       {currentQty > 0 && (
                         <div className="text-xs sm:text-sm font-medium text-[#B8913D] min-w-[60px] sm:min-w-[80px] text-right">
-                          {(price * currentQty).toFixed(2)}€
+                          {((showLock ? Number(ett.price_lock_deposit_amount) : price) * currentQty).toFixed(2)}€
                         </div>
                       )}
                     </div>
+                    {otherTypeSelected && (
+                      <p className="mt-2 text-[11px] text-gray-400">Un Price Lock est déjà sélectionné pour ce festival</p>
+                    )}
                   </div>
                 );
               })}
@@ -1169,18 +1296,25 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
             {Object.values(ticketQuantities).some(qty => qty > 0) && (
               <div className="mb-4 sm:mb-6 p-3 sm:p-4 bg-gradient-to-r from-[#B8913D]/20 to-[#A07F35]/20 rounded-lg border border-[#B8913D]">
                 <div className="flex justify-between items-center">
-                  <span className="text-white text-sm sm:text-base font-semibold">Total</span>
+                  <span className="text-white text-sm sm:text-base font-semibold">
+                    {quickAddLockMode ? 'À payer aujourd’hui (versements)' : 'À payer aujourd’hui'}
+                  </span>
                   <span className="text-xl sm:text-2xl font-bold text-[#B8913D]">
                     {selectedEvent.event_ticket_types
                       ?.filter(ett => ett.is_active)
                       .reduce((total, ett) => {
                         const qty = ticketQuantities[ett.id] || 0;
-                        const price = isMember && ett.member_price > 0 ? ett.member_price : ett.price;
-                        return total + (price * qty);
+                        const unit = quickAddLockMode && (ett as any).price_lock_enabled
+                          ? Number(ett.price_lock_deposit_amount)
+                          : currentPrice(ett as any);
+                        return total + (unit * qty);
                       }, 0)
                       .toFixed(2)}€
                   </span>
                 </div>
+                {quickAddLockMode && (
+                  <p className="mt-1.5 text-[11px] text-gray-400">Le solde restant sera à payer plus tard, avant la date de garantie.</p>
+                )}
               </div>
             )}
 
@@ -1189,6 +1323,8 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
                 onClick={() => {
                   setSelectedEvent(null);
                   setTicketQuantities({});
+                  setQuickAddError('');
+                  setQuickAddNotice('');
                 }}
                 className="flex-1 py-2.5 sm:py-3 text-xs sm:text-base border border-gray-700 text-gray-300 rounded-lg hover:bg-gray-800 transition-colors font-medium"
               >
@@ -1203,7 +1339,18 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
                     : 'bg-gray-800 text-gray-500 cursor-not-allowed'
                 }`}
               >
-                Ajouter au panier
+                <ShoppingBag className="w-4 h-4 flex-shrink-0" />
+                <span>
+                  {quickAddLockMode
+                    ? `Ajouter le Price Lock au panier — ${selectedEvent.event_ticket_types
+                        ?.filter(ett => ett.is_active && priceLockAvailable(ett as any))
+                        .reduce((total, ett) => total + Number(ett.price_lock_deposit_amount) * (ticketQuantities[ett.id] || 0), 0)
+                        .toFixed(2)}€`
+                    : `Ajouter au panier — ${selectedEvent.event_ticket_types
+                        ?.filter(ett => ett.is_active)
+                        .reduce((total, ett) => total + currentPrice(ett as any) * (ticketQuantities[ett.id] || 0), 0)
+                        .toFixed(2)}€`}
+                </span>
               </button>
             </div>
           </div>
@@ -1405,6 +1552,228 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
 
           <div className="absolute bottom-5 right-4 text-white text-xs bg-black bg-opacity-60 px-2.5 py-1 rounded-full">
             {lightbox.index + 1} / {lightbox.images.length}
+          </div>
+        </div>
+      )}
+      {priceLockResult && (() => {
+        const isSuccess = priceLockResult.status === 'success' && priceLockResult.lock;
+        const lock = priceLockResult.lock;
+        const lockPrice = lock ? lock.locked_price : 0;
+        const totalPaid = lock ? lock.total_paid : 0;
+        const remaining = lock ? lock.remaining_amount : 0;
+        return (
+          <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-[70] flex items-end sm:items-center justify-center p-0 sm:p-4">
+            <div className="w-full sm:max-w-md bg-gray-900 rounded-t-2xl sm:rounded-2xl border border-[#B8913D]/30 shadow-2xl max-h-[92vh] overflow-y-auto">
+              <div className="p-5 sm:p-7">
+                {isSuccess ? (
+                  <>
+                    <div className="flex items-center gap-2.5">
+                      <span className="inline-flex items-center justify-center w-9 h-9 rounded-xl bg-green-500/15 border border-green-500/40">
+                        <Check className="w-4 h-4 text-green-400" />
+                      </span>
+                      <p className="text-base sm:text-lg font-semibold text-white">Prix bloqué avec succès</p>
+                    </div>
+                    <p className="mt-3 text-sm text-gray-300 leading-relaxed">
+                      Ton billet reste à <span className="font-semibold text-white">{lockPrice} €</span> jusqu’au {lock ? new Date(lock.expires_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }) : ''}.
+                    </p>
+                    <div className="mt-5 rounded-xl border border-[#D4AC5B]/25 bg-[#D4AC5B]/[0.05] px-4 py-4 space-y-3">
+                      {[
+                        ['Déjà payé', `${Math.round(totalPaid)} €`],
+                        ['Reste à payer', `${Math.round(remaining)} €`],
+                        ['Ton prix bloqué', `${Math.round(lockPrice)} €`],
+                        ['Date limite', lock ? new Date(lock.expires_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }) : ''],
+                      ].map(([label, value]) => (
+                        <div key={label} className="flex items-center justify-between gap-3">
+                          <span className="text-xs text-gray-400">{label}</span>
+                          <span className="text-sm font-semibold text-white">{value}</span>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="mt-5 space-y-2">
+                      <button
+                        onClick={() => { setPriceLockResult(null); onNavigate('events'); }}
+                        className="w-full py-3.5 rounded-xl text-sm font-semibold bg-gradient-to-r from-[#B8913D] to-[#A07F35] text-white hover:shadow-lg hover:shadow-[#B8913D]/40 transition-all"
+                      >
+                        Voir mes festivals
+                      </button>
+                      <button
+                        onClick={() => setPriceLockResult(null)}
+                        className="w-full py-3 rounded-xl text-sm font-medium border border-[#D4AC5B]/50 text-[#F0D38A] hover:bg-[#D4AC5B]/15 transition-all"
+                      >
+                        Payer une autre partie
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="flex items-center gap-2.5">
+                      <span className="inline-flex items-center justify-center w-9 h-9 rounded-xl bg-red-500/15 border border-red-500/40">
+                        <AlertCircle className="w-4 h-4 text-red-400" />
+                      </span>
+                      <p className="text-base sm:text-lg font-semibold text-white">Paiement non abouti</p>
+                    </div>
+                    <p className="mt-3 text-sm text-gray-300 leading-relaxed">
+                      Le paiement a été annulé ou n’a pas abouti. Aucun prix n’a été bloqué et aucun versement n’a été encaissé.
+                    </p>
+                    <div className="mt-5 space-y-2">
+                      <button
+                        onClick={() => setPriceLockResult(null)}
+                        className="w-full py-3.5 rounded-xl text-sm font-semibold bg-gradient-to-r from-[#B8913D] to-[#A07F35] text-white hover:shadow-lg hover:shadow-[#B8913D]/40 transition-all"
+                      >
+                        Réessayer
+                      </button>
+                      <button
+                        onClick={() => setPriceLockResult(null)}
+                        className="w-full py-3 rounded-xl text-sm font-medium border border-gray-700 text-gray-300 hover:bg-gray-800 transition-colors"
+                      >
+                        Annuler
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {priceLockModal && (
+        priceLockChecking || !priceLockSummary ? (
+          <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-[60] flex items-end sm:items-center justify-center">
+            <div className="w-full sm:max-w-md bg-gray-900 rounded-t-2xl sm:rounded-2xl border border-[#B8913D]/30 shadow-2xl">
+              <div className="flex flex-col items-center justify-center py-16 px-6">
+                <div className="inline-block w-9 h-9 border-4 border-[#B8913D] border-t-transparent rounded-full animate-spin" />
+                <p className="mt-4 text-sm text-gray-300">Chargement des données Price Lock…</p>
+                {priceLockError && (
+                  <div className="mt-6 w-full max-w-xs p-3 rounded-lg bg-red-900/40 border border-red-600/40 text-center">
+                    <p className="text-xs text-red-300 leading-relaxed">{priceLockError}</p>
+                    <button
+                      onClick={closePriceLockModal}
+                      className="mt-3 w-full py-2.5 rounded-lg text-xs font-semibold border border-gray-700 text-gray-300 hover:bg-gray-800 transition-colors"
+                    >
+                      Fermer
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        ) : priceLockError ? (
+          <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-[60] flex items-end sm:items-center justify-center">
+            <div className="w-full sm:max-w-md bg-gray-900 rounded-t-2xl sm:rounded-2xl border border-[#B8913D]/30 shadow-2xl">
+              <div className="flex flex-col items-center justify-center py-14 px-6">
+                <div className="w-11 h-11 rounded-xl bg-red-500/15 border border-red-500/40 flex items-center justify-center">
+                  <AlertCircle className="w-5 h-5 text-red-400" />
+                </div>
+                <p className="mt-4 text-sm text-red-300 text-center leading-relaxed">{priceLockError}</p>
+                <div className="mt-6 w-full max-w-xs space-y-2">
+                  <button
+                    onClick={() => openPriceLockModal(priceLockModal.event, priceLockModal.ticketTypeId)}
+                    className="w-full py-3 rounded-xl text-sm font-semibold bg-gradient-to-r from-[#B8913D] to-[#A07F35] text-white hover:shadow-lg hover:shadow-[#B8913D]/40 transition-all"
+                  >
+                    Réessayer
+                  </button>
+                  <button
+                    onClick={closePriceLockModal}
+                    className="w-full py-2.5 rounded-xl text-sm font-medium border border-gray-700 text-gray-300 hover:bg-gray-800 transition-colors"
+                  >
+                    Annuler
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <PriceLockModal
+            summary={priceLockSummary}
+            existingLock={priceLockExisting}
+            onClose={closePriceLockModal}
+            onViewEvents={() => {
+              closePriceLockModal();
+              onNavigate('events');
+            }}
+            onPayOtherPart={() => {
+              closePriceLockModal();
+              setDetailEvent(priceLockModal.event);
+            }}
+          />
+        )
+      )}
+
+      {priceLockPickerEvent && (
+        <div
+          className="fixed inset-0 bg-black/75 backdrop-blur-sm z-[60] flex items-end sm:items-center justify-center p-0 sm:p-4"
+          onClick={() => setPriceLockPickerEvent(null)}
+        >
+          <div
+            className="w-full sm:max-w-md bg-gray-900 rounded-t-2xl sm:rounded-2xl border border-[#B8913D]/30 shadow-2xl max-h-[92vh] sm:max-h-[88vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-5 sm:p-7">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-center gap-2.5">
+                  <span className="inline-flex items-center justify-center w-9 h-9 rounded-xl bg-[#B8913D]/15 border border-[#B8913D]/40">
+                    <Lock className="w-4 h-4 text-[#D4AC5B]" />
+                  </span>
+                  <div>
+                    <p className="text-[10px] font-bold tracking-[0.22em] text-[#D4AC5B] uppercase">Price Lock</p>
+                    <h3 className="text-base sm:text-lg font-semibold text-white leading-tight">{priceLockPickerEvent.title}</h3>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setPriceLockPickerEvent(null)}
+                  className="p-1.5 rounded-full text-gray-400 hover:text-white hover:bg-gray-800 transition-all"
+                  aria-label="Fermer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <p className="mt-4 text-sm text-gray-300">
+                Quel pass veux-tu bloquer au tarif actuel ?
+              </p>
+
+              <div className="mt-4 space-y-2">
+                {priceLockPickerEvent.event_ticket_types
+                  .filter(ett => ett.is_active && priceLockAvailable(ett as any))
+                  .map((ett) => {
+                    const changeAt = nextPriceChangeAt(ett as any);
+                    return (
+                      <button
+                        key={ett.id}
+                        onClick={() => {
+                          setPriceLockPickerEvent(null);
+                          openPriceLockModal(priceLockPickerEvent, ett.id);
+                        }}
+                        className="w-full flex items-center justify-between gap-3 px-4 py-3 rounded-xl border border-[#D4AC5B]/25 bg-[#D4AC5B]/[0.05] hover:bg-[#D4AC5B]/15 hover:border-[#D4AC5B]/50 transition-all text-left"
+                      >
+                        <div>
+                          <p className="text-sm font-semibold text-white">{ett.ticket_type.name}</p>
+                          {ett.ticket_type.description && (
+                            <p className="mt-0.5 text-xs text-gray-400 line-clamp-1">{ett.ticket_type.description}</p>
+                          )}
+                          <p className="mt-0.5 text-[11px] text-gray-500">
+                            {changeAt ? `Hausse le ${changeAt.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })}` : ''}
+                          </p>
+                        </div>
+                        <div className="text-right flex-shrink-0">
+                          <p className="text-base font-bold text-white">{Math.round(currentPrice(ett as any))} €</p>
+                          {nextPrice(ett as any) != null && (
+                            <p className="text-[11px] text-gray-400">Puis {Math.round(nextPrice(ett as any) as number)} €</p>
+                          )}
+                        </div>
+                      </button>
+                    );
+                  })}
+              </div>
+
+              <button
+                onClick={() => setPriceLockPickerEvent(null)}
+                className="mt-5 w-full py-3 rounded-xl text-sm font-medium border border-gray-700 text-gray-300 hover:bg-gray-800 transition-colors"
+              >
+                Annuler
+              </button>
+            </div>
           </div>
         </div>
       )}

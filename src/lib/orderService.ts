@@ -5,6 +5,8 @@ export interface OrderItem {
   event_ticket_type_id?: string;
   quantity: number;
   selected_size?: string;
+  price_snapshot?: number | null;
+  deposit_amount?: number | null;
 }
 
 export interface ShippingInfo {
@@ -26,6 +28,13 @@ export interface ValidateAndCreateOrderParams {
   items: OrderItem[];
   shipping_info: ShippingInfo;
   attendees_by_ticket?: Record<string, AttendeeInfo[]>;
+}
+
+export interface PriceChangeInfo {
+  event_ticket_type_id: string;
+  cart_price: number;
+  current_price: number;
+  ticket_name?: string;
 }
 
 export interface ValidatedOrderResponse {
@@ -79,6 +88,26 @@ export async function validateAndCreateOrder(
   const data = await response.json();
 
   if (!response.ok) {
+    // Cas structurés : le serveur a relu le palier actif et a détecté une
+    // dérive — le panier doit être corrigé puis confirmé, pas une erreur brute.
+    if (data?.code === 'PRICE_CHANGED') {
+      const err = new Error(data.error) as Error & { code: string; priceChange: PriceChangeInfo };
+      err.code = 'PRICE_CHANGED';
+      err.priceChange = {
+        event_ticket_type_id: data.event_ticket_type_id,
+        cart_price: Number(data.cart_price),
+        current_price: Number(data.current_price),
+        ticket_name: data.ticket_name,
+      };
+      throw err;
+    }
+    if (data?.code === 'PRICE_LOCK_CLOSED') {
+      const err = new Error(data.error) as Error & { code: string; ticketTypeId: string; currentPrice?: number };
+      err.code = 'PRICE_LOCK_CLOSED';
+      err.ticketTypeId = data.event_ticket_type_id;
+      err.currentPrice = data.current_price != null ? Number(data.current_price) : undefined;
+      throw err;
+    }
     const errorMsg = data.error === 'Validation failed' && data.details?.length
       ? data.details.join(', ')
       : data.error || 'Erreur lors de la création de la commande';

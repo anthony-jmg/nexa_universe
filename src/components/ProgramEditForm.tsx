@@ -10,7 +10,7 @@ interface ProgramFormData {
   level: 'beginner' | 'intermediate' | 'advanced' | 'all_levels';
   price: number;
   thumbnail_url: string;
-  visibility: 'public' | 'private' | 'subscribers_only' | 'paid' | 'platform';
+  visibility: 'public' | 'private' | 'subscribers_only' | 'paid';
 }
 
 interface ProgramEditFormProps {
@@ -88,7 +88,7 @@ export function ProgramEditForm({ program, onSave, onCancel }: ProgramEditFormPr
                 setFormData({
                   ...formData,
                   visibility: newVisibility,
-                  price: (newVisibility === 'public' || newVisibility === 'subscribers_only' || newVisibility === 'platform') ? 0 : formData.price
+                  price: (newVisibility === 'public' || newVisibility === 'subscribers_only') ? 0 : formData.price
                 });
               }}
               className="w-full px-4 py-2.5 bg-gray-800/50 border border-gray-600 rounded-lg focus:ring-2 focus:ring-[#B8913D] focus:border-[#B8913D] outline-none transition-all text-white"
@@ -96,7 +96,6 @@ export function ProgramEditForm({ program, onSave, onCancel }: ProgramEditFormPr
               <option value="public">Public</option>
               <option value="paid">Payant (achat à l'unité)</option>
               <option value="subscribers_only">Abonnés uniquement</option>
-              <option value="platform">NEXA Academy (abonnement plateforme)</option>
               <option value="private">Privé</option>
             </select>
           </div>

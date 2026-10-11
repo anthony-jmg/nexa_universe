@@ -2,6 +2,7 @@ import { createContext, useContext, useState, ReactNode, useEffect } from 'react
 import { Database } from '../lib/database.types';
 import { supabase } from '../lib/supabase';
 import { useAuth } from './AuthContext';
+import { currentPrice } from '../lib/tierPricing';
 
 type Product = Database['public']['Tables']['products']['Row'];
 type EventTicketType = Database['public']['Tables']['event_ticket_types']['Row'];
@@ -15,25 +16,32 @@ export interface CartItem {
   selectedSize?: string;
 }
 
+export type EventTicketPurchaseType = 'full_purchase' | 'price_lock_deposit';
+
 export interface EventTicketCartItem {
+  id?: string;
   eventTicketType: EventTicketType & {
     ticket_type: TicketType;
     event: Event;
   };
   quantity: number;
+  purchaseType: EventTicketPurchaseType;
+  priceSnapshot?: number;
+  depositAmount?: number;
+  amountDueNow?: number;
 }
 
 interface CartContextType {
   cart: CartItem[];
   eventTickets: EventTicketCartItem[];
   addToCart: (product: Product, quantity: number, size?: string) => Promise<void>;
-  addEventTicketToCart: (eventTicketTypeId: string, quantity: number) => Promise<void>;
+  addEventTicketToCart: (eventTicketTypeId: string, quantity: number, purchaseType?: EventTicketPurchaseType) => Promise<void>;
   removeFromCart: (productId: string, size?: string) => Promise<void>;
-  removeEventTicketFromCart: (eventTicketTypeId: string) => Promise<void>;
+  removeEventTicketFromCart: (eventTicketTypeId: string, purchaseType?: EventTicketPurchaseType) => Promise<void>;
   updateQuantity: (productId: string, quantity: number, size?: string) => Promise<void>;
-  updateEventTicketQuantity: (eventTicketTypeId: string, quantity: number) => Promise<void>;
+  updateEventTicketQuantity: (eventTicketTypeId: string, quantity: number, purchaseType?: EventTicketPurchaseType) => Promise<void>;
+  updateEventTicketPricing: (eventTicketTypeId: string, purchaseType: EventTicketPurchaseType, updates: { priceSnapshot?: number; depositAmount?: number; amountDueNow?: number }) => Promise<void>;
   clearCart: () => Promise<void>;
-  getCartTotal: (isMember: boolean) => number;
   getCartCount: () => number;
   loading: boolean;
 }
@@ -105,8 +113,13 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
       if (cartEventTickets) {
         const formattedEventTickets: EventTicketCartItem[] = cartEventTickets.map((item: any) => ({
+          id: item.id,
           eventTicketType: item.event_ticket_type,
           quantity: item.quantity,
+          purchaseType: (item.purchase_type || 'full_purchase') as EventTicketPurchaseType,
+          priceSnapshot: item.price_snapshot ?? undefined,
+          depositAmount: item.deposit_amount ?? undefined,
+          amountDueNow: item.amount_due_now ?? undefined,
         }));
         setEventTickets(formattedEventTickets);
       }
@@ -265,14 +278,53 @@ export function CartProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const addEventTicketToCart = async (eventTicketTypeId: string, quantity: number) => {
+  const addEventTicketToCart = async (
+    eventTicketTypeId: string,
+    quantity: number,
+    purchaseType: EventTicketPurchaseType = 'full_purchase'
+  ) => {
+    const isDeposit = purchaseType === 'price_lock_deposit';
+    const qty = isDeposit ? 1 : quantity;
+
+    if (isDeposit) {
+      const { data: depositTarget } = await supabase
+        .from('event_ticket_types')
+        .select('event_id')
+        .eq('id', eventTicketTypeId)
+        .maybeSingle();
+
+      if (depositTarget?.event_id) {
+        const conflictInCart = eventTickets.some(
+          item =>
+            item.purchaseType === 'price_lock_deposit' &&
+            (item.eventTicketType as any).event?.id === depositTarget.event_id
+        );
+        if (conflictInCart) {
+          throw new Error('Tu as déjà un Price Lock pour ce festival. Un seul Price Lock est autorisé par festival.');
+        }
+
+        if (user) {
+          const { count: activeForEvent } = await supabase
+            .from('price_locks')
+            .select('id', { count: 'exact', head: true })
+            .eq('user_id', user.id)
+            .eq('event_id', depositTarget.event_id)
+            .eq('status', 'active');
+          if ((activeForEvent ?? 0) > 0) {
+            throw new Error('Tu as déjà un Price Lock actif pour ce festival.');
+          }
+        }
+      }
+    }
+
+    const matches = (item: EventTicketCartItem) =>
+      item.eventTicketType.id === eventTicketTypeId && item.purchaseType === purchaseType;
+
     if (user) {
-      const existingIndex = eventTickets.findIndex(
-        item => item.eventTicketType.id === eventTicketTypeId
-      );
+      const existingIndex = eventTickets.findIndex(matches);
 
       if (existingIndex > -1) {
-        const newQuantity = eventTickets[existingIndex].quantity + quantity;
+        const newQuantity = eventTickets[existingIndex].quantity + qty;
         setEventTickets(prev => prev.map((item, i) =>
           i === existingIndex ? { ...item, quantity: newQuantity } : item
         ));
@@ -282,7 +334,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
             .from('cart_event_tickets')
             .update({ quantity: newQuantity })
             .eq('user_id', user.id)
-            .eq('event_ticket_type_id', eventTicketTypeId);
+            .eq('event_ticket_type_id', eventTicketTypeId)
+            .eq('purchase_type', purchaseType);
           if (error) throw error;
         } catch (error) {
           console.error('Error updating event ticket:', error);
@@ -292,13 +345,27 @@ export function CartProvider({ children }: { children: ReactNode }) {
       } else {
         const { data: eventTicketData, error: fetchError } = await supabase
           .from('event_ticket_types')
-          .select(`*, ticket_type:ticket_types (*), event:events (*)`)
+          .select(`*, ticket_type:ticket_types (*), event:events (*), price_tiers:event_ticket_price_tiers (label, price, starts_at, ends_at)`)
           .eq('id', eventTicketTypeId)
           .single();
 
         if (fetchError || !eventTicketData) throw fetchError;
 
-        const tempItem: EventTicketCartItem = { eventTicketType: eventTicketData as any, quantity };
+        const ticket = eventTicketData as any;
+        // Prix issu du palier actif (source de vérité) ; le montant est
+        // revalidé côté serveur au checkout.
+        const price = currentPrice(ticket);
+        const deposit = Number(ticket.price_lock_deposit_amount);
+        const amountDueNow = purchaseType === 'price_lock_deposit' ? deposit : price;
+
+        const tempItem: EventTicketCartItem = {
+          eventTicketType: eventTicketData as any,
+          quantity: qty,
+          purchaseType,
+          priceSnapshot: price,
+          depositAmount: purchaseType === 'price_lock_deposit' ? deposit : undefined,
+          amountDueNow,
+        };
         setEventTickets(prev => [...prev, tempItem]);
 
         try {
@@ -307,7 +374,11 @@ export function CartProvider({ children }: { children: ReactNode }) {
             .insert({
               user_id: user.id,
               event_ticket_type_id: eventTicketTypeId,
-              quantity,
+              quantity: qty,
+              purchase_type: purchaseType,
+              price_snapshot: price,
+              deposit_amount: purchaseType === 'price_lock_deposit' ? deposit : null,
+              amount_due_now: amountDueNow,
             });
 
           if (error) throw error;
@@ -320,39 +391,55 @@ export function CartProvider({ children }: { children: ReactNode }) {
     } else {
       const { data: eventTicketData } = await supabase
         .from('event_ticket_types')
-        .select(`*, ticket_type:ticket_types (*), event:events (*)`)
+        .select(`*, ticket_type:ticket_types (*), event:events (*), price_tiers:event_ticket_price_tiers (label, price, starts_at, ends_at)`)
         .eq('id', eventTicketTypeId)
         .single();
 
       if (eventTicketData) {
+        const ticket = eventTicketData as any;
+        const price = currentPrice(ticket);
+        const deposit = Number(ticket.price_lock_deposit_amount);
+        const amountDueNow = purchaseType === 'price_lock_deposit' ? deposit : price;
+
         setEventTickets((prev) => {
-          const existingIndex = prev.findIndex(
-            (item) => item.eventTicketType.id === eventTicketTypeId
-          );
+          const existingIndex = prev.findIndex(matches);
 
           if (existingIndex > -1) {
             const newEventTickets = [...prev];
-            newEventTickets[existingIndex].quantity += quantity;
+            newEventTickets[existingIndex].quantity += qty;
             return newEventTickets;
           }
 
-          return [...prev, { eventTicketType: eventTicketData as any, quantity }];
+          return [...prev, {
+            eventTicketType: eventTicketData as any,
+            quantity: qty,
+            purchaseType,
+            priceSnapshot: price,
+            depositAmount: purchaseType === 'price_lock_deposit' ? deposit : undefined,
+            amountDueNow,
+          }];
         });
       }
     }
   };
 
-  const removeEventTicketFromCart = async (eventTicketTypeId: string) => {
+  const removeEventTicketFromCart = async (
+    eventTicketTypeId: string,
+    purchaseType: EventTicketPurchaseType = 'full_purchase'
+  ) => {
     if (user) {
       const previous = eventTickets;
-      setEventTickets(prev => prev.filter(item => item.eventTicketType.id !== eventTicketTypeId));
+      setEventTickets(prev => prev.filter(item =>
+        !(item.eventTicketType.id === eventTicketTypeId && item.purchaseType === purchaseType)
+      ));
 
       try {
         const { error } = await supabase
           .from('cart_event_tickets')
           .delete()
           .eq('user_id', user.id)
-          .eq('event_ticket_type_id', eventTicketTypeId);
+          .eq('event_ticket_type_id', eventTicketTypeId)
+          .eq('purchase_type', purchaseType);
 
         if (error) throw error;
       } catch (error) {
@@ -366,16 +453,26 @@ export function CartProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const updateEventTicketQuantity = async (eventTicketTypeId: string, quantity: number) => {
+  const updateEventTicketQuantity = async (
+    eventTicketTypeId: string,
+    quantity: number,
+    purchaseType: EventTicketPurchaseType = 'full_purchase'
+  ) => {
     if (quantity <= 0) {
-      await removeEventTicketFromCart(eventTicketTypeId);
+      await removeEventTicketFromCart(eventTicketTypeId, purchaseType);
       return;
+    }
+
+    // Un Price Lock reste toujours à quantité 1, quel que soit l'appelant
+    if (purchaseType === 'price_lock_deposit') {
+      quantity = 1;
     }
 
     if (user) {
       const previous = eventTickets;
       setEventTickets(prev => prev.map(item =>
-        item.eventTicketType.id === eventTicketTypeId ? { ...item, quantity } : item
+        item.eventTicketType.id === eventTicketTypeId && item.purchaseType === purchaseType
+          ? { ...item, quantity } : item
       ));
 
       try {
@@ -383,7 +480,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
           .from('cart_event_tickets')
           .update({ quantity })
           .eq('user_id', user.id)
-          .eq('event_ticket_type_id', eventTicketTypeId);
+          .eq('event_ticket_type_id', eventTicketTypeId)
+          .eq('purchase_type', purchaseType);
 
         if (error) throw error;
       } catch (error) {
@@ -398,6 +496,44 @@ export function CartProvider({ children }: { children: ReactNode }) {
             : item
         )
       );
+    }
+  };
+
+  const updateEventTicketPricing = async (
+    eventTicketTypeId: string,
+    purchaseType: EventTicketPurchaseType,
+    updates: { priceSnapshot?: number; depositAmount?: number; amountDueNow?: number }
+  ) => {
+    setEventTickets(prev => prev.map(item =>
+      item.eventTicketType.id === eventTicketTypeId && item.purchaseType === purchaseType
+        ? {
+            ...item,
+            priceSnapshot: updates.priceSnapshot ?? item.priceSnapshot,
+            depositAmount: updates.depositAmount ?? item.depositAmount,
+            amountDueNow: updates.amountDueNow ?? item.amountDueNow,
+          }
+        : item
+    ));
+
+    if (user) {
+      const patch: Record<string, number> = {};
+      if (updates.priceSnapshot != null) patch.price_snapshot = updates.priceSnapshot;
+      if (updates.depositAmount != null) patch.deposit_amount = updates.depositAmount;
+      if (updates.amountDueNow != null) patch.amount_due_now = updates.amountDueNow;
+      if (Object.keys(patch).length === 0) return;
+
+      try {
+        const { error } = await supabase
+          .from('cart_event_tickets')
+          .update(patch)
+          .eq('user_id', user.id)
+          .eq('event_ticket_type_id', eventTicketTypeId)
+          .eq('purchase_type', purchaseType);
+        if (error) throw error;
+      } catch (error) {
+        console.error('Error updating event ticket pricing:', error);
+        await loadEventTicketsFromDatabase();
+      }
     }
   };
 
@@ -427,22 +563,6 @@ export function CartProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const getCartTotal = (isMember: boolean) => {
-    const productTotal = cart.reduce((total, item) => {
-      const price = isMember ? item.product.member_price : item.product.price;
-      return total + price * item.quantity;
-    }, 0);
-
-    const ticketTotal = eventTickets.reduce((total, item) => {
-      const price = isMember && item.eventTicketType.member_price > 0
-        ? item.eventTicketType.member_price
-        : item.eventTicketType.price;
-      return total + price * item.quantity;
-    }, 0);
-
-    return productTotal + ticketTotal;
-  };
-
   const getCartCount = () => {
     const productCount = cart.reduce((count, item) => count + item.quantity, 0);
     const ticketCount = eventTickets.reduce((count, item) => count + item.quantity, 0);
@@ -460,8 +580,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
         removeEventTicketFromCart,
         updateQuantity,
         updateEventTicketQuantity,
+        updateEventTicketPricing,
         clearCart,
-        getCartTotal,
         getCartCount,
         loading,
       }}

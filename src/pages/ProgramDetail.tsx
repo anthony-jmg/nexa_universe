@@ -180,12 +180,6 @@ export function ProgramDetail({ programId, onNavigate, onBack }: ProgramDetailPr
     if (program.visibility === 'public' && user) return true;
     if (program.visibility === 'subscribers_only' && hasSubscription) return true;
     if (program.visibility === 'paid' && (hasPurchased || hasSubscription)) return true;
-    if (program.visibility === 'platform') {
-      const hasPlatformAccess = profile?.platform_subscription_status === 'active' &&
-        profile?.platform_subscription_expires_at &&
-        new Date(profile.platform_subscription_expires_at) > new Date();
-      return hasPlatformAccess;
-    }
 
     return false;
   };

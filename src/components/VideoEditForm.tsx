@@ -14,7 +14,7 @@ interface VideoFormData {
   cloudflare_video_id: string;
   thumbnail_url: string;
   program_id: string | null;
-  visibility: 'public' | 'private' | 'subscribers_only' | 'paid' | 'platform';
+  visibility: 'public' | 'private' | 'subscribers_only' | 'paid';
   program_order_index: number;
 }
 
@@ -110,7 +110,6 @@ export function VideoEditForm({ video, programs, onSave, onCancel }: VideoEditFo
               <option value="public">Public</option>
               <option value="paid">Payant</option>
               <option value="subscribers_only">Abonnés uniquement</option>
-              <option value="platform">NEXA Academy</option>
               <option value="private">Privé</option>
             </select>
           </div>

@@ -305,25 +305,6 @@ export function Admin({ onNavigate }: AdminProps) {
     setShowVideoForm(false);
   };
 
-  const handleUpdateUserAccess = async (userId: string, status: 'active' | 'inactive', expiresAt?: string) => {
-    const { error } = await supabase
-      .from('profiles')
-      .update({
-        platform_subscription_status: status,
-        platform_subscription_expires_at: expiresAt || null,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', userId);
-
-    if (!error) {
-      await loadUsers();
-      setSuccess('User access updated');
-      setTimeout(() => setSuccess(''), 3000);
-    } else {
-      setError(error.message);
-    }
-  };
-
   const handleUpdateUserRole = async (userId: string, role: 'student' | 'professor' | 'admin') => {
     const { error } = await supabase
       .from('profiles')
@@ -1090,12 +1071,6 @@ export function Admin({ onNavigate }: AdminProps) {
                         Fondateur
                       </th>
                       <th className="px-6 py-4 text-left text-xs font-medium text-gray-200 uppercase tracking-wider">
-                        Subscription
-                      </th>
-                      <th className="px-6 py-4 text-left text-xs font-medium text-gray-200 uppercase tracking-wider">
-                        Expires
-                      </th>
-                      <th className="px-6 py-4 text-left text-xs font-medium text-gray-200 uppercase tracking-wider">
                         Actions
                       </th>
                     </tr>
@@ -1138,37 +1113,7 @@ export function Admin({ onNavigate }: AdminProps) {
                           )}
                         </td>
                         <td className="px-6 py-4">
-                          <span className={`px-3 py-1 rounded-full text-xs font-medium border ${
-                            user.platform_subscription_status === 'active' ? 'bg-green-500/20 text-green-300 border-green-500/30' :
-                            user.platform_subscription_status === 'trial' ? 'bg-blue-500/20 text-blue-300 border-blue-500/30' :
-                            'bg-gray-500/20 text-gray-400 border-gray-500/30'
-                          }`}>
-                            {user.platform_subscription_status}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 text-sm text-gray-400">
-                          {user.platform_subscription_expires_at
-                            ? new Date(user.platform_subscription_expires_at).toLocaleDateString()
-                            : '-'}
-                        </td>
-                        <td className="px-6 py-4">
                           <div className="flex items-center space-x-2">
-                            <button
-                              onClick={() => {
-                                const expiry = new Date();
-                                expiry.setMonth(expiry.getMonth() + 1);
-                                handleUpdateUserAccess(user.id, 'active', expiry.toISOString());
-                              }}
-                              className="px-3 py-1 text-xs bg-[#B8913D] bg-opacity-10 text-[#B8913D] rounded-lg hover:bg-opacity-20 transition-colors"
-                            >
-                              Grant
-                            </button>
-                            <button
-                              onClick={() => handleUpdateUserAccess(user.id, 'inactive')}
-                              className="px-3 py-1 text-xs bg-gray-700 text-gray-300 rounded-lg hover:bg-gray-600 transition-colors"
-                            >
-                              Revoke
-                            </button>
                             <button
                               onClick={() => handleEditUser(user)}
                               className="p-2 text-[#B8913D] hover:bg-[#B8913D] hover:bg-opacity-10 rounded-lg transition-colors"
@@ -1518,11 +1463,6 @@ export function Admin({ onNavigate }: AdminProps) {
                         <span className="font-medium text-white">
                           {product.price.toFixed(2)}€
                         </span>
-                        {product.member_price > 0 && (
-                          <span className="text-[#B8913D]">
-                            Membre: {product.member_price.toFixed(2)}€
-                          </span>
-                        )}
                       </div>
                       <div className="flex items-center space-x-4 text-sm mt-2">
                         <span className="text-gray-400 text-xs">
@@ -1574,11 +1514,6 @@ export function Admin({ onNavigate }: AdminProps) {
                         }`}>
                           {order.status}
                         </span>
-                        {order.is_member_order && (
-                          <span className="px-3 py-1 bg-[#B8913D] bg-opacity-10 text-[#B8913D] rounded-full text-xs font-medium">
-                            Member Order
-                          </span>
-                        )}
                       </div>
                       <p className="text-sm text-gray-400">{order.profiles?.email}</p>
                       <p className="text-xs text-gray-500 mt-1">

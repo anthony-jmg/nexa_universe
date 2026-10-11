@@ -9,16 +9,18 @@ export interface CheckoutItem {
 }
 
 export interface CreateCheckoutParams {
-  payment_type: 'order' | 'video' | 'program' | 'professor_subscription' | 'event_ticket' | 'platform_subscription';
+  payment_type: 'order' | 'video' | 'program' | 'professor_subscription' | 'event_ticket' | 'price_lock_deposit' | 'price_lock_balance';
   items: CheckoutItem[];
   metadata?: Record<string, string>;
   price_id?: string;
+  success_url?: string;
+  cancel_url?: string;
 }
 
 export async function createStripeCheckout(params: CreateCheckoutParams): Promise<string> {
   const origin = window.location.origin;
-  const success_url = `${origin}/my-purchases?payment=success&session_id={CHECKOUT_SESSION_ID}`;
-  const cancel_url = `${origin}/my-purchases?payment=cancelled`;
+  const success_url = params.success_url || `${origin}/my-purchases?payment=success&session_id={CHECKOUT_SESSION_ID}`;
+  const cancel_url = params.cancel_url || `${origin}/my-purchases?payment=cancelled`;
 
   const { data: { session: currentSession } } = await supabase.auth.getSession();
   let session = currentSession;
@@ -127,48 +129,6 @@ export async function handleProfessorSubscriptionCheckout(
       target_id: professorId,
       payment_type: 'professor_subscription',
     },
-  });
-
-  window.location.href = checkoutUrl;
-}
-
-export async function handlePlatformSubscriptionCheckout(
-  price: number,
-  planType: 'monthly' | 'yearly'
-): Promise<void> {
-  const planName = planType === 'monthly' ? 'Monthly Platform Subscription' : 'Yearly Platform Subscription';
-  const priceId = planType === 'monthly'
-    ? import.meta.env.VITE_STRIPE_PLATFORM_MONTHLY_PRICE_ID
-    : import.meta.env.VITE_STRIPE_PLATFORM_YEARLY_PRICE_ID;
-
-  if (!priceId) {
-    throw new Error(`Missing Stripe Price ID for ${planType} subscription. Please check environment variables.`);
-  }
-
-  console.log('Platform Subscription Checkout:', {
-    planType,
-    priceId,
-    price,
-    planName,
-    env_monthly: import.meta.env.VITE_STRIPE_PLATFORM_MONTHLY_PRICE_ID,
-    env_yearly: import.meta.env.VITE_STRIPE_PLATFORM_YEARLY_PRICE_ID,
-  });
-
-  const checkoutUrl = await createStripeCheckout({
-    payment_type: 'platform_subscription',
-    items: [{
-      id: 'platform-subscription',
-      name: planName,
-      price,
-      quantity: 1,
-    }],
-    metadata: {
-      subscription_type: 'platform',
-      plan_type: planType,
-      target_id: 'platform',
-      payment_type: 'platform_subscription',
-    },
-    price_id: priceId,
   });
 
   window.location.href = checkoutUrl;

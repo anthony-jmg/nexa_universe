@@ -37,7 +37,7 @@ export function VideoPlayer({ videoId, onNavigate, onBack }: VideoPlayerProps) {
   const [progress, setProgress] = useState<VideoProgress | null>(null);
   const [loading, setLoading] = useState(true);
   const [canAccess, setCanAccess] = useState(false);
-  const [accessType, setAccessType] = useState<'free' | 'platform' | 'professor' | 'purchased' | 'locked'>('locked');
+  const [accessType, setAccessType] = useState<'free' | 'professor' | 'purchased' | 'locked'>('locked');
   const [showPrice, setShowPrice] = useState(false);
   const [purchasing, setPurchasing] = useState(false);
   const [error, setError] = useState('');

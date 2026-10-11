@@ -1,6 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import Stripe from "npm:stripe@17.6.0";
 import { createClient } from "npm:@supabase/supabase-js@2.57.4";
+import { createPriceLockAfterPayment } from "../_shared/price-lock.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -85,6 +86,115 @@ Deno.serve(async (req: Request) => {
       .update({ status: "completed" })
       .eq("stripe_session_id", session_id);
 
+    if (paymentType === "price_lock_deposit") {
+      const ticketTypeId = session.metadata?.event_ticket_type_id || session.metadata?.target_id;
+      if (ticketTypeId && paymentIntentId) {
+        const result = await createPriceLockAfterPayment(
+          supabase,
+          user.id,
+          ticketTypeId,
+          paymentIntentId,
+          (session.amount_total || 0) / 100
+        );
+
+        if (result.error) {
+          return new Response(
+            JSON.stringify({ success: false, error: result.error }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
+        const { data: existingPayment } = await supabase
+          .from("stripe_payments")
+          .select("id")
+          .eq("stripe_payment_intent_id", paymentIntentId)
+          .maybeSingle();
+
+        if (!existingPayment) {
+          await supabase.from("stripe_payments").insert({
+            user_id: user.id,
+            stripe_payment_intent_id: paymentIntentId,
+            stripe_customer_id: session.customer as string,
+            amount: (session.amount_total || 0) / 100,
+            currency: session.currency || "eur",
+            status: "succeeded",
+            payment_type: "price_lock_deposit",
+            price_lock_id: result.lockId,
+            metadata: session.metadata,
+          });
+        }
+
+        return new Response(
+          JSON.stringify({
+            success: true,
+            payment_type: "price_lock_deposit",
+            price_lock_id: result.lockId,
+          }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+    }
+
+    if (paymentType === "price_lock_balance") {
+      const lockId = session.metadata?.price_lock_id || session.metadata?.target_id;
+      if (lockId && paymentIntentId) {
+        const balanceAmount = (session.amount_total || 0) / 100;
+
+        const { data: completedLock, error: recordError } = await supabase.rpc(
+          "record_price_lock_payment",
+          {
+            p_lock_id: lockId,
+            p_amount: balanceAmount,
+            p_stripe_payment_intent_id: paymentIntentId,
+          }
+        );
+        if (recordError) {
+          return new Response(
+            JSON.stringify({ success: false, error: recordError.message }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
+        const { error: completeError } = await supabase.rpc(
+          "complete_price_lock_attendees",
+          { p_lock_id: lockId }
+        );
+        if (completeError) {
+          console.error(`Failed to complete attendees for lock ${lockId}:`, completeError);
+        }
+
+        const { data: existingPayment } = await supabase
+          .from("stripe_payments")
+          .select("id")
+          .eq("stripe_payment_intent_id", paymentIntentId)
+          .maybeSingle();
+
+        if (!existingPayment) {
+          await supabase.from("stripe_payments").insert({
+            user_id: completedLock?.user_id || user.id,
+            stripe_payment_intent_id: paymentIntentId,
+            stripe_customer_id: session.customer as string,
+            amount: balanceAmount,
+            currency: session.currency || "eur",
+            status: "succeeded",
+            payment_type: "price_lock_balance",
+            price_lock_id: lockId,
+            metadata: session.metadata,
+          });
+        }
+
+        return new Response(
+          JSON.stringify({
+            success: true,
+            payment_type: "price_lock_balance",
+            price_lock_id: lockId,
+            status: completedLock?.status,
+          }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+    }
+
     if (paymentType === "order") {
       const orderId = session.metadata?.order_id;
       if (orderId) {
@@ -97,7 +207,7 @@ Deno.serve(async (req: Request) => {
         if (order && order.status !== "paid" && order.status !== "processing" && order.status !== "shipped" && order.status !== "completed") {
           const { data: orderItems } = await supabase
             .from("order_items")
-            .select("product_id, item_type")
+            .select("id, product_id, item_type, event_ticket_type_id, purchase_type")
             .eq("order_id", orderId);
 
           const hasPhysicalProducts = orderItems?.some((item: any) => item.item_type === "product" && item.product_id);
@@ -111,9 +221,37 @@ Deno.serve(async (req: Request) => {
             })
             .eq("id", orderId);
 
+          let orderPriceLockId: string | null = null;
+          const priceLockItems = (orderItems || []).filter(
+            (item: any) => item.purchase_type === "price_lock_deposit" && item.event_ticket_type_id
+          );
+          for (const item of priceLockItems) {
+            const result = await createPriceLockAfterPayment(
+              supabase,
+              user.id,
+              item.event_ticket_type_id,
+              paymentIntentId,
+              (session.amount_total || 0) / 100
+            );
+            if (result.error) {
+              console.error(`Failed to create price lock for order item ${item.id}:`, result.error);
+              continue;
+            }
+            if (!orderPriceLockId && result.lockId) {
+              orderPriceLockId = result.lockId;
+            }
+            if (result.lockId && item.id) {
+              await supabase
+                .from("price_locks")
+                .update({ order_item_id: item.id })
+                .eq("id", result.lockId)
+                .is("order_item_id", null);
+            }
+          }
+
           const { data: converted } = await supabase.rpc("convert_pending_to_actual_attendees", { p_order_id: orderId });
 
-          console.log(`Order ${orderId} verified and paid. Status: '${newStatus}'. Tickets converted: ${converted}`);
+          console.log(`Order ${orderId} verified and paid. Status: '${newStatus}'. Tickets converted: ${converted}. Price locks: ${priceLockItems.length}`);
 
           if (paymentIntentId) {
             const { data: existingPayment } = await supabase
@@ -132,6 +270,7 @@ Deno.serve(async (req: Request) => {
                 status: "succeeded",
                 payment_type: "order",
                 order_id: orderId,
+                price_lock_id: orderPriceLockId,
                 metadata: session.metadata,
               });
             }

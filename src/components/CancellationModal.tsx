@@ -5,7 +5,7 @@ interface CancellationModalProps {
   isOpen: boolean;
   onClose: () => void;
   onConfirm: (reason: string, feedback: string, requestRefund: boolean) => void;
-  subscriptionType: 'platform' | 'professor';
+  subscriptionType: 'professor';
   professorName?: string;
   isWithinWithdrawalPeriod: boolean;
   subscriptionStartDate?: string;
@@ -14,16 +14,6 @@ interface CancellationModalProps {
 }
 
 const cancellationReasons = {
-  platform: [
-    { value: 'too_expensive', label: 'Too expensive' },
-    { value: 'not_using', label: 'Not using the platform enough' },
-    { value: 'found_alternative', label: 'Found an alternative platform' },
-    { value: 'missing_features', label: 'Missing features I need' },
-    { value: 'technical_issues', label: 'Technical issues' },
-    { value: 'content_quality', label: 'Content quality below expectations' },
-    { value: 'temporary', label: 'Taking a temporary break' },
-    { value: 'other', label: 'Other reason' },
-  ],
   professor: [
     { value: 'switching_professor', label: 'Switching to a different professor' },
     { value: 'too_expensive', label: 'Too expensive' },
@@ -55,9 +45,7 @@ export default function CancellationModal({
   if (!isOpen) return null;
 
   const reasons = cancellationReasons[subscriptionType];
-  const subscriptionName = subscriptionType === 'platform'
-    ? 'Platform Subscription'
-    : `${professorName}'s Subscription`;
+  const subscriptionName = `${professorName}'s Subscription`;
 
   const getWaiverReasonText = (reason?: string): string => {
     switch (reason) {

@@ -40,7 +40,6 @@ export default function TermsAndConditions({ onNavigate }: TermsAndConditionsPro
               <h2 className="text-2xl font-semibold text-white mb-4">2. Services Description</h2>
               <p className="mb-4">We offer the following services:</p>
               <ul className="list-disc list-inside space-y-2 ml-4">
-                <li>Platform subscription for access to exclusive content</li>
                 <li>Individual professor subscriptions</li>
                 <li>Single video purchases</li>
                 <li>Complete program purchases</li>

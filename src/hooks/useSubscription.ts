@@ -6,7 +6,7 @@ export function useSubscription() {
   const [error, setError] = useState<string | null>(null);
 
   const cancelSubscription = async (
-    subscriptionType: 'platform' | 'professor',
+    subscriptionType: 'professor',
     professorId?: string,
     cancellationReason?: string,
     cancellationFeedback?: string,
@@ -54,7 +54,7 @@ export function useSubscription() {
   };
 
   const reactivateSubscription = async (
-    subscriptionType: 'platform' | 'professor',
+    subscriptionType: 'professor',
     professorId?: string
   ) => {
     setLoading(true);

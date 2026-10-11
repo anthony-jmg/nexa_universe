@@ -169,8 +169,7 @@ export function EventTicketPurchase({ eventId, onPurchaseComplete }: EventTicket
     setLoading(true);
 
     try {
-      const isMember = profile?.platform_subscription_status === 'active';
-      const unitPrice = isMember ? selectedTicketType.member_price : selectedTicketType.price;
+      const unitPrice = selectedTicketType.price;
       const totalAmount = unitPrice * quantity;
 
       const { data: order, error: orderError } = await supabase
@@ -179,7 +178,7 @@ export function EventTicketPurchase({ eventId, onPurchaseComplete }: EventTicket
           user_id: user.id,
           status: 'pending',
           total_amount: totalAmount,
-          is_member_order: isMember,
+          is_member_order: false,
           shipping_name: `${attendees[0].first_name} ${attendees[0].last_name}`,
           shipping_email: attendees[0].email,
           shipping_phone: attendees[0].phone || '',
@@ -342,8 +341,7 @@ export function EventTicketPurchase({ eventId, onPurchaseComplete }: EventTicket
               const available = ticketType.quantity_available !== null
                 ? ticketType.quantity_available - ticketType.quantity_sold
                 : null;
-              const isMember = profile?.platform_subscription_status === 'active';
-              const displayPrice = isMember ? ticketType.member_price : ticketType.price;
+              const displayPrice = ticketType.price;
 
               return (
                 <button
@@ -366,11 +364,6 @@ export function EventTicketPurchase({ eventId, onPurchaseComplete }: EventTicket
                   <div className="flex justify-between items-center">
                     <div>
                       <span className="text-2xl font-bold text-[#B8913D]">{displayPrice.toFixed(2)}€</span>
-                      {isMember && ticketType.price !== ticketType.member_price && (
-                        <span className="ml-2 text-sm text-gray-500 line-through">
-                          {ticketType.price.toFixed(2)}€
-                        </span>
-                      )}
                     </div>
                     {available !== null && (
                       <span className="text-sm text-gray-400">
@@ -482,9 +475,7 @@ export function EventTicketPurchase({ eventId, onPurchaseComplete }: EventTicket
             <div className="text-right">
               <p className="text-sm text-gray-400">Total à payer</p>
               <p className="text-3xl font-bold text-[#B8913D]">
-                {(quantity * (profile?.platform_subscription_status === 'active'
-                  ? selectedTicketType.member_price
-                  : selectedTicketType.price)).toFixed(2)}€
+                {(quantity * selectedTicketType.price).toFixed(2)}€
               </p>
             </div>
             <button
