@@ -131,12 +131,31 @@ function AppContent() {
         videoId: currentVideoId,
         professorId: currentProfessorId,
         programId: currentProgramId,
-        eventId: currentEventId
+        eventId: currentEventId,
+        scrollY: 0
       },
       '',
       currentPath
     );
   }, []);
+
+  // Restore a saved scroll position. Pages load data asynchronously, so the
+  // document height may not be enough right after popstate: retry via rAF
+  // until the position is reached or a short timeout elapses.
+  const restoreScroll = (target: number) => {
+    if (!target || target <= 0) {
+      window.scrollTo(0, 0);
+      return;
+    }
+    const start = performance.now();
+    const tryScroll = () => {
+      window.scrollTo(0, target);
+      if (Math.abs(window.scrollY - target) > 2 && performance.now() - start < 1500) {
+        requestAnimationFrame(tryScroll);
+      }
+    };
+    requestAnimationFrame(tryScroll);
+  };
 
   // Handle browser back/forward buttons
   useEffect(() => {
@@ -147,6 +166,7 @@ function AppContent() {
         setCurrentProfessorId(event.state.professorId || '');
         setCurrentProgramId(event.state.programId || '');
         setCurrentEventId(event.state.eventId || '');
+        restoreScroll(event.state.scrollY || 0);
       } else {
         // Fallback: parse from URL
         const stateFromPath = parsePathToState(window.location.pathname);
@@ -157,8 +177,8 @@ function AppContent() {
           setCurrentProgramId(stateFromPath.programId || '');
           setCurrentEventId(stateFromPath.eventId || '');
         }
+        restoreScroll(0);
       }
-      window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
     window.addEventListener('popstate', handlePopState);
@@ -202,7 +222,20 @@ function AppContent() {
       }
     }
 
-    // Update browser history
+    // Update browser history. First, save the current scroll position on the
+    // outgoing entry so back/forward restores the user exactly where they were.
+    window.history.replaceState(
+      {
+        page: currentPage,
+        videoId: currentVideoId,
+        professorId: currentProfessorId,
+        programId: currentProgramId,
+        eventId: currentEventId,
+        scrollY: window.scrollY
+      },
+      ''
+    );
+
     const newPath = buildPath(newPage, newVideoId, newProfessorId, newProgramId, newEventId);
     window.history.pushState(
       {
@@ -210,7 +243,8 @@ function AppContent() {
         videoId: newVideoId,
         professorId: newProfessorId,
         programId: newProgramId,
-        eventId: newEventId
+        eventId: newEventId,
+        scrollY: 0
       },
       '',
       newPath
