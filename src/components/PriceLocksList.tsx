@@ -61,23 +61,50 @@ export function PriceLocksList({ eventId, onClose }: Props) {
         .from('price_locks')
         .select(`
           id, user_id, event_ticket_type_id, locked_price, deposit_amount,
-          total_paid, remaining_amount, locked_at, expires_at, status,
-          profiles (full_name, email),
-          event_attendees (attendee_first_name, attendee_last_name, attendee_email, check_in_status)
+          total_paid, remaining_amount, locked_at, expires_at, status
         `)
         .eq('event_id', eventId)
         .order('locked_at', { ascending: false });
 
       if (locksError) throw locksError;
-      setLocks((data as any) || []);
+      const lockRows = (data as any) || [];
 
-      const { data: ettData } = await supabase
-        .from('event_ticket_types')
-        .select('id, ticket_type:ticket_types (name)')
-        .eq('event_id', eventId);
+      const userIds = Array.from(new Set(lockRows.map((l: any) => l.user_id).filter(Boolean)));
+
+      const [profilesRes, attendeesRes, ettRes] = await Promise.all([
+        userIds.length
+          ? supabase.from('profiles').select('id, full_name, email').in('id', userIds)
+          : Promise.resolve({ data: [] as any[], error: null }),
+        supabase
+          .from('event_attendees')
+          .select('user_id, attendee_first_name, attendee_last_name, attendee_email, check_in_status')
+          .eq('event_id', eventId),
+        supabase
+          .from('event_ticket_types')
+          .select('id, ticket_type:ticket_types (name)')
+          .eq('event_id', eventId),
+      ]);
+
+      const profilesById = new Map<string, { full_name: string; email: string }>();
+      ((profilesRes as any).data || []).forEach((p: any) => {
+        if (p?.id) profilesById.set(p.id, { full_name: p.full_name, email: p.email });
+      });
+
+      const attendeeByUser = new Map<string, any>();
+      ((attendeesRes as any).data || []).forEach((a: any) => {
+        if (a?.user_id && !attendeeByUser.has(a.user_id)) attendeeByUser.set(a.user_id, a);
+      });
+
+      setLocks(
+        lockRows.map((l: any) => ({
+          ...l,
+          profiles: profilesById.get(l.user_id) ?? null,
+          event_attendees: attendeeByUser.has(l.user_id) ? [attendeeByUser.get(l.user_id)] : [],
+        }))
+      );
 
       const names: Record<string, string> = {};
-      (ettData || []).forEach((e: any) => {
+      ((ettRes as any).data || []).forEach((e: any) => {
         names[e.id] = e.ticket_type?.name || 'Inconnu';
       });
       setTicketTypeNames(names);
