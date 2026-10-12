@@ -522,6 +522,12 @@ Deno.serve(async (req: Request) => {
           payment_type,
           ...metadata,
         },
+        // Price Lock en prélèvement automatique : le moyen de paiement est
+        // sauvegardé (référence Stripe uniquement) pour le débit du solde.
+        ...(payment_type === "order" &&
+        (metadata as Record<string, any>).has_price_lock_auto_balance === "true"
+          ? { payment_intent_data: { setup_future_usage: "off_session" as const } }
+          : {}),
         ...paymentIntentData,
       });
     }

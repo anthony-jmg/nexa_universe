@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
+import { importPassPdf, openPassPdf } from '../lib/passService';
 import {
   X,
   TrendingUp,
@@ -12,6 +13,8 @@ import {
   BarChart3,
   UserCheck,
   Lock,
+  Upload,
+  FileText,
 } from 'lucide-react';
 
 interface EventSalesStatsProps {
@@ -59,6 +62,8 @@ interface OrderStats {
 }
 
 interface RecentAttendee {
+  id: string;
+  user_id: string;
   attendee_first_name: string;
   attendee_last_name: string;
   attendee_email: string;
@@ -66,6 +71,8 @@ interface RecentAttendee {
   check_in_status: string;
   checked_in_at: string | null;
   created_at: string;
+  pass_status: 'pending' | 'available';
+  pass_file_path: string | null;
 }
 
 export function EventSalesStats({ eventId, eventTitle, onClose }: EventSalesStatsProps) {
@@ -76,6 +83,10 @@ export function EventSalesStats({ eventId, eventTitle, onClose }: EventSalesStat
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [activeSection, setActiveSection] = useState<'overview' | 'attendees'>('overview');
+  const [passBusyId, setPassBusyId] = useState<string | null>(null);
+  const [passActionError, setPassActionError] = useState('');
+  const [replacingPassId, setReplacingPassId] = useState<string | null>(null);
+  const passFileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     loadStats();
@@ -267,11 +278,11 @@ export function EventSalesStats({ eventId, eventTitle, onClose }: EventSalesStat
 
     const { data: attendees, error } = await supabase
       .from('event_attendees')
-      .select('attendee_first_name, attendee_last_name, attendee_email, event_ticket_type_id, check_in_status, checked_in_at, created_at')
+      .select('id, user_id, attendee_first_name, attendee_last_name, attendee_email, event_ticket_type_id, check_in_status, checked_in_at, created_at, pass_status, pass_file_path')
       .in('event_ticket_type_id', ettIdList)
       .neq('check_in_status', 'awaiting_balance')
       .order('created_at', { ascending: false })
-      .limit(20);
+      .limit(50);
 
     if (error) throw error;
 
@@ -284,6 +295,28 @@ export function EventSalesStats({ eventId, eventTitle, onClose }: EventSalesStat
   };
 
   const totalConfirmed = ticketStats.reduce((s, t) => s + t.confirmed_count, 0);
+  const totalPendingPasses = recentAttendees.filter((a) => a.pass_status === 'pending').length;
+  const totalAvailablePasses = recentAttendees.filter((a) => a.pass_status === 'available').length;
+
+  const handleImportPass = async (attendee: RecentAttendee, file: File) => {
+    setPassBusyId(attendee.id);
+    setPassActionError('');
+    const result = await importPassPdf(attendee, file);
+    if (!result.ok) {
+      setPassActionError(result.error);
+    }
+    setPassBusyId(null);
+    setReplacingPassId(null);
+    await loadRecentAttendees();
+  };
+
+  const handleViewPass = async (attendee: RecentAttendee) => {
+    setPassBusyId(attendee.id);
+    setPassActionError('');
+    const result = await openPassPdf(attendee);
+    if (!result.ok) setPassActionError(result.error);
+    setPassBusyId(null);
+  };
   const totalAwaiting = ticketStats.reduce((s, t) => s + t.awaiting_count, 0);
   const totalActiveLocks = ticketStats.reduce((s, t) => s + t.active_locks, 0);
   const totalPending = ticketStats.reduce((s, t) => s + t.pending_count, 0);
@@ -515,6 +548,12 @@ export function EventSalesStats({ eventId, eventTitle, onClose }: EventSalesStat
                   </button>
                 </div>
               </div>
+              <div className="px-5 py-2 border-b border-gray-700 flex flex-wrap items-center gap-2 text-xs">
+                <span className="text-gray-400">Pass :</span>
+                <span className="bg-orange-900/40 text-orange-300 border border-orange-600/40 px-2 py-0.5 rounded-full">{totalPendingPasses} en attente</span>
+                <span className="bg-green-900/40 text-green-300 border border-green-600/40 px-2 py-0.5 rounded-full">{totalAvailablePasses} disponibles</span>
+                {passActionError && <span className="text-red-400">{passActionError}</span>}
+              </div>
 
               {recentAttendees.length === 0 ? (
                 <p className="text-gray-400 text-sm p-5">Aucun participant pour le moment.</p>
@@ -523,36 +562,94 @@ export function EventSalesStats({ eventId, eventTitle, onClose }: EventSalesStat
                   {recentAttendees
                     .filter((a) => activeSection === 'overview' || a.check_in_status === 'checked_in')
                     .map((attendee, i) => (
-                      <div key={i} className="flex items-center justify-between px-5 py-3">
-                        <div className="flex items-center space-x-3 min-w-0">
-                          <div className="flex-shrink-0">
-                            {attendee.check_in_status === 'checked_in' ? (
-                              <CheckCircle className="w-4 h-4 text-green-400" />
-                            ) : (
-                              <Clock className="w-4 h-4 text-gray-500" />
+                      <div key={i} className="px-5 py-3">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-3 min-w-0">
+                            <div className="flex-shrink-0">
+                              {attendee.check_in_status === 'checked_in' ? (
+                                <CheckCircle className="w-4 h-4 text-green-400" />
+                              ) : (
+                                <Clock className="w-4 h-4 text-gray-500" />
+                              )}
+                            </div>
+                            <div className="min-w-0">
+                              <p className="text-sm font-medium text-white truncate">
+                                {attendee.attendee_first_name} {attendee.attendee_last_name}
+                              </p>
+                              <p className="text-xs text-gray-400 truncate">{attendee.attendee_email}</p>
+                            </div>
+                          </div>
+                          <div className="flex-shrink-0 text-right ml-4">
+                            <span className="text-xs bg-gray-700 text-gray-300 px-2 py-1 rounded-full">
+                              {attendee.ticket_type_name}
+                            </span>
+                            {attendee.check_in_status === 'checked_in' && attendee.checked_in_at && (
+                              <p className="text-xs text-green-400 mt-1">
+                                {new Date(attendee.checked_in_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                              </p>
                             )}
                           </div>
-                          <div className="min-w-0">
-                            <p className="text-sm font-medium text-white truncate">
-                              {attendee.attendee_first_name} {attendee.attendee_last_name}
-                            </p>
-                            <p className="text-xs text-gray-400 truncate">{attendee.attendee_email}</p>
-                          </div>
                         </div>
-                        <div className="flex-shrink-0 text-right ml-4">
-                          <span className="text-xs bg-gray-700 text-gray-300 px-2 py-1 rounded-full">
-                            {attendee.ticket_type_name}
+                        <div className="mt-2 pt-2 border-t border-gray-700/60 flex items-center justify-between gap-2 flex-wrap">
+                          <span className={`text-xs px-2 py-0.5 rounded-full ${attendee.pass_status === 'available' ? 'bg-green-900/40 text-green-300 border border-green-600/40' : 'bg-orange-900/40 text-orange-300 border border-orange-600/40'}`}>
+                            Pass : {attendee.pass_status === 'available' ? 'Disponible' : 'En attente'}
                           </span>
-                          {attendee.check_in_status === 'checked_in' && attendee.checked_in_at && (
-                            <p className="text-xs text-green-400 mt-1">
-                              {new Date(attendee.checked_in_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
-                            </p>
-                          )}
+                          <div className="flex items-center gap-2">
+                            {attendee.pass_status === 'available' && (
+                              <>
+                                <button
+                                  onClick={() => handleViewPass(attendee)}
+                                  disabled={passBusyId === attendee.id}
+                                  className="text-xs text-gray-300 hover:text-white px-2 py-1 rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-50"
+                                >
+                                  Voir le PDF
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    setReplacingPassId(attendee.id);
+                                    passFileInputRef.current?.click();
+                                  }}
+                                  disabled={passBusyId === attendee.id}
+                                  className="text-xs text-gray-300 hover:text-white px-2 py-1 rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-50"
+                                >
+                                  Remplacer le PDF
+                                </button>
+                              </>
+                            )}
+                            {(attendee.pass_status === 'pending' || replacingPassId === attendee.id) && (
+                              <button
+                                onClick={() => {
+                                  setReplacingPassId(null);
+                                  setReplacingPassId(attendee.id);
+                                  passFileInputRef.current?.click();
+                                }}
+                                disabled={passBusyId === attendee.id}
+                                className="text-xs bg-[#B8913D] text-white px-2.5 py-1 rounded-lg hover:bg-[#A07F35] transition-colors disabled:opacity-50 flex items-center gap-1"
+                              >
+                                <Upload className="w-3 h-3" />
+                                {attendee.pass_status === 'available' ? 'Remplacer le PDF' : 'Importer le PDF'}
+                              </button>
+                            )}
+                          </div>
                         </div>
                       </div>
                     ))}
                 </div>
               )}
+              <input
+                ref={passFileInputRef}
+                type="file"
+                accept="application/pdf,.pdf"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  e.target.value = '';
+                  const attendeeId = replacingPassId;
+                  if (!file || !attendeeId) return;
+                  const attendee = recentAttendees.find((a) => a.id === attendeeId);
+                  if (attendee) handleImportPass(attendee, file);
+                }}
+              />
             </div>
           </div>
         )}

@@ -184,6 +184,9 @@ export function Cart({ onNavigate }: CartProps) {
           purchase_type: ticket.purchaseType,
           price_snapshot: ticket.purchaseType === 'full_purchase' ? (ticket.priceSnapshot ?? null) : null,
           deposit_amount: ticket.purchaseType === 'price_lock_deposit' ? (ticket.depositAmount ?? null) : null,
+          balance_payment_mode: ticket.purchaseType === 'price_lock_deposit'
+            ? (ticket.balancePaymentMode === 'automatic' ? 'automatic' : 'manual')
+            : null,
         })),
       ];
 
@@ -211,7 +214,11 @@ export function Cart({ onNavigate }: CartProps) {
       localStorage.setItem('pendingEventTickets', JSON.stringify(eventTickets));
       localStorage.setItem('pendingAttendees', JSON.stringify(attendees));
 
-      await handleOrderCheckout(orderResponse.order_id, checkoutItems);
+      await handleOrderCheckout(orderResponse.order_id, checkoutItems, {
+        hasPriceLockAutoBalance: eventTickets.some(
+          (t: any) => t.purchaseType === 'price_lock_deposit' && t.balancePaymentMode === 'automatic'
+        ),
+      });
     } catch (err: any) {
       // Prix évolué depuis l'ajout au panier : le serveur refuse de créer la
       // commande. On met le panier à jour au tarif réel puis on redemande une
@@ -385,6 +392,7 @@ export function Cart({ onNavigate }: CartProps) {
                 total={total}
                 updateQuantity={updateQuantity}
                 updateEventTicketQuantity={updateEventTicketQuantity}
+                updateEventTicketBalanceMode={updateEventTicketBalanceMode}
                 removeFromCart={removeFromCart}
                 removeEventTicketFromCart={removeEventTicketFromCart}
                 onNext={goToAttendees}
@@ -428,8 +436,9 @@ export function Cart({ onNavigate }: CartProps) {
 
 function StepCart({
   cart, eventTickets, getItemPrice, productsTotal, eventTicketsTotal, total,
-  updateQuantity, updateEventTicketQuantity, removeFromCart, removeEventTicketFromCart, onNext, onNavigate, t
+  updateQuantity, updateEventTicketQuantity, updateEventTicketBalanceMode, removeFromCart, removeEventTicketFromCart, onNext, onNavigate, t
 }: any) {
+  const onUpdateBalanceMode = updateEventTicketBalanceMode;
   return (
     <div className="space-y-6">
       <div className="space-y-4">
@@ -473,10 +482,30 @@ function StepCart({
                       {(() => {
                         const deadline = priceLockDeadline(ticket.eventTicketType);
                         if (!deadline) return null;
+                        const mode = ticket.balancePaymentMode === 'automatic' ? 'Automatique' : 'Manuel';
+                        const dateStr = deadline.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
                         return (
-                          <p className="text-gray-500">
-                            Prix garanti jusqu'au {deadline.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
-                          </p>
+                          <>
+                            <p className="text-gray-500">
+                              Prix garanti jusqu'au {dateStr}
+                            </p>
+                            <div className="mt-1.5 pt-1.5 border-t border-gray-700/60 flex items-center justify-between gap-2">
+                              <div>
+                                <p className="text-gray-300">Paiement du reste : <span className="font-semibold text-white">{mode}</span></p>
+                                {ticket.balancePaymentMode === 'automatic' ? (
+                                  <p className="text-gray-500">{futureBalance.toFixed(2)} € seront prélevés le {dateStr} si tu ne les as pas réglés avant.</p>
+                                ) : (
+                                  <p className="text-gray-500">{futureBalance.toFixed(2)} € à régler avant le {dateStr}</p>
+                                )}
+                              </div>
+                              <button
+                                onClick={() => onUpdateBalanceMode?.(ticket.eventTicketType.id, ticket.balancePaymentMode === 'automatic' ? 'manual' : 'automatic')}
+                                className="text-[11px] text-[#D4AC5B] hover:text-white underline flex-shrink-0"
+                              >
+                                Modifier
+                              </button>
+                            </div>
+                          </>
                         );
                       })()}
                     </div>

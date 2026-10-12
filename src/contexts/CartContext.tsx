@@ -29,17 +29,19 @@ export interface EventTicketCartItem {
   priceSnapshot?: number;
   depositAmount?: number;
   amountDueNow?: number;
+  balancePaymentMode?: 'manual' | 'automatic';
 }
 
 interface CartContextType {
   cart: CartItem[];
   eventTickets: EventTicketCartItem[];
   addToCart: (product: Product, quantity: number, size?: string) => Promise<void>;
-  addEventTicketToCart: (eventTicketTypeId: string, quantity: number, purchaseType?: EventTicketPurchaseType) => Promise<void>;
+  addEventTicketToCart: (eventTicketTypeId: string, quantity: number, purchaseType?: EventTicketPurchaseType, options?: { balancePaymentMode?: 'manual' | 'automatic' }) => Promise<void>;
   removeFromCart: (productId: string, size?: string) => Promise<void>;
   removeEventTicketFromCart: (eventTicketTypeId: string, purchaseType?: EventTicketPurchaseType) => Promise<void>;
   updateQuantity: (productId: string, quantity: number, size?: string) => Promise<void>;
   updateEventTicketQuantity: (eventTicketTypeId: string, quantity: number, purchaseType?: EventTicketPurchaseType) => Promise<void>;
+  updateEventTicketBalanceMode: (eventTicketTypeId: string, balancePaymentMode: 'manual' | 'automatic') => Promise<void>;
   updateEventTicketPricing: (eventTicketTypeId: string, purchaseType: EventTicketPurchaseType, updates: { priceSnapshot?: number; depositAmount?: number; amountDueNow?: number }) => Promise<void>;
   clearCart: () => Promise<void>;
   getCartCount: () => number;
@@ -120,6 +122,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
           priceSnapshot: item.price_snapshot ?? undefined,
           depositAmount: item.deposit_amount ?? undefined,
           amountDueNow: item.amount_due_now ?? undefined,
+          balancePaymentMode: item.balance_payment_mode ?? undefined,
         }));
         setEventTickets(formattedEventTickets);
       }
@@ -281,7 +284,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const addEventTicketToCart = async (
     eventTicketTypeId: string,
     quantity: number,
-    purchaseType: EventTicketPurchaseType = 'full_purchase'
+    purchaseType: EventTicketPurchaseType = 'full_purchase',
+    options?: { balancePaymentMode?: 'manual' | 'automatic' }
   ) => {
     const isDeposit = purchaseType === 'price_lock_deposit';
     const qty = isDeposit ? 1 : quantity;
@@ -365,6 +369,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
           priceSnapshot: price,
           depositAmount: purchaseType === 'price_lock_deposit' ? deposit : undefined,
           amountDueNow,
+          balancePaymentMode: purchaseType === 'price_lock_deposit' ? options?.balancePaymentMode : undefined,
         };
         setEventTickets(prev => [...prev, tempItem]);
 
@@ -379,6 +384,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
               price_snapshot: price,
               deposit_amount: purchaseType === 'price_lock_deposit' ? deposit : null,
               amount_due_now: amountDueNow,
+              balance_payment_mode: purchaseType === 'price_lock_deposit' ? options?.balancePaymentMode ?? 'manual' : null,
             });
 
           if (error) throw error;
@@ -537,6 +543,32 @@ export function CartProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const updateEventTicketBalanceMode = async (
+    eventTicketTypeId: string,
+    balancePaymentMode: 'manual' | 'automatic'
+  ) => {
+    setEventTickets(prev => prev.map(item =>
+      item.eventTicketType.id === eventTicketTypeId && item.purchaseType === 'price_lock_deposit'
+        ? { ...item, balancePaymentMode }
+        : item
+    ));
+
+    if (user) {
+      try {
+        const { error } = await supabase
+          .from('cart_event_tickets')
+          .update({ balance_payment_mode: balancePaymentMode })
+          .eq('user_id', user.id)
+          .eq('event_ticket_type_id', eventTicketTypeId)
+          .eq('purchase_type', 'price_lock_deposit');
+        if (error) throw error;
+      } catch (error) {
+        console.error('Error updating balance payment mode:', error);
+        await loadEventTicketsFromDatabase();
+      }
+    }
+  };
+
   const clearCart = async () => {
     if (user) {
       try {
@@ -581,6 +613,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         updateQuantity,
         updateEventTicketQuantity,
         updateEventTicketPricing,
+        updateEventTicketBalanceMode,
         clearCart,
         getCartCount,
         loading,

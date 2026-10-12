@@ -77,13 +77,18 @@ export async function createStripeCheckout(params: CreateCheckoutParams): Promis
   return data.url;
 }
 
-export async function handleOrderCheckout(orderId: string, items: CheckoutItem[]): Promise<void> {
+export async function handleOrderCheckout(
+  orderId: string,
+  items: CheckoutItem[],
+  options?: { hasPriceLockAutoBalance?: boolean }
+): Promise<void> {
   const checkoutUrl = await createStripeCheckout({
     payment_type: 'order',
     items,
     metadata: {
       order_id: orderId,
       target_id: orderId,
+      ...(options?.hasPriceLockAutoBalance ? { has_price_lock_auto_balance: 'true' } : {}),
     },
   });
 

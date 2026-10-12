@@ -584,6 +584,10 @@ export interface Database {
           checked_in_by: string | null
           purchased_at: string | null
           created_at: string | null
+          pass_status: 'pending' | 'available'
+          pass_file_path: string | null
+          pass_uploaded_at: string | null
+          pass_reference: string | null
         }
         Insert: {
           id?: string

@@ -2,8 +2,8 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { BackgroundDecor } from '../components/BackgroundDecor';
-import { Calendar, MapPin, Ticket, Download, X, CheckCircle, XCircle, Clock } from 'lucide-react';
-import QRCode from 'qrcode';
+import { Calendar, MapPin, Ticket, X, CheckCircle, XCircle, Clock, FileText } from 'lucide-react';
+import { openPassPdf } from '../lib/passService';
 
 interface AttendeeWithDetails {
   id: string;
@@ -15,6 +15,8 @@ interface AttendeeWithDetails {
   checked_in_at: string | null;
   purchased_at: string | null;
   created_at: string | null;
+  pass_status: 'pending' | 'available';
+  pass_file_path: string | null;
   attendee_first_name: string | null;
   attendee_last_name: string | null;
   attendee_email: string | null;
@@ -45,7 +47,8 @@ export function MyTickets({ onNavigate }: MyTicketsProps) {
   const [tickets, setTickets] = useState<AttendeeWithDetails[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedTicket, setSelectedTicket] = useState<AttendeeWithDetails | null>(null);
-  const [qrCodeUrl, setQrCodeUrl] = useState<string>('');
+  const [passError, setPassError] = useState('');
+  const [passOpening, setPassOpening] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -55,7 +58,7 @@ export function MyTickets({ onNavigate }: MyTicketsProps) {
 
   useEffect(() => {
     if (selectedTicket) {
-      generateQRCode(selectedTicket.qr_code);
+      setPassError('');
     }
   }, [selectedTicket]);
 
@@ -72,6 +75,8 @@ export function MyTickets({ onNavigate }: MyTicketsProps) {
         checked_in_at,
         purchased_at,
         created_at,
+        pass_status,
+        pass_file_path,
         attendee_first_name,
         attendee_last_name,
         attendee_email,
@@ -99,28 +104,13 @@ export function MyTickets({ onNavigate }: MyTicketsProps) {
     setLoading(false);
   };
 
-  const generateQRCode = async (data: string) => {
-    try {
-      const url = await QRCode.toDataURL(data, {
-        width: 400,
-        margin: 2,
-        color: {
-          dark: '#000000',
-          light: '#FFFFFF'
-        }
-      });
-      setQrCodeUrl(url);
-    } catch (err) {
-      // QR generation failed silently
-    }
-  };
-
-  const downloadQRCode = () => {
-    if (!selectedTicket || !qrCodeUrl) return;
-    const link = document.createElement('a');
-    link.download = `ticket-${selectedTicket.id}.png`;
-    link.href = qrCodeUrl;
-    link.click();
+  const handleViewPass = async () => {
+    if (!selectedTicket || passOpening) return;
+    setPassOpening(true);
+    setPassError('');
+    const result = await openPassPdf(selectedTicket);
+    if (!result.ok) setPassError(result.error);
+    setPassOpening(false);
   };
 
   const getStatusBadge = (status: string) => {
@@ -129,7 +119,7 @@ export function MyTickets({ onNavigate }: MyTicketsProps) {
         return (
           <span className="inline-flex items-center space-x-1 px-3 py-1 bg-green-900 bg-opacity-40 text-green-400 rounded-full text-sm border border-green-600 border-opacity-40">
             <CheckCircle className="w-4 h-4" />
-            <span>Valide</span>
+            <span>Confirme</span>
           </span>
         );
       case 'checked_in':
@@ -281,6 +271,14 @@ export function MyTickets({ onNavigate }: MyTicketsProps) {
 
                           <div className="mt-3 pt-3 border-t border-gray-700">
                             {getStatusBadge(ticket.check_in_status)}
+                            {ticket.check_in_status !== 'cancelled' && (
+                              <p className="text-xs mt-2 flex items-center gap-1.5">
+                                <FileText className="w-3 h-3 text-[#B8913D] flex-shrink-0" />
+                                <span className={ticket.pass_status === 'available' ? 'text-green-400' : 'text-gray-400'}>
+                                  Pass : {ticket.pass_status === 'available' ? 'Disponible' : 'En attente'}
+                                </span>
+                              </p>
+                            )}
                           </div>
 
                           {ticket.check_in_status === 'checked_in' && ticket.checked_in_at && (
@@ -317,7 +315,7 @@ export function MyTickets({ onNavigate }: MyTicketsProps) {
               <X className="w-6 h-6" />
             </button>
 
-            <h3 className="text-2xl font-medium text-white mb-6 text-center">Billet d'entree</h3>
+            <h3 className="text-2xl font-medium text-white mb-6 text-center">Pass</h3>
 
             <div className="space-y-3 mb-6">
               <div>
@@ -353,25 +351,39 @@ export function MyTickets({ onNavigate }: MyTicketsProps) {
               </div>
             </div>
 
-            {selectedTicket.check_in_status === 'not_checked_in' && qrCodeUrl && (
-              <>
+            {selectedTicket.check_in_status === 'awaiting_balance' && (
+              <div className="text-center py-2">
+                <Clock className="w-12 h-12 text-orange-400 mx-auto mb-3" />
+                <p className="text-orange-400 font-medium mb-1">Reste à payer</p>
+                <p className="text-sm text-gray-400">Ton pass sera disponible une fois le solde réglé.</p>
+              </div>
+            )}
 
-                <div className="bg-white p-4 rounded-xl mb-6">
-                  <img src={qrCodeUrl} alt="QR Code" className="w-full" />
-                </div>
-
+            {selectedTicket.check_in_status === 'not_checked_in' && selectedTicket.pass_status === 'available' && (
+              <div className="flex flex-col space-y-2">
                 <button
-                  onClick={downloadQRCode}
-                  className="w-full py-3 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition-colors flex items-center justify-center space-x-2"
+                  onClick={handleViewPass}
+                  disabled={passOpening}
+                  className="w-full py-3 bg-gradient-to-r from-[#B8913D] to-[#D4AC5B] text-white rounded-lg font-medium hover:shadow-lg transition-all flex items-center justify-center space-x-2 disabled:opacity-60"
                 >
-                  <Download className="w-4 h-4" />
-                  <span>Telecharger</span>
+                  <FileText className="w-4 h-4" />
+                  <span>{passOpening ? 'Ouverture…' : 'Voir mon pass'}</span>
                 </button>
-
-                <p className="text-xs text-gray-500 text-center mt-4">
-                  Presentez ce QR code a l'entree de l'evenement
+                {passError && <p className="text-xs text-red-400 text-center">{passError}</p>}
+                <p className="text-xs text-gray-500 text-center mt-2">
+                  Présente ce pass officiel (PDF) à l’entrée de l’événement.
                 </p>
-              </>
+              </div>
+            )}
+
+            {selectedTicket.check_in_status === 'not_checked_in' && selectedTicket.pass_status === 'pending' && (
+              <div className="text-center py-2">
+                <Clock className="w-12 h-12 text-[#D4AC5B] mx-auto mb-3" />
+                <p className="text-[#F0D38A] font-medium mb-1">Pass : En attente</p>
+                <p className="text-sm text-gray-400">
+                  Ton achat est confirmé. Ton pass sera disponible ici dès qu’il aura été ajouté.
+                </p>
+              </div>
             )}
 
             {selectedTicket.check_in_status === 'checked_in' && (

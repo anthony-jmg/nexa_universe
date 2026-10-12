@@ -56,6 +56,8 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
   const [quantity, setQuantity] = useState(1);
   const [ticketQuantities, setTicketQuantities] = useState<Record<string, number>>({});
   const [quickAddLockMode, setQuickAddLockMode] = useState(false);
+  const [balancePaymentMode, setBalancePaymentMode] = useState<'manual' | 'automatic' | null>(null);
+  const [autoBalanceConsent, setAutoBalanceConsent] = useState(false);
   const [quickAddError, setQuickAddError] = useState('');
   const [quickAddNotice, setQuickAddNotice] = useState('');
   const [eventLockExists, setEventLockExists] = useState(false);
@@ -414,6 +416,8 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
       setTicketQuantities({});
       setQuickAddError('');
       setQuickAddNotice('');
+      setBalancePaymentMode(null);
+      setAutoBalanceConsent(false);
       setEventLockExists(false);
       if (user) {
         supabase
@@ -445,10 +449,25 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
     if (ticketsToAdd.length === 0) return;
 
     const purchaseType = quickAddLockMode ? 'price_lock_deposit' : 'full_purchase';
+    // Le mode de règlement du solde est obligatoire pour un Price Lock, choisi ici,
+    // AVANT l'ajout au panier. Il n'est jamais demandé après.
+    if (quickAddLockMode && !balancePaymentMode) {
+      setQuickAddError('Choisis d’abord comment tu régleras le reste.');
+      return;
+    }
+    if (quickAddLockMode && balancePaymentMode === 'automatic' && !autoBalanceConsent) {
+      setQuickAddError('Coche la case de consentement pour le prélèvement automatique.');
+      return;
+    }
 
     try {
       for (const [ticketTypeId, qty] of ticketsToAdd) {
-        await addEventTicketToCart(ticketTypeId, quickAddLockMode ? 1 : qty, purchaseType);
+        await addEventTicketToCart(
+          ticketTypeId,
+          quickAddLockMode ? 1 : qty,
+          purchaseType,
+          quickAddLockMode ? { balancePaymentMode } : undefined
+        );
       }
     } catch (error: any) {
       setQuickAddError(error?.message || 'Impossible d’ajouter ce billet au panier.');
@@ -459,6 +478,8 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
     setSuccess(`${totalTickets} billet${totalTickets > 1 ? 's' : ''} ajouté${totalTickets > 1 ? 's' : ''} au panier`);
     setSelectedEvent(null);
     setTicketQuantities({});
+    setBalancePaymentMode(null);
+    setAutoBalanceConsent(false);
     setTimeout(() => setSuccess(''), 3000);
   };
 
@@ -1307,6 +1328,67 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
               })}
             </div>
 
+            {quickAddLockMode && Object.values(ticketQuantities).some(qty => qty > 0) && (
+              <div className="mb-4 sm:mb-6 p-3 sm:p-4 rounded-lg border border-[#D4AC5B]/40 bg-[#D4AC5B]/[0.05]">
+                <p className="text-sm font-semibold text-white">Comment veux-tu régler le reste ?</p>
+                <div className="mt-2.5 space-y-2">
+                  <button
+                    onClick={() => { setBalancePaymentMode('manual'); setQuickAddError(''); }}
+                    className={`w-full text-left p-3 rounded-lg border transition-all ${
+                      balancePaymentMode === 'manual'
+                        ? 'border-[#B8913D] bg-[#B8913D]/15'
+                        : 'border-gray-700 bg-gray-800/60 hover:border-[#B8913D]/50'
+                    }`}
+                  >
+                    <p className="text-sm font-medium text-white">Je paierai moi-même</p>
+                    <p className="text-[11px] text-gray-400 mt-0.5 leading-snug">
+                      Tu pourras régler le montant restant depuis Nexa avant le {(() => {
+                        const firstSelected = selectedEvent.event_ticket_types?.find(e => (ticketQuantities[e.id] || 0) > 0);
+                        const dl = firstSelected ? priceLockDeadline(firstSelected as any) : null;
+                        return dl ? dl.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }) : 'la date limite';
+                      })()}.
+                    </p>
+                  </button>
+                  <button
+                    onClick={() => { setBalancePaymentMode('automatic'); setQuickAddError(''); }}
+                    className={`w-full text-left p-3 rounded-lg border transition-all ${
+                      balancePaymentMode === 'automatic'
+                        ? 'border-[#B8913D] bg-[#B8913D]/15'
+                        : 'border-gray-700 bg-gray-800/60 hover:border-[#B8913D]/50'
+                    }`}
+                  >
+                    <p className="text-sm font-medium text-white">Prélèvement automatique</p>
+                    <p className="text-[11px] text-gray-400 mt-0.5 leading-snug">
+                      Le montant restant de {(() => {
+                        const firstSelected = selectedEvent.event_ticket_types?.find(e => (ticketQuantities[e.id] || 0) > 0);
+                        if (!firstSelected) return '…';
+                        const p = currentPrice(firstSelected as any);
+                        return Math.max(0, p - Number(firstSelected.price_lock_deposit_amount)).toFixed(0);
+                      })()} € sera débité automatiquement le {(() => {
+                        const firstSelected = selectedEvent.event_ticket_types?.find(e => (ticketQuantities[e.id] || 0) > 0);
+                        const dl = firstSelected ? priceLockDeadline(firstSelected as any) : null;
+                        return dl ? dl.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }) : 'la date limite';
+                      })()} si tu ne l’as pas réglé avant.
+                    </p>
+                  </button>
+                </div>
+                {balancePaymentMode === 'automatic' && (
+                  <label className="mt-3 flex items-start gap-2.5 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={autoBalanceConsent}
+                      onChange={(e) => setAutoBalanceConsent(e.target.checked)}
+                      className="mt-0.5 w-4 h-4 accent-[#B8913D]"
+                    />
+                    <span className="text-[11px] text-gray-300 leading-snug">
+                      J’autorise Nexa à débiter automatiquement le montant restant de mon pass à la date indiquée. Si je règle le solde avant cette date, aucun autre débit ne sera effectué.
+                    </span>
+                  </label>
+                )}
+                {quickAddError && <p className="mt-2.5 text-[11px] text-red-400">{quickAddError}</p>}
+              </div>
+            )}
+
             {Object.values(ticketQuantities).some(qty => qty > 0) && (
               <div className="mb-4 sm:mb-6 p-3 sm:p-4 bg-gradient-to-r from-[#B8913D]/20 to-[#A07F35]/20 rounded-lg border border-[#B8913D]">
                 <div className="flex justify-between items-center">
@@ -1346,7 +1428,7 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
               </button>
               <button
                 onClick={handleQuickAddEventTicket}
-                disabled={!Object.values(ticketQuantities).some(qty => qty > 0)}
+                disabled={!Object.values(ticketQuantities).some(qty => qty > 0) || (quickAddLockMode && (!balancePaymentMode || (balancePaymentMode === 'automatic' && !autoBalanceConsent)))}
                 className={`flex-1 py-2.5 sm:py-3 text-xs sm:text-base rounded-lg font-medium transition-all ${
                   Object.values(ticketQuantities).some(qty => qty > 0)
                     ? 'bg-gradient-to-r from-[#B8913D] to-[#A07F35] text-white hover:shadow-lg hover:shadow-[#B8913D]/50'

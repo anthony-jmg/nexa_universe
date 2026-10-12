@@ -25,6 +25,7 @@ interface OrderItem {
   purchase_type?: string;
   price_snapshot?: number;
   deposit_amount?: number;
+  balance_payment_mode?: string;
   attendees?: AttendeeInfo[];
 }
 
@@ -53,6 +54,7 @@ interface ValidatedItem {
   purchase_type: string;
   locked_price_snapshot?: number;
   deposit_amount?: number;
+  balance_payment_mode?: string;
   price_tier_id?: string;
 }
 
@@ -235,6 +237,10 @@ Deno.serve(async (req: Request) => {
         }
       } else if (item.event_ticket_type_id) {
         const purchaseType = item.purchase_type === 'price_lock_deposit' ? 'price_lock_deposit' : 'full_purchase';
+        // Mode de règlement du solde : manual par défaut, jamais déduit d'un autre champ.
+        const balancePaymentMode = purchaseType === 'price_lock_deposit'
+          ? (item.balance_payment_mode === 'automatic' ? 'automatic' : 'manual')
+          : null;
         const cartPriceSnapshot = item.price_snapshot != null ? Number(item.price_snapshot) : null;
         const cartDepositAmount = item.deposit_amount != null ? Number(item.deposit_amount) : null;
 
@@ -498,6 +504,7 @@ Deno.serve(async (req: Request) => {
           quantity: item.quantity,
           unit_price: unitPrice,
           purchase_type: purchaseType,
+          balance_payment_mode: balancePaymentMode ?? undefined,
           price_tier_id: (pricing as any)?.current_tier_id ?? undefined,
           ...(purchaseType === "price_lock_deposit"
             ? { locked_price_snapshot: lockedPriceSnapshot!, deposit_amount: depositAmount! }
@@ -578,6 +585,10 @@ Deno.serve(async (req: Request) => {
           : null,
       locked_price_snapshot: item.locked_price_snapshot ?? null,
       deposit_amount: item.deposit_amount ?? null,
+      details:
+        item.item_type === "event_ticket" && item.purchase_type === "price_lock_deposit"
+          ? { balance_payment_mode: item.balance_payment_mode || "manual" }
+          : null,
     }));
 
     const { error: itemsError } = await supabase
@@ -680,9 +691,9 @@ Deno.serve(async (req: Request) => {
           unit_price: item.unit_price,
           price_tier_id: item.price_tier_id ?? null,
           details: item.selected_size
-            ? { size: item.selected_size, purchase_type: item.purchase_type }
+            ? { size: item.selected_size, purchase_type: item.purchase_type, balance_payment_mode: item.balance_payment_mode }
             : item.event_ticket_type_id
-              ? { event_ticket: "true", purchase_type: item.purchase_type }
+              ? { event_ticket: "true", purchase_type: item.purchase_type, balance_payment_mode: item.balance_payment_mode }
               : { purchase_type: item.purchase_type },
         })),
       }),

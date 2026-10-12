@@ -252,7 +252,7 @@ async function handleCheckoutCompleted(
     if (orderId) {
       const { data: orderItems } = await supabase
         .from("order_items")
-        .select("id, product_id, quantity, item_type, event_ticket_type_id, purchase_type")
+        .select("id, product_id, quantity, item_type, event_ticket_type_id, purchase_type, details")
         .eq("order_id", orderId);
 
       const hasPhysicalProducts = orderItems?.some((item: any) => item.item_type === "product" && item.product_id);
@@ -308,9 +308,33 @@ async function handleCheckoutCompleted(
           orderPriceLockId = result.lockId;
         }
         if (result.lockId && item.id) {
+          // Le panier n'est pas la source de vérité : le mode validé dans les
+          // order_items devient la configuration définitive du lock.
+          const details = (item.details || {}) as Record<string, any>;
+          const balanceMode = details.balance_payment_mode === "automatic" ? "automatic" : "manual";
+          const lockPatch: Record<string, any> = {
+            balance_payment_mode: balanceMode,
+            order_item_id: item.id,
+          };
+          if (balanceMode === "automatic") {
+            const { data: createdLock } = await supabase
+              .from("price_locks")
+              .select("expires_at")
+              .eq("id", result.lockId)
+              .maybeSingle();
+            lockPatch.auto_balance_payment_at = createdLock?.expires_at ?? null;
+            lockPatch.auto_balance_consent_at = new Date().toISOString();
+            lockPatch.stripe_customer_id = session.customer as string;
+            const paymentIntent = paymentIntentId
+              ? await stripe.paymentIntents.retrieve(paymentIntentId)
+              : null;
+            if (paymentIntent?.payment_method) {
+              lockPatch.stripe_payment_method_id = paymentIntent.payment_method as string;
+            }
+          }
           await supabase
             .from("price_locks")
-            .update({ order_item_id: item.id })
+            .update(lockPatch)
             .eq("id", result.lockId)
             .is("order_item_id", null);
         }
@@ -417,6 +441,63 @@ async function handlePaymentSucceeded(
     .from("stripe_payments")
     .update({ status: "succeeded" })
     .eq("stripe_payment_intent_id", paymentIntent.id);
+
+  // Débit automatique du solde Price Lock : ce n'est PAS une session Checkout,
+  // le traitement passe donc exclusivement par cet événement. On réutilise
+  // record_price_lock_payment (idempotent) + complete_price_lock_attendees.
+  if (
+    paymentIntent.metadata?.payment_type === "price_lock_balance" &&
+    paymentIntent.metadata?.auto_debit === "true"
+  ) {
+    const lockId = paymentIntent.metadata.price_lock_id || paymentIntent.metadata.target_id;
+    if (!lockId) {
+      console.error("Auto debit succeeded but no lock id in metadata:", paymentIntent.id);
+      return;
+    }
+    const balanceAmount = (paymentIntent.amount_received || paymentIntent.amount) / 100;
+
+    const { data: completedLock, error: recordError } = await supabase.rpc(
+      "record_price_lock_payment",
+      {
+        p_lock_id: lockId,
+        p_amount: balanceAmount,
+        p_stripe_payment_intent_id: paymentIntent.id,
+      }
+    );
+    if (recordError) {
+      console.error(`Failed to record auto debit for lock ${lockId}:`, recordError.message);
+      return;
+    }
+
+    await supabase.rpc("complete_price_lock_attendees", { p_lock_id: lockId });
+
+    const { data: existingPayment } = await supabase
+      .from("stripe_payments")
+      .select("id")
+      .eq("stripe_payment_intent_id", paymentIntent.id)
+      .maybeSingle();
+    if (!existingPayment) {
+      await supabase.from("stripe_payments").insert({
+        user_id: completedLock?.user_id ?? paymentIntent.metadata.user_id,
+        stripe_payment_intent_id: paymentIntent.id,
+        stripe_customer_id: paymentIntent.customer as string,
+        amount: balanceAmount,
+        currency: paymentIntent.currency || "eur",
+        status: "succeeded",
+        payment_type: "price_lock_balance",
+        price_lock_id: lockId,
+        metadata: paymentIntent.metadata,
+      });
+    }
+
+    await supabase.rpc("finalize_price_lock_auto_debit", {
+      p_lock_id: lockId,
+      p_pi_id: paymentIntent.id,
+      p_succeeded: true,
+    });
+
+    console.log(`Auto debit recorded for lock ${lockId}: ${balanceAmount} €, status: ${completedLock?.status}`);
+  }
 }
 
 async function handlePaymentFailed(
@@ -427,6 +508,23 @@ async function handlePaymentFailed(
     .from("stripe_payments")
     .update({ status: "failed" })
     .eq("stripe_payment_intent_id", paymentIntent.id);
+
+  // Débit automatique refusé : on marque l'échec et on libère la réservation —
+  // le lock reste payable manuellement, aucune nouvelle tentative automatique
+  // n'est déclenchée (pas de retry sans règle explicite).
+  if (paymentIntent.metadata?.auto_debit === "true") {
+    const lockId = paymentIntent.metadata.price_lock_id || paymentIntent.metadata.target_id;
+    if (lockId) {
+      await supabase.rpc("finalize_price_lock_auto_debit", {
+        p_lock_id: lockId,
+        p_pi_id: paymentIntent.id,
+        p_succeeded: false,
+        p_failure_reason:
+          paymentIntent.last_payment_error?.message || "Paiement refusé par Stripe",
+      });
+      console.log(`Auto debit failed for lock ${lockId}, released for manual payment`);
+    }
+  }
 
   const { data: order } = await supabase
     .from("orders")
