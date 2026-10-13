@@ -34,7 +34,7 @@ const STEPS: { id: Step; label: string; icon: React.ReactNode }[] = [
 
 export function Cart({ onNavigate }: CartProps) {
   const { user, profile } = useAuth();
-  const { cart, eventTickets, updateQuantity, updateEventTicketQuantity, updateEventTicketPricing, removeFromCart, removeEventTicketFromCart, clearCart } = useCart();
+  const { cart, eventTickets, updateQuantity, updateEventTicketQuantity, updateEventTicketPricing, updateEventTicketBalanceMode, removeFromCart, removeEventTicketFromCart, clearCart } = useCart();
   const { t } = useLanguage();
 
   const [step, setStep] = useState<Step>('cart');
