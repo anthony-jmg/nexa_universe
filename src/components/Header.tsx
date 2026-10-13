@@ -49,7 +49,7 @@ export function Header({ onNavigate, currentPage }: HeaderProps) {
                 <button
                   onClick={() => onNavigate('academy')}
                   className={`px-3 py-1.5 lg:px-3 lg:py-1.5 text-xs lg:text-sm font-medium rounded-lg transition-all ${
-                    currentPage === 'academy'
+                    currentPage === 'academy' || currentPage === 'academy-classic'
                       ? 'bg-gold-500/20 text-gold-400'
                       : 'text-gray-300 hover:text-white hover:bg-white/5'
                   }`}
@@ -199,7 +199,7 @@ export function Header({ onNavigate, currentPage }: HeaderProps) {
                 <button
                   onClick={() => onNavigate('academy')}
                   className={`px-3 py-1.5 lg:px-3 lg:py-1.5 text-xs lg:text-sm font-medium rounded-lg transition-all ${
-                    currentPage === 'academy'
+                    currentPage === 'academy' || currentPage === 'academy-classic'
                       ? 'bg-gold-500/20 text-gold-400'
                       : 'text-gray-300 hover:text-white hover:bg-white/5'
                   }`}

@@ -68,6 +68,7 @@ export interface Database {
           subscription_price: number
           subscriber_discount_percentage: number
           badge_type: 'founder' | 'featured' | null
+          website_url: string | null
           created_at: string
         }
         Insert: {
@@ -81,6 +82,7 @@ export interface Database {
           subscription_price?: number
           subscriber_discount_percentage?: number
           badge_type?: 'founder' | 'featured' | null
+          website_url?: string | null
           created_at?: string
         }
         Update: {
@@ -94,6 +96,7 @@ export interface Database {
           subscription_price?: number
           subscriber_discount_percentage?: number
           badge_type?: 'founder' | 'featured' | null
+          website_url?: string | null
           created_at?: string
         }
       }
@@ -114,6 +117,7 @@ export interface Database {
           price: number
           visibility: 'public' | 'platform' | 'paid' | 'private' | 'subscribers_only'
           cloudflare_video_id: string | null
+          external_url: string | null
           created_at: string
           updated_at: string
         }
@@ -133,6 +137,7 @@ export interface Database {
           price?: number
           visibility?: 'public' | 'platform' | 'paid' | 'private' | 'subscribers_only'
           cloudflare_video_id?: string | null
+          external_url?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -152,6 +157,7 @@ export interface Database {
           price?: number
           visibility?: 'public' | 'platform' | 'paid' | 'private' | 'subscribers_only'
           cloudflare_video_id?: string | null
+          external_url?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -169,6 +175,7 @@ export interface Database {
           is_active: boolean
           order_index: number
           visibility: 'public' | 'platform' | 'paid' | 'private' | 'subscribers_only'
+          external_url: string | null
           created_at: string
           updated_at: string
         }
@@ -184,6 +191,7 @@ export interface Database {
           is_active?: boolean
           order_index?: number
           visibility?: 'public' | 'platform' | 'paid' | 'private' | 'subscribers_only'
+          external_url?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -199,6 +207,7 @@ export interface Database {
           is_active?: boolean
           order_index?: number
           visibility?: 'public' | 'platform' | 'paid' | 'private' | 'subscribers_only'
+          external_url?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -1161,6 +1170,35 @@ export interface Database {
           count?: number
           window_start?: string
           expires_at?: string
+          created_at?: string
+        }
+      }
+      academy_click_tracking: {
+        Row: {
+          id: string
+          professor_id: string
+          content_type: 'program' | 'video'
+          content_id: string
+          destination_url: string
+          user_id: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          professor_id: string
+          content_type: 'program' | 'video'
+          content_id: string
+          destination_url: string
+          user_id?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          professor_id?: string
+          content_type?: 'program' | 'video'
+          content_id?: string
+          destination_url?: string
+          user_id?: string | null
           created_at?: string
         }
       }

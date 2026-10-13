@@ -11,6 +11,7 @@ interface ProgramFormData {
   price: number;
   thumbnail_url: string;
   visibility: 'public' | 'private' | 'subscribers_only' | 'paid';
+  external_url?: string | null;
 }
 
 interface ProgramEditFormProps {
@@ -27,6 +28,7 @@ export function ProgramEditForm({ program, onSave, onCancel }: ProgramEditFormPr
     price: program.price || 0,
     thumbnail_url: program.thumbnail_url || '',
     visibility: program.visibility as any,
+    external_url: program.external_url || '',
   });
   const [saving, setSaving] = useState(false);
 
@@ -115,6 +117,22 @@ export function ProgramEditForm({ program, onSave, onCancel }: ProgramEditFormPr
               />
             </div>
           )}
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-300 mb-2">
+            URL externe spécifique
+          </label>
+          <input
+            type="url"
+            value={formData.external_url || ''}
+            onChange={(e) => setFormData({ ...formData, external_url: e.target.value || null })}
+            className="w-full px-4 py-2.5 bg-gray-800/50 border border-gray-600 rounded-lg focus:ring-2 focus:ring-[#B8913D] focus:border-[#B8913D] outline-none transition-all text-white placeholder-gray-500"
+            placeholder="https://page-de-cette-formation.com"
+          />
+          <p className="mt-1.5 text-xs text-gray-400">
+            Si ce champ est vide, le site principal du professeur sera utilisé.
+          </p>
         </div>
 
         <div>

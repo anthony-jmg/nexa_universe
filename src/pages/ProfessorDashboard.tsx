@@ -10,7 +10,7 @@ import ProfessorPaymentHistory from '../components/ProfessorPaymentHistory';
 import { StripeConnectCard } from '../components/StripeConnectCard';
 import LazyImage from '../components/LazyImage';
 import { Database } from '../lib/database.types';
-import { Video, Folder, Plus, CreditCard as Edit2, Trash2, X, Check, AlertCircle, Eye, EyeOff, Lock, Settings, Percent, ChevronUp, ChevronDown, List, BarChart3, Users, Play, DollarSign, TrendingUp, GraduationCap, ArrowRight, RefreshCw } from 'lucide-react';
+import { Video, Folder, Plus, CreditCard as Edit2, Trash2, X, Check, AlertCircle, Eye, EyeOff, Lock, Settings, Percent, ChevronUp, ChevronDown, List, BarChart3, Users, Play, DollarSign, TrendingUp, GraduationCap, ArrowRight, RefreshCw, ExternalLink } from 'lucide-react';
 
 type Video = Database['public']['Tables']['videos']['Row'];
 type Program = Database['public']['Tables']['programs']['Row'];
@@ -78,6 +78,8 @@ export function ProfessorDashboard({ onNavigate }: ProfessorDashboardProps) {
   const [programVideos, setProgramVideos] = useState<Video[]>([]);
   const [subscriberDiscount, setSubscriberDiscount] = useState(0);
   const [subscriptionPrice, setSubscriptionPrice] = useState(0);
+  const [websiteUrl, setWebsiteUrl] = useState('');
+  const [savingWebsiteUrl, setSavingWebsiteUrl] = useState(false);
   const [savingDiscount, setSavingDiscount] = useState(false);
   const [savingPrice, setSavingPrice] = useState(false);
   const [error, setError] = useState('');
@@ -187,7 +189,7 @@ export function ProfessorDashboard({ onNavigate }: ProfessorDashboardProps) {
 
     const { data, error } = await supabase
       .from('professors')
-      .select('subscriber_discount_percentage, subscription_price')
+      .select('subscriber_discount_percentage, subscription_price, website_url')
       .eq('id', user.id)
       .maybeSingle();
 
@@ -204,6 +206,7 @@ export function ProfessorDashboard({ onNavigate }: ProfessorDashboardProps) {
 
     setSubscriberDiscount(data.subscriber_discount_percentage || 0);
     setSubscriptionPrice(Number(data.subscription_price) || 0);
+    setWebsiteUrl(data.website_url || '');
   };
 
   const loadStatistics = async () => {
@@ -590,6 +593,46 @@ export function ProfessorDashboard({ onNavigate }: ProfessorDashboardProps) {
       setError(err.message);
     } finally {
       setSavingPrice(false);
+    }
+  };
+
+  const handleUpdateWebsiteUrl = async () => {
+    if (!user?.id) {
+      setError('Utilisateur non connecté');
+      return;
+    }
+
+    const trimmed = websiteUrl.trim();
+    if (trimmed) {
+      try {
+        const parsed = new URL(trimmed);
+        if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+          setError('L\'URL doit commencer par http:// ou https://');
+          return;
+        }
+      } catch {
+        setError('URL invalide. Exemple : https://mon-site.com');
+        return;
+      }
+    }
+
+    setSavingWebsiteUrl(true);
+    setError('');
+    setSuccess('');
+
+    try {
+      const { error } = await supabase
+        .from('professors')
+        .update({ website_url: trimmed || null })
+        .eq('id', user.id);
+
+      if (error) throw error;
+      setSuccess('Site externe mis à jour avec succès');
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setSavingWebsiteUrl(false);
     }
   };
 
@@ -1308,6 +1351,53 @@ export function ProfessorDashboard({ onNavigate }: ProfessorDashboardProps) {
                     </span>
                   ) : (
                     'Enregistrer la réduction'
+                  )}
+                </button>
+              </div>
+            </div>
+
+            <div className="bg-gray-800/80 backdrop-blur-sm rounded-2xl shadow-lg p-8 border border-gray-700/50">
+              <div className="flex items-center space-x-3 mb-6">
+                <div className="w-12 h-12 bg-gradient-to-br from-[#B8913D] to-[#A07F35] rounded-xl flex items-center justify-center">
+                  <ExternalLink className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <h2 className="text-2xl font-light text-white">Site / plateforme externe</h2>
+                  <p className="text-sm text-gray-400">
+                    Lien vers ton site ou ta plateforme de formation. Renseigné, ton profil devient visible sur la nouvelle page publique Academy avec un bouton vers ton univers.
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    URL de ton site (optionnel)
+                  </label>
+                  <input
+                    type="url"
+                    value={websiteUrl}
+                    onChange={(e) => setWebsiteUrl(e.target.value)}
+                    className="w-full px-4 py-3 bg-gray-900/50 border-2 border-gray-600 rounded-xl focus:ring-2 focus:ring-[#B8913D] focus:border-[#B8913D] outline-none transition-all text-white placeholder-gray-500"
+                    placeholder="https://mon-site.com"
+                  />
+                  <p className="mt-2 text-xs text-gray-400">
+                    Doit commencer par https:// (ou http://). Si vide, ton profil n'apparaîtra pas sur la page Academy publique.
+                  </p>
+                </div>
+
+                <button
+                  onClick={handleUpdateWebsiteUrl}
+                  disabled={savingWebsiteUrl}
+                  className="w-full px-6 py-3 bg-gradient-to-r from-[#B8913D] to-[#A07F35] text-white rounded-full hover:shadow-xl transition-all hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+                >
+                  {savingWebsiteUrl ? (
+                    <span className="flex items-center justify-center space-x-2">
+                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      <span>Enregistrement...</span>
+                    </span>
+                  ) : (
+                    'Enregistrer le site externe'
                   )}
                 </button>
               </div>

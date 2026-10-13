@@ -16,6 +16,7 @@ const SignUp = lazy(() => import('./pages/SignUp').then(m => ({ default: m.SignU
 const ForgotPassword = lazy(() => import('./pages/ForgotPassword').then(m => ({ default: m.ForgotPassword })));
 const ResetPassword = lazy(() => import('./pages/ResetPassword').then(m => ({ default: m.ResetPassword })));
 const Academy = lazy(() => import('./pages/Academy').then(m => ({ default: m.Academy })));
+const AcademyDiscovery = lazy(() => import('./pages/AcademyDiscovery'));
 const VideoPlayer = lazy(() => import('./pages/VideoPlayer').then(m => ({ default: m.VideoPlayer })));
 const Professors = lazy(() => import('./pages/Professors').then(m => ({ default: m.Professors })));
 const ProfessorDetail = lazy(() => import('./pages/ProfessorDetail').then(m => ({ default: m.ProfessorDetail })));
@@ -295,6 +296,8 @@ function AppContent() {
       case 'reset-password':
         return <ResetPassword onNavigate={handleNavigate} />;
       case 'academy':
+        return <AcademyDiscovery onNavigate={handleNavigate} />;
+      case 'academy-classic':
         return <Academy onNavigate={handleNavigate} />;
       case 'video':
         return <VideoPlayer videoId={currentVideoId} onNavigate={handleNavigate} onBack={handleBack} />;
