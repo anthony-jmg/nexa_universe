@@ -69,6 +69,7 @@ export interface Database {
           subscriber_discount_percentage: number
           badge_type: 'founder' | 'featured' | null
           website_url: string | null
+          website_cover_image: string | null
           created_at: string
         }
         Insert: {
@@ -83,6 +84,7 @@ export interface Database {
           subscriber_discount_percentage?: number
           badge_type?: 'founder' | 'featured' | null
           website_url?: string | null
+          website_cover_image?: string | null
           created_at?: string
         }
         Update: {
@@ -97,6 +99,7 @@ export interface Database {
           subscriber_discount_percentage?: number
           badge_type?: 'founder' | 'featured' | null
           website_url?: string | null
+          website_cover_image?: string | null
           created_at?: string
         }
       }

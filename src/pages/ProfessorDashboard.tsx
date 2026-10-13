@@ -79,6 +79,7 @@ export function ProfessorDashboard({ onNavigate }: ProfessorDashboardProps) {
   const [subscriberDiscount, setSubscriberDiscount] = useState(0);
   const [subscriptionPrice, setSubscriptionPrice] = useState(0);
   const [websiteUrl, setWebsiteUrl] = useState('');
+  const [websiteCoverImage, setWebsiteCoverImage] = useState('');
   const [savingWebsiteUrl, setSavingWebsiteUrl] = useState(false);
   const [savingDiscount, setSavingDiscount] = useState(false);
   const [savingPrice, setSavingPrice] = useState(false);
@@ -189,7 +190,7 @@ export function ProfessorDashboard({ onNavigate }: ProfessorDashboardProps) {
 
     const { data, error } = await supabase
       .from('professors')
-      .select('subscriber_discount_percentage, subscription_price, website_url')
+      .select('subscriber_discount_percentage, subscription_price, website_url, website_cover_image')
       .eq('id', user.id)
       .maybeSingle();
 
@@ -207,6 +208,7 @@ export function ProfessorDashboard({ onNavigate }: ProfessorDashboardProps) {
     setSubscriberDiscount(data.subscriber_discount_percentage || 0);
     setSubscriptionPrice(Number(data.subscription_price) || 0);
     setWebsiteUrl(data.website_url || '');
+    setWebsiteCoverImage(data.website_cover_image || '');
   };
 
   const loadStatistics = async () => {
@@ -623,7 +625,10 @@ export function ProfessorDashboard({ onNavigate }: ProfessorDashboardProps) {
     try {
       const { error } = await supabase
         .from('professors')
-        .update({ website_url: trimmed || null })
+        .update({
+          website_url: trimmed || null,
+          website_cover_image: websiteCoverImage.trim() || null,
+        })
         .eq('id', user.id);
 
       if (error) throw error;
@@ -1383,6 +1388,21 @@ export function ProfessorDashboard({ onNavigate }: ProfessorDashboardProps) {
                   />
                   <p className="mt-2 text-xs text-gray-400">
                     Doit commencer par https:// (ou http://). Si vide, ton profil n'apparaîtra pas sur la page Academy publique.
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    Image de couverture de ton site (optionnel)
+                  </label>
+                  <ImageUpload
+                    currentImageUrl={websiteCoverImage}
+                    onImageUrlChange={(url) => setWebsiteCoverImage(url)}
+                    label="Website Cover Image"
+                    aspectRatio="video"
+                  />
+                  <p className="mt-2 text-xs text-gray-400">
+                    Affichée en haut de ta carte sur la page Academy publique. Si vide, une image par défaut élégante sera affichée.
                   </p>
                 </div>
 

@@ -1,47 +1,85 @@
 import { useEffect, useRef, useState } from 'react';
 import {
   ArrowRight,
-  Clock,
   ExternalLink,
   GraduationCap,
-  Loader2,
-  Play,
+  User,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import { useAuth } from '../contexts/AuthContext';
 import { getAvatarUrl } from '../components/AvatarUpload';
 import { BackgroundDecor } from '../components/BackgroundDecor';
 import { Header } from '../components/Header';
 
-type Level = 'beginner' | 'intermediate' | 'advanced' | 'all_levels';
-
 interface ProfessorInfo {
   id: string;
-  website_url: string | null;
+  website_url: string;
+  website_cover_image: string | null;
   fullName: string;
   avatarUrl: string | null;
   specialties: string[];
+  isMock?: boolean;
 }
 
-interface DiscoveryItem {
-  contentType: 'program' | 'video';
-  id: string;
-  title: string;
-  description: string;
-  level: Level;
-  price: number;
-  thumbnailUrl: string | null;
-  externalUrl: string | null;
-  destinationUrl: string;
-  professor: ProfessorInfo;
-}
+// Données de démonstration pour prévisualiser la page. Passer à false pour n'afficher
+// que les vrais professeurs.
+const SHOW_MOCK_PROFESSORS = true;
 
-const LEVEL_LABELS: Record<Level, string> = {
-  beginner: 'Débutant',
-  intermediate: 'Intermédiaire',
-  advanced: 'Avancé',
-  all_levels: 'Tous niveaux',
-};
+const MOCK_PROFESSORS: ProfessorInfo[] = [
+  {
+    id: 'mock-1',
+    website_url: 'https://example.com/carlos-mendez',
+    website_cover_image: '/Cours_de_danse_latin_en_studio_chaleureux.png',
+    fullName: 'Carlos Mendez',
+    avatarUrl: null,
+    specialties: ['Salsa Cubaine', 'Bachata'],
+    isMock: true,
+  },
+  {
+    id: 'mock-2',
+    website_url: 'https://example.com/sofia-alvarez',
+    website_cover_image: '/nexa_academy.webp',
+    fullName: 'Sofia Alvarez',
+    avatarUrl: null,
+    specialties: ['Bachata Sensual', 'Kizomba'],
+    isMock: true,
+  },
+  {
+    id: 'mock-3',
+    website_url: 'https://example.com/david-okoye',
+    website_cover_image: '/nexa_pass_festival.webp',
+    fullName: 'David Okoye',
+    avatarUrl: null,
+    specialties: ['Kizomba', 'Semba', 'Tarraxinha'],
+    isMock: true,
+  },
+  {
+    id: 'mock-4',
+    website_url: 'https://example.com/lena-moreau',
+    website_cover_image: '/nexa_trip.webp',
+    fullName: 'Léna Moreau',
+    avatarUrl: null,
+    specialties: ['Salsa LA', 'Lady Styling'],
+    isMock: true,
+  },
+  {
+    id: 'mock-5',
+    website_url: 'https://example.com/marco-silva',
+    website_cover_image: null,
+    fullName: 'Marco Silva',
+    avatarUrl: null,
+    specialties: ['Zouk', 'Bachata'],
+    isMock: true,
+  },
+  {
+    id: 'mock-6',
+    website_url: 'https://example.com/nadia-benali',
+    website_cover_image: null,
+    fullName: 'Nadia Benali',
+    avatarUrl: null,
+    specialties: ['Kizomba Fusion', 'Danse Afro'],
+    isMock: true,
+  },
+];
 
 function isValidHttpUrl(value: string): boolean {
   try {
@@ -57,145 +95,56 @@ export default function AcademyDiscovery({
 }: {
   onNavigate: (page: string) => void;
 }) {
-  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
-  const [items, setItems] = useState<DiscoveryItem[]>([]);
+  const [professors, setProfessors] = useState<ProfessorInfo[]>([]);
   const listRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    loadDiscoveryContent();
+    loadEligibleProfessors();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  async function loadDiscoveryContent() {
-    const { data: professorsData, error: profError } = await supabase
+  async function loadEligibleProfessors() {
+    const { data, error } = await supabase
       .from('professors')
       .select(
-        'id, website_url, specialties, profiles!inner(full_name, avatar_url)'
+        'id, website_url, website_cover_image, specialties, profiles!inner(full_name, avatar_url)'
       );
 
-    if (profError) {
-      console.error('Error loading professors:', profError);
+    if (error) {
+      console.error('Error loading professors:', error);
       setLoading(false);
       return;
     }
 
-    const eligibleProfessors = (professorsData ?? []).filter(
-      (p: any) => p.website_url && isValidHttpUrl(p.website_url)
-    );
-
-    if (eligibleProfessors.length === 0) {
-      setItems([]);
-      setLoading(false);
-      return;
-    }
-
-    const eligibleIds = eligibleProfessors.map((p: any) => p.id);
-
-    const { data: programsData, error: progError } = await supabase
-      .from('programs')
-      .select('id, title, description, level, price, thumbnail_url, external_url, professor_id')
-      .eq('is_active', true)
-      .in('professor_id', eligibleIds);
-
-    const { data: videosData, error: vidError } = await supabase
-      .from('videos')
-      .select('id, title, description, level, price, thumbnail_url, external_url, professor_id')
-      .is('program_id', null)
-      .in('professor_id', eligibleIds);
-
-    if (progError) console.error('Error loading programs:', progError);
-    if (vidError) console.error('Error loading videos:', vidError);
-
-    const profMap = new Map<string, ProfessorInfo>();
-    for (const p of eligibleProfessors) {
-      profMap.set(p.id, {
+    const eligible = (data ?? [])
+      .filter((p: any) => p.website_url && isValidHttpUrl(p.website_url))
+      .map((p: any) => ({
         id: p.id,
         website_url: p.website_url,
+        website_cover_image: p.website_cover_image || null,
         fullName: p.profiles?.full_name ?? 'Professeur',
         avatarUrl: p.profiles?.avatar_url ?? null,
         specialties: p.specialties ?? [],
-      });
-    }
+      }))
+      .sort((a: ProfessorInfo, b: ProfessorInfo) =>
+        a.fullName.localeCompare(b.fullName)
+      );
 
-    const allItems: DiscoveryItem[] = [];
-
-    for (const prog of programsData ?? []) {
-      const prof = profMap.get(prog.professor_id);
-      if (!prof) continue;
-      const external =
-        prog.external_url && isValidHttpUrl(prog.external_url)
-          ? prog.external_url
-          : null;
-      allItems.push({
-        contentType: 'program',
-        id: prog.id,
-        title: prog.title,
-        description: prog.description ?? '',
-        level: prog.level,
-        price: prog.price,
-        thumbnailUrl: prog.thumbnail_url,
-        externalUrl: external,
-        destinationUrl: external ?? prof.website_url!,
-        professor: prof,
-      });
-    }
-
-    for (const vid of videosData ?? []) {
-      const prof = vid.professor_id ? profMap.get(vid.professor_id) : null;
-      if (!prof) continue;
-      const external =
-        vid.external_url && isValidHttpUrl(vid.external_url)
-          ? vid.external_url
-          : null;
-      allItems.push({
-        contentType: 'video',
-        id: vid.id,
-        title: vid.title,
-        description: vid.description ?? '',
-        level: vid.level,
-        price: vid.price,
-        thumbnailUrl: vid.thumbnail_url,
-        externalUrl: external,
-        destinationUrl: external ?? prof.website_url!,
-        professor: prof,
-      });
-    }
-
-    allItems.sort((a, b) => a.professor.fullName.localeCompare(b.professor.fullName));
-
-    setItems(allItems);
+    setProfessors(eligible);
     setLoading(false);
   }
 
-  async function trackClick(item: DiscoveryItem) {
-    try {
-      await supabase.from('academy_click_tracking').insert({
-        professor_id: item.professor.id,
-        content_type: item.contentType,
-        content_id: item.id,
-        destination_url: item.destinationUrl,
-        user_id: user?.id ?? null,
-      });
-    } catch (err) {
-      console.error('Error tracking click:', err);
-    }
-  }
+  const displayProfessors = SHOW_MOCK_PROFESSORS
+    ? [...professors, ...MOCK_PROFESSORS]
+    : professors;
 
-  async function handleSeeFormation(item: DiscoveryItem) {
-    await trackClick(item);
-    window.open(item.destinationUrl, '_blank', 'noopener,noreferrer');
-  }
-
-  function scrollToFormations() {
+  function scrollToProfessors() {
     listRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
-  const professorsWithItems = new Map<string, DiscoveryItem[]>();
-  for (const item of items) {
-    const list = professorsWithItems.get(item.professor.id) ?? [];
-    list.push(item);
-    professorsWithItems.set(item.professor.id, list);
+  function visitWebsite(professor: ProfessorInfo) {
+    window.open(professor.website_url, '_blank', 'noopener,noreferrer');
   }
 
   return (
@@ -238,7 +187,7 @@ export default function AcademyDiscovery({
 
               <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 animate-hero-rise delay-400">
                 <button
-                  onClick={scrollToFormations}
+                  onClick={scrollToProfessors}
                   className="group relative inline-flex items-center justify-center px-7 py-4 sm:px-8 sm:py-4 bg-gradient-to-r from-[#B8913D] to-[#D4AC5B] text-white text-sm sm:text-base font-semibold rounded-xl hover:shadow-glow-lg transition-all hover:scale-[1.03] shadow-[0_8px_30px_rgba(184,145,61,0.25)] overflow-hidden"
                 >
                   <div className="absolute inset-0 bg-gradient-to-r from-[#D4AC5B] to-[#B8913D] opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -253,128 +202,125 @@ export default function AcademyDiscovery({
           <div className="absolute bottom-0 left-0 right-0 h-20 bg-gradient-to-t from-gray-950 to-transparent z-20 pointer-events-none" />
         </section>
 
-        <div ref={listRef} className="relative scroll-mt-24 px-4 pb-24">
-          <div className="mx-auto max-w-6xl">
+        <div ref={listRef} className="relative scroll-mt-24 px-4 sm:px-6 lg:px-8 pb-20">
+          <div className="max-w-7xl mx-auto">
             {loading ? (
-              <div className="flex flex-col items-center justify-center py-24 gap-4">
-                <Loader2 className="h-8 w-8 animate-spin text-[#D4AC5B]" />
-                <p className="text-sm text-gray-400">Chargement des formations…</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                {[0, 1, 2, 3, 4, 5].map((i) => (
+                  <div
+                    key={i}
+                    className="overflow-hidden rounded-[20px] border border-white/[0.08] bg-[#0c1424]/95 animate-pulse"
+                  >
+                    <div className="aspect-[16/10] bg-white/[0.04]" />
+                    <div className="p-6 space-y-3">
+                      <div className="h-5 w-2/3 rounded bg-white/[0.06]" />
+                      <div className="h-3 w-1/3 rounded bg-white/[0.05]" />
+                      <div className="flex gap-3 pt-3">
+                        <div className="h-10 flex-1 rounded-xl bg-white/[0.05]" />
+                        <div className="h-10 flex-1 rounded-xl bg-white/[0.04]" />
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
-            ) : professorsWithItems.size === 0 ? (
-              <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-6 py-20 text-center">
-                <GraduationCap className="mx-auto mb-4 h-10 w-10 text-[#B8913D]/60" />
-                <p className="text-base text-gray-300">Les prochaines formations arrivent bientôt.</p>
+            ) : displayProfessors.length === 0 ? (
+              <div className="rounded-[20px] border border-white/[0.08] bg-[#0c1424]/95 px-6 py-16 text-center">
+                <GraduationCap className="w-10 h-10 text-gold-500/40 mx-auto mb-4" />
+                <p className="text-sm sm:text-base text-gray-300 font-medium">
+                  Les formations partenaires arrivent bientôt.
+                </p>
+                <p className="text-xs text-gray-500 mt-1.5">
+                  Reviens prochainement pour découvrir les premiers professeurs partenaires.
+                </p>
               </div>
             ) : (
-              <div className="space-y-16">
-                {[...professorsWithItems.entries()].map(([profId, profItems]) => {
-                  const prof = profItems[0].professor;
-                  return (
-                    <div key={profId}>
-                      <div className="mb-6 flex flex-col items-center gap-4 sm:flex-row">
-                        <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-[#B8913D] to-[#D4AC5B] ring-2 ring-[#B8913D]/40">
-                          {getAvatarUrl(prof.avatarUrl) ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                {displayProfessors.map((professor) => (
+                  <article
+                    key={professor.id}
+                    className="group flex flex-col overflow-hidden rounded-[20px] border border-white/[0.09] bg-[#0c1424] transition-all duration-500 hover:-translate-y-1 hover:border-[#D4AC5B]/50 hover:shadow-[0_22px_55px_rgba(0,0,0,0.28),0_0_26px_rgba(184,145,61,0.08)]"
+                  >
+                    <div className="relative aspect-[16/10] overflow-hidden bg-[#07101e]">
+                      {professor.website_cover_image ? (
+                        <img
+                          src={professor.website_cover_image}
+                          alt={professor.fullName}
+                          className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-[1.04]"
+                        />
+                      ) : (
+                        <div className="relative flex h-full w-full items-center justify-center bg-gradient-to-br from-[#0c1424] via-[#07101e] to-gray-950">
+                          <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-gold-500/30 to-transparent" />
+                          <GraduationCap className="w-12 h-12 text-gold-500/30" />
+                        </div>
+                      )}
+                      {professor.isMock && (
+                        <span className="absolute right-3 top-3 rounded-full bg-gray-950/80 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-gold-400 backdrop-blur-sm border border-gold-500/30">
+                          Démo
+                        </span>
+                      )}
+                      <div className="absolute inset-0 bg-gradient-to-t from-[#0c1424]/80 via-transparent to-transparent pointer-events-none" />
+                    </div>
+
+                    <div className="flex flex-1 flex-col p-6">
+                      <div className="flex items-center gap-4">
+                        <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-[#B8913D] to-[#D4AC5B] ring-2 ring-gold-500/40">
+                          {getAvatarUrl(professor.avatarUrl) ? (
                             <img
-                              src={getAvatarUrl(prof.avatarUrl)!}
-                              alt={prof.fullName}
+                              src={getAvatarUrl(professor.avatarUrl)!}
+                              alt={professor.fullName}
                               className="h-full w-full object-cover"
                             />
                           ) : (
-                            <span className="text-xl font-bold text-gray-950">
-                              {prof.fullName.charAt(0).toUpperCase()}
+                            <span className="text-base font-bold text-gray-950">
+                              {professor.fullName.charAt(0).toUpperCase()}
                             </span>
                           )}
                         </div>
-                        <div className="text-center sm:text-left">
-                          <h2 className="text-xl font-bold text-white sm:text-2xl">{prof.fullName}</h2>
-                          {prof.specialties.length > 0 && (
-                            <div className="mt-2 flex flex-wrap justify-center gap-2 sm:justify-start">
-                              {prof.specialties.slice(0, 4).map((s) => (
-                                <span
-                                  key={s}
-                                  className="rounded-full border border-[#B8913D]/30 bg-[#B8913D]/10 px-3 py-1 text-xs font-medium text-[#D4AC5B]"
-                                >
-                                  {s}
-                                </span>
-                              ))}
-                            </div>
+                        <div className="min-w-0">
+                          <h2 className="text-lg font-bold text-white truncate leading-tight">
+                            {professor.fullName}
+                          </h2>
+                          {professor.specialties.length > 0 && (
+                            <p className="mt-0.5 text-xs text-gold-400/90 truncate">
+                              {professor.specialties.slice(0, 2).join(' · ')}
+                            </p>
                           )}
                         </div>
                       </div>
 
-                      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-                        {profItems.map((item) => (
-                          <article
-                            key={`${item.contentType}-${item.id}`}
-                            className="group flex flex-col overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03] transition-all duration-200 hover:-translate-y-1 hover:border-[#B8913D]/40 hover:shadow-xl hover:shadow-black/40"
-                          >
-                            <div className="relative aspect-video overflow-hidden bg-gray-900">
-                              {item.thumbnailUrl ? (
-                                <img
-                                  src={item.thumbnailUrl}
-                                  alt={item.title}
-                                  className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-                                />
-                              ) : (
-                                <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-gray-900 to-gray-950">
-                                  <Play className="h-10 w-10 text-[#B8913D]/50" />
-                                </div>
-                              )}
-                              <span className="absolute left-3 top-3 rounded-full bg-gray-950/80 px-3 py-1 text-xs font-medium text-[#D4AC5B] backdrop-blur-sm">
-                                {LEVEL_LABELS[item.level] ?? item.level}
-                              </span>
-                            </div>
-
-                            <div className="flex flex-1 flex-col p-5">
-                              <h3 className="text-base font-semibold text-white" style={{ lineHeight: '120%' }}>
-                                {item.title}
-                              </h3>
-                              <p className="mt-1 text-sm text-[#D4AC5B]">
-                                Par {item.professor.fullName}
-                              </p>
-                              {item.description && (
-                                <p className="mt-3 text-sm text-gray-400 line-clamp-3" style={{ lineHeight: '150%' }}>
-                                  {item.description}
-                                </p>
-                              )}
-                              <div className="mt-4 flex items-center gap-2 text-xs text-gray-500">
-                                <Clock className="h-3.5 w-3.5" />
-                                <span>
-                                  {item.contentType === 'program' ? 'Formation complète' : 'Cours à la carte'}
-                                </span>
-                              </div>
-
-                              <div className="mt-5 flex flex-1 items-end justify-between gap-3">
-                                <div>
-                                  {item.price > 0 && (
-                                    <span className="text-lg font-bold text-[#D4AC5B]">
-                                      {(item.price / 100).toFixed(2)} €
-                                    </span>
-                                  )}
-                                </div>
-                                <button
-                                  onClick={() => handleSeeFormation(item)}
-                                  className="inline-flex items-center gap-1.5 rounded-full bg-white/[0.06] px-4 py-2 text-sm font-medium text-white ring-1 ring-white/10 transition-all duration-200 hover:bg-gradient-to-r hover:from-[#B8913D] hover:to-[#D4AC5B] hover:text-gray-950 hover:ring-[#B8913D] active:scale-95"
-                                >
-                                  Voir la formation
-                                  <ExternalLink className="h-3.5 w-3.5" />
-                                </button>
-                              </div>
-                            </div>
-                          </article>
-                        ))}
+                      <div className="mt-6 flex flex-1 items-end gap-3">
+                        <button
+                          onClick={() =>
+                            onNavigate(
+                              professor.isMock
+                                ? 'professors'
+                                : `professor-${professor.id}`
+                            )
+                          }
+                          className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-white/[0.06] border border-white/15 px-4 py-3 text-sm font-semibold text-white transition-all hover:bg-white/10 hover:border-white/25 active:scale-95"
+                        >
+                          <User className="w-4 h-4" />
+                          Voir le profil
+                        </button>
+                        <button
+                          onClick={() => visitWebsite(professor)}
+                          className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-[#B8913D] to-[#D4AC5B] px-4 py-3 text-sm font-semibold text-white transition-all hover:shadow-glow hover:brightness-105 active:scale-95"
+                        >
+                          <ExternalLink className="w-4 h-4" />
+                          Visiter le site
+                        </button>
                       </div>
                     </div>
-                  );
-                })}
+                  </article>
+                ))}
               </div>
             )}
           </div>
         </div>
 
-        {!loading && professorsWithItems.size > 0 && (
-          <section className="px-4 pb-24">
-            <div className="mx-auto max-w-3xl rounded-2xl border border-[#B8913D]/20 bg-[#B8913D]/5 p-8 text-center">
+        {!loading && displayProfessors.length > 0 && (
+          <section className="px-4 sm:px-6 lg:px-8 pb-24">
+            <div className="mx-auto max-w-3xl rounded-[20px] border border-[#B8913D]/20 bg-[#B8913D]/5 p-8 text-center">
               <h2 className="text-lg font-semibold text-white sm:text-xl">
                 Prêt à passer au niveau supérieur ?
               </h2>
@@ -382,8 +328,8 @@ export default function AcademyDiscovery({
                 Rejoins les formations des artistes qui font vivre la danse au quotidien.
               </p>
               <button
-                onClick={scrollToFormations}
-                className="mt-6 inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-[#B8913D] to-[#D4AC5B] px-6 py-3 text-sm font-semibold text-gray-950 transition-all duration-200 hover:brightness-110 active:scale-95"
+                onClick={scrollToProfessors}
+                className="mt-6 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#B8913D] to-[#D4AC5B] px-6 py-3 text-sm font-semibold text-white transition-all hover:shadow-glow hover:brightness-105 active:scale-95"
               >
                 Découvrir les formations
                 <ArrowRight className="h-4 w-4" />
