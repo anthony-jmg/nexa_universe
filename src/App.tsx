@@ -20,6 +20,7 @@ const AcademyDiscovery = lazy(() => import('./pages/AcademyDiscovery'));
 const VideoPlayer = lazy(() => import('./pages/VideoPlayer').then(m => ({ default: m.VideoPlayer })));
 const Professors = lazy(() => import('./pages/Professors').then(m => ({ default: m.Professors })));
 const ProfessorDetail = lazy(() => import('./pages/ProfessorDetail').then(m => ({ default: m.ProfessorDetail })));
+const ProfessorDiscoveryProfile = lazy(() => import('./pages/ProfessorDiscoveryProfile').then(m => ({ default: m.ProfessorDiscoveryProfile })));
 const ProfessorDashboard = lazy(() => import('./pages/ProfessorDashboard').then(m => ({ default: m.ProfessorDashboard })));
 const ProgramDetail = lazy(() => import('./pages/ProgramDetail').then(m => ({ default: m.ProgramDetail })));
 const Account = lazy(() => import('./pages/Account').then(m => ({ default: m.Account })));
@@ -207,6 +208,9 @@ function AppContent() {
     } else if (page === 'shop') {
       newPage = 'shop';
       setCurrentProductId('');
+    } else if (page.startsWith('professor-discovery-')) {
+      newProfessorId = page.replace('professor-discovery-', '');
+      newPage = 'professor-discovery';
     } else if (page.startsWith('professor-')) {
       newProfessorId = page.replace('professor-', '');
       newPage = 'professor-detail';
@@ -305,6 +309,8 @@ function AppContent() {
         return <Professors onNavigate={handleNavigate} />;
       case 'professor-detail':
         return <ProfessorDetail professorId={currentProfessorId} onNavigate={handleNavigate} onBack={handleBack} />;
+      case 'professor-discovery':
+        return <ProfessorDiscoveryProfile professorId={currentProfessorId} onNavigate={handleNavigate} onBack={handleBack} />;
       case 'professor-dashboard':
         return <ProfessorDashboard onNavigate={handleNavigate} />;
       case 'program-detail':

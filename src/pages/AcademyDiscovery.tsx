@@ -79,8 +79,30 @@ export default function AcademyDiscovery({
     listRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
+  function trackClick(
+    professorId: string,
+    type: 'academy_profile_click' | 'academy_website_click',
+    destinationUrl: string | null = null
+  ) {
+    supabase
+      .from('academy_click_tracking')
+      .insert({ professor_id: professorId, content_type: type, destination_url: destinationUrl })
+      .then(
+        ({ error }) => {
+          if (error) console.warn('Click tracking failed:', error.message);
+        },
+        () => {}
+      );
+  }
+
+  function viewProfile(professor: ProfessorInfo) {
+    trackClick(professor.id, 'academy_profile_click');
+    onNavigate(`professor-discovery-${professor.id}`);
+  }
+
   function visitWebsite(professor: ProfessorInfo) {
     window.open(professor.website_url, '_blank', 'noopener,noreferrer');
+    trackClick(professor.id, 'academy_website_click', professor.website_url);
   }
 
   return (
@@ -221,9 +243,7 @@ export default function AcademyDiscovery({
 
                       <div className="mt-6 flex flex-1 items-end gap-3">
                         <button
-                          onClick={() =>
-                            onNavigate(`professor-${professor.id}`)
-                          }
+                          onClick={() => viewProfile(professor)}
                           className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-white/[0.06] border border-white/15 px-4 py-3 text-sm font-semibold text-white transition-all hover:bg-white/10 hover:border-white/25 active:scale-95"
                         >
                           <User className="w-4 h-4" />

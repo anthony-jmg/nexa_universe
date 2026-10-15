@@ -24,6 +24,7 @@ interface EventSalesStatsProps {
 }
 
 interface TicketStats {
+  id: string;
   ticket_type_name: string;
   price: number;
   tier_label: string | null;
@@ -41,6 +42,7 @@ interface TicketStats {
   pending_count: number;
   checked_in_count: number;
   revenue: number;
+  sold_out_interest_count: number;
 }
 
 interface PriceLockStats {
@@ -120,6 +122,14 @@ export function EventSalesStats({ eventId, eventTitle, onClose }: EventSalesStat
 
     if (ettError) throw ettError;
 
+    const { data: interestRows, error: interestError } = await supabase
+      .rpc('get_event_sold_out_interest_counts', { p_event_id: eventId });
+    if (interestError) throw interestError;
+    const interestByEtt: Record<string, number> = {};
+    for (const row of (interestRows as any[]) || []) {
+      interestByEtt[row.event_ticket_type_id] = Number(row.interest_count) || 0;
+    }
+
     const statsPromises = (ettData || []).map(async (ett: any) => {
       const { data: attendees } = await supabase
         .from('event_attendees')
@@ -159,6 +169,8 @@ export function EventSalesStats({ eventId, eventTitle, onClose }: EventSalesStat
       }
 
       return {
+        id: ett.id,
+        sold_out_interest_count: interestByEtt[ett.id] || 0,
         ticket_type_name: ett.ticket_type?.name || 'Inconnu',
         price,
         tier_label: active?.label ?? null,
@@ -526,6 +538,30 @@ export function EventSalesStats({ eventId, eventTitle, onClose }: EventSalesStat
                 </div>
               )}
             </div>
+
+            {ticketStats.length > 0 && (
+              <div className="bg-gray-800 bg-opacity-60 rounded-xl border border-gray-700 overflow-hidden">
+                <div className="p-5 border-b border-gray-700">
+                  <h3 className="text-sm font-semibold text-gray-300 uppercase tracking-wide flex items-center space-x-2">
+                    <AlertCircle className="w-4 h-4 text-[#B8913D]" />
+                    <span>Demandes après épuisement</span>
+                  </h3>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Nombre total de manifestations d'intérêt enregistrées après épuisement du quota (historique cumulé).
+                  </p>
+                </div>
+                <div className="divide-y divide-gray-700">
+                  {ticketStats.map((ts) => (
+                    <div key={ts.id} className="flex items-center justify-between px-5 py-3">
+                      <span className="text-sm text-white">{ts.ticket_type_name}</span>
+                      <span className="text-sm font-semibold text-[#F0D38A]">
+                        {ts.sold_out_interest_count} {ts.sold_out_interest_count > 1 ? 'demandes' : 'demande'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <div className="bg-gray-800 bg-opacity-60 rounded-xl border border-gray-700 overflow-hidden">
               <div className="flex items-center justify-between p-5 border-b border-gray-700">

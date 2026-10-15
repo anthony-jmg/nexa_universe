@@ -63,6 +63,7 @@ export interface Database {
           specialties: string[]
           experience_years: number
           profile_video_url: string
+          profile_video_urls: string[]
           is_featured: boolean
           is_founder: boolean
           subscription_price: number
@@ -78,6 +79,7 @@ export interface Database {
           specialties?: string[]
           experience_years?: number
           profile_video_url?: string
+          profile_video_urls?: string[]
           is_featured?: boolean
           is_founder?: boolean
           subscription_price?: number
@@ -93,6 +95,7 @@ export interface Database {
           specialties?: string[]
           experience_years?: number
           profile_video_url?: string
+          profile_video_urls?: string[]
           is_featured?: boolean
           is_founder?: boolean
           subscription_price?: number
@@ -1176,31 +1179,54 @@ export interface Database {
           created_at?: string
         }
       }
+      event_sold_out_interests: {
+        Row: {
+          id: string
+          event_id: string
+          event_ticket_type_id: string
+          user_id: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          event_id: string
+          event_ticket_type_id: string
+          user_id?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          event_id?: string
+          event_ticket_type_id?: string
+          user_id?: string | null
+          created_at?: string
+        }
+      }
       academy_click_tracking: {
         Row: {
           id: string
           professor_id: string
-          content_type: 'program' | 'video'
-          content_id: string
-          destination_url: string
+          content_type: 'program' | 'video' | 'academy_profile_click' | 'academy_website_click'
+          content_id: string | null
+          destination_url: string | null
           user_id: string | null
           created_at: string
         }
         Insert: {
           id?: string
           professor_id: string
-          content_type: 'program' | 'video'
-          content_id: string
-          destination_url: string
+          content_type: 'program' | 'video' | 'academy_profile_click' | 'academy_website_click'
+          content_id?: string | null
+          destination_url?: string | null
           user_id?: string | null
           created_at?: string
         }
         Update: {
           id?: string
           professor_id?: string
-          content_type?: 'program' | 'video'
-          content_id?: string
-          destination_url?: string
+          content_type?: 'program' | 'video' | 'academy_profile_click' | 'academy_website_click'
+          content_id?: string | null
+          destination_url?: string | null
           user_id?: string | null
           created_at?: string
         }
@@ -1210,7 +1236,14 @@ export interface Database {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_event_sold_out_interest_counts: {
+        Args: { p_event_id: string }
+        Returns: { event_ticket_type_id: string; interest_count: number }[]
+      }
+      get_academy_discovery_click_stats: {
+        Args: Record<string, never>
+        Returns: { professor_id: string; profile_clicks: number; website_clicks: number }[]
+      }
     }
     Enums: {
       [_ in never]: never

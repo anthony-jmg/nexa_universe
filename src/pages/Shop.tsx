@@ -60,6 +60,7 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
   const [selectedSize, setSelectedSize] = useState('');
   const [quantity, setQuantity] = useState(1);
   const [ticketQuantities, setTicketQuantities] = useState<Record<string, number>>({});
+  const [soldOutInterest, setSoldOutInterest] = useState<Record<string, 'saving' | 'done' | 'error'>>({});
   const [priceLockDeposits, setPriceLockDeposits] = useState<Record<string, string>>({});
   const [validPriceLockDeposits, setValidPriceLockDeposits] = useState<Record<string, number>>({});
   const [quickAddLockMode, setQuickAddLockMode] = useState(false);
@@ -257,9 +258,26 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
       .filter(ett => ett.is_active)
       .reduce((total, ett) => {
         if (ett.quantity_available === null) return total + 999;
-        return total + (ett.quantity_available - ett.quantity_sold);
+        return total + Math.max(0, ett.quantity_available - ett.quantity_sold);
       }, 0);
   }, []);
+
+  const eventHasStock = useCallback((event: EventWithTickets) => {
+    if (!event.event_ticket_types) return false;
+    return event.event_ticket_types
+      .filter(ett => ett.is_active)
+      .some(ett => ett.quantity_available === null || ett.quantity_available - ett.quantity_sold > 0);
+  }, []);
+
+  const registerSoldOutInterest = async (eventId: string, eventTicketTypeId: string) => {
+    setSoldOutInterest(prev => ({ ...prev, [eventTicketTypeId]: 'saving' }));
+    const { error } = await supabase
+      .from('event_sold_out_interests')
+      .insert({ event_id: eventId, event_ticket_type_id: eventTicketTypeId });
+    // 23505 : déjà enregistré pour cet utilisateur, on affiche la confirmation sans recompter
+    const ok = !error || error.code === '23505';
+    setSoldOutInterest(prev => ({ ...prev, [eventTicketTypeId]: ok ? 'done' : 'error' }));
+  };
 
   const getPriceLockInfo = useCallback((event: EventWithTickets) => {
     const activeEtts = (event.event_ticket_types || []).filter(ett => ett.is_active);
@@ -417,7 +435,10 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
       return;
     }
 
-    if (event.event_ticket_types && event.event_ticket_types.length > 1 && !eventTicketTypeId) {
+    const allSoldOut = !event.event_ticket_types?.some(ett =>
+      ett.is_active && (ett.quantity_available === null || ett.quantity_available - ett.quantity_sold > 0)
+    );
+    if (allSoldOut || (event.event_ticket_types && event.event_ticket_types.length > 1 && !eventTicketTypeId)) {
       setSelectedEvent(event);
       setTicketQuantities({});
       setPriceLockDeposits({});
@@ -628,7 +649,7 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
                 const availableTickets = getAvailableTickets(event);
                 const eventDate = new Date(event.start_date);
                 const isUpcoming = event.event_status === 'upcoming';
-                const isFull = !isUpcoming && availableTickets === 0;
+                const isFull = !isUpcoming && !eventHasStock(event);
                 const priceLock = getPriceLockInfo(event);
 
                 return (
@@ -748,11 +769,10 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
                       ) : (
                         <div className="mt-auto grid grid-cols-2 gap-2 pt-4">
                           <button
-                            onClick={priceLock?.lockAvailable ? () => handleAddEventTicketToCart(event) : () => setDetailEvent(event)}
-                            disabled={isFull}
+                            onClick={() => handleAddEventTicketToCart(event)}
                             className={`px-2 py-2.5 rounded-xl text-xs font-semibold transition-all ${
                               isFull
-                                ? 'bg-gray-800 text-gray-500 cursor-not-allowed'
+                                ? 'border border-gray-600 text-gray-300 hover:bg-gray-800 hover:text-white'
                                 : 'bg-gradient-to-r from-[#B8913D] to-[#D4AC5B] text-white hover:shadow-lg hover:shadow-[#B8913D]/40'
                             }`}
                           >
@@ -1118,15 +1138,14 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
                       handleAddEventTicketToCart(detailEvent, undefined, 'full_purchase');
                       setDetailEvent(null);
                     }}
-                    disabled={getAvailableTickets(detailEvent) === 0}
                     className={`flex-1 py-2.5 text-sm rounded-lg font-medium transition-all flex items-center justify-center space-x-2 ${
-                      getAvailableTickets(detailEvent) === 0
-                        ? 'bg-gray-800 text-gray-500 cursor-not-allowed'
-                        : 'bg-gradient-to-r from-[#B8913D] to-[#A07F35] text-white hover:shadow-lg hover:shadow-[#B8913D]/40'
+                      eventHasStock(detailEvent)
+                        ? 'bg-gradient-to-r from-[#B8913D] to-[#A07F35] text-white hover:shadow-lg hover:shadow-[#B8913D]/40'
+                        : 'border border-gray-600 text-gray-300 hover:bg-gray-800 hover:text-white'
                     }`}
                   >
                     <ShoppingBag className="w-4 h-4" />
-                    <span>{getAvailableTickets(detailEvent) === 0 ? 'Complet' : 'Réserver'}</span>
+                    <span>{eventHasStock(detailEvent) ? 'Réserver' : 'Complet'}</span>
                   </button>
                 )}
               </div>
@@ -1233,7 +1252,7 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
                 const ticketsLeft = ett.quantity_available === null ? 999 : ett.quantity_available - ett.quantity_sold;
                 const currentQty = ticketQuantities[ett.id] || 0;
                 const lockEligible = priceLockAvailable(ett as any);
-                const showLock = quickAddLockMode && lockEligible;
+                const showLock = quickAddLockMode && lockEligible && ticketsLeft > 0;
                 const minimumDeposit = getPriceLockMinimum(selectedEvent, ett);
                 const enteredDeposit = priceLockDeposits[ett.id] ?? '';
                 const parsedDeposit = Number(enteredDeposit.replace(',', '.'));
@@ -1254,7 +1273,7 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
                     key={ett.id}
                     className={`p-3 sm:p-3.5 rounded-xl border transition-all ${
                       ticketsLeft <= 0
-                        ? 'bg-gray-800 bg-opacity-50 border-gray-700 opacity-50'
+                        ? 'bg-gray-800 bg-opacity-50 border-gray-700'
                         : qtyControlsDisabled
                         ? 'bg-gray-800 bg-opacity-50 border-gray-700 opacity-60 cursor-not-allowed'
                         : currentQty > 0
@@ -1353,6 +1372,27 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
                       );
                     })()}
 
+                    {ticketsLeft <= 0 ? (
+                      soldOutInterest[ett.id] === 'done' ? (
+                        <div className="w-full py-2.5 rounded-lg border border-green-500/30 bg-green-500/10 text-green-300 text-sm font-medium flex items-center justify-center gap-1.5">
+                          <Check className="w-4 h-4" />
+                          Intérêt enregistré
+                        </div>
+                      ) : (
+                        <>
+                          <button
+                            onClick={() => registerSoldOutInterest(selectedEvent.id, ett.id)}
+                            disabled={soldOutInterest[ett.id] === 'saving'}
+                            className="w-full py-2.5 rounded-lg border border-[#B8913D]/60 text-[#F0D38A] text-sm font-medium hover:bg-[#B8913D]/15 transition-all disabled:opacity-60 disabled:cursor-wait"
+                          >
+                            {soldOutInterest[ett.id] === 'saving' ? 'Enregistrement...' : 'Je suis intéressé'}
+                          </button>
+                          {soldOutInterest[ett.id] === 'error' && (
+                            <p className="mt-1.5 text-[11px] text-red-300">Impossible d'enregistrer ton intérêt pour le moment. Réessaie.</p>
+                          )}
+                        </>
+                      )
+                    ) : (
                     <div className="flex items-center space-x-2 sm:space-x-3">
                       <label className="text-xs sm:text-sm font-medium text-gray-300 min-w-[50px] sm:min-w-[70px]">
                         Quantité
@@ -1412,6 +1452,7 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
                         </div>
                       )}
                     </div>
+                    )}
                     {otherTypeSelected && (
                       <p className="mt-2 text-[11px] text-gray-400">Un Price Lock est déjà sélectionné pour ce festival</p>
                     )}
@@ -1929,7 +1970,7 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
 
               <div className="mt-4 space-y-2">
                 {priceLockPickerEvent.event_ticket_types
-                  .filter(ett => ett.is_active && priceLockAvailable(ett as any))
+                  .filter(ett => ett.is_active && priceLockAvailable(ett as any) && (ett.quantity_available === null || ett.quantity_available - ett.quantity_sold > 0))
                   .map((ett) => {
                     const changeAt = nextPriceChangeAt(ett as any);
                     return (

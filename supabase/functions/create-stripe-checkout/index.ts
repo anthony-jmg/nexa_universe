@@ -130,21 +130,22 @@ async function resolvePriceLockDeposit(
 ): Promise<{ error?: string; name?: string; amount?: number; selected?: number | null }> {
   if (!ticketTypeId) return { error: 'Billet introuvable pour le Price Lock.' };
 
-  const { data: ett } = await supabase
-    .from('event_ticket_types')
-    .select('id, price, price_lock_enabled, price_lock_deposit_amount, price_increase_date, price_lock_opens_at, is_active, event_id, ticket_type:ticket_types(name)')
-    .eq('id', ticketTypeId)
-    .maybeSingle();
+  const [{ data: ett }, { data: pricing, error: pricingError }] = await Promise.all([
+    supabase
+      .from('event_ticket_types')
+      .select('id, price, price_lock_enabled, price_lock_deposit_amount, price_increase_date, price_lock_opens_at, is_active, event_id, quantity_available, quantity_sold, ticket_type:ticket_types(name)')
+      .eq('id', ticketTypeId)
+      .maybeSingle(),
+    supabase
+      .rpc('get_event_ticket_pricing', { p_event_ticket_type_id: ticketTypeId })
+      .maybeSingle(),
+  ]);
 
   if (!ett) return { error: 'Billet introuvable pour le Price Lock.' };
   if (!ett.is_active) return { error: 'Ce billet n’est plus disponible à la vente.' };
   if (!ett.price_lock_enabled) return { error: 'Price Lock non disponible pour ce billet.' };
   if (!ett.price_increase_date) return { error: 'Aucune hausse tarifaire programmée pour ce billet.' };
 
-  // Prix courant = palier actif lu côté base (source de vérité unique)
-  const { data: pricing, error: pricingError } = await supabase
-    .rpc('get_event_ticket_pricing', { p_event_ticket_type_id: ticketTypeId })
-    .maybeSingle();
   if (pricingError) return { error: 'Impossible de déterminer le tarif actuel.' };
   if (!pricing || pricing.current_price == null) {
     return { error: 'Aucun tarif actif pour ce billet. Contacte le support.' };
@@ -160,22 +161,24 @@ async function resolvePriceLockDeposit(
   if (now >= increaseAt) return { error: 'Price Lock fermé pour ce billet : la hausse est déjà passée.' };
 
   // Un seul Price Lock actif par utilisateur et par ÉVÉNEMENT (tous billets confondus)
-  const { count: sameEvent } = await supabase
-    .from('price_locks')
-    .select('id', { count: 'exact', head: true })
-    .eq('user_id', userId)
-    .eq('event_id', ett.event_id)
-    .eq('status', 'active');
+  const [{ count: sameEvent }, { count: activeLocks }] = await Promise.all([
+    supabase
+      .from('price_locks')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', userId)
+      .eq('event_id', ett.event_id)
+      .eq('status', 'active'),
+    supabase
+      .from('price_locks')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', userId)
+      .eq('status', 'active'),
+  ]);
   if ((sameEvent ?? 0) > 0) {
     return { error: 'Tu as déjà un Price Lock actif pour ce festival.' };
   }
 
   // Max 2 Price Locks actifs simultanément par utilisateur
-  const { count: activeLocks } = await supabase
-    .from('price_locks')
-    .select('id', { count: 'exact', head: true })
-    .eq('user_id', userId)
-    .eq('status', 'active');
   if ((activeLocks ?? 0) >= 2) {
     return { error: 'Maximum 2 Price Locks actifs simultanément.' };
   }
@@ -276,19 +279,7 @@ Deno.serve(async (req: Request) => {
 
     const supabase = supabaseAdmin;
 
-    console.log("Authenticated user:", user.id, user.email);
-
     const requestData: CheckoutRequest = await req.json();
-
-    console.log('Received checkout request:', {
-      payment_type: requestData.payment_type,
-      items_count: requestData.items?.length,
-      items: requestData.items,
-      has_success_url: !!requestData.success_url,
-      has_cancel_url: !!requestData.cancel_url,
-      metadata: requestData.metadata,
-      price_id: requestData.price_id,
-    });
 
     const validationErrors = validateCheckoutRequest(requestData);
     if (validationErrors.length > 0) {

@@ -47,6 +47,7 @@ interface ValidatedItem {
   item_type: string;
   product_id?: string;
   event_ticket_type_id?: string;
+  event_id?: string;
   product_name: string;
   quantity: number;
   unit_price: number;
@@ -244,7 +245,8 @@ Deno.serve(async (req: Request) => {
         const cartPriceSnapshot = item.price_snapshot != null ? Number(item.price_snapshot) : null;
         const cartDepositAmount = item.deposit_amount != null ? Number(item.deposit_amount) : null;
 
-        const { data: eventTicketType } = await supabase
+        const [{ data: eventTicketType }, { data: pricing, error: pricingError }] = await Promise.all([
+          supabase
           .from("event_ticket_types")
           .select(
             `
@@ -265,7 +267,11 @@ Deno.serve(async (req: Request) => {
           `
           )
           .eq("id", item.event_ticket_type_id)
-          .maybeSingle();
+          .maybeSingle(),
+          supabase
+            .rpc("get_event_ticket_pricing", { p_event_ticket_type_id: item.event_ticket_type_id })
+            .maybeSingle(),
+        ]);
 
         if (!eventTicketType) {
           return new Response(
@@ -291,9 +297,6 @@ Deno.serve(async (req: Request) => {
 
         let unitPrice = Number(eventTicketType.price);
         // Prix relu côté base depuis le palier actif (source de vérité unique)
-        const { data: pricing, error: pricingError } = await supabase
-          .rpc("get_event_ticket_pricing", { p_event_ticket_type_id: eventTicketType.id })
-          .maybeSingle();
         if (pricingError || !pricing || pricing.current_price == null) {
           return new Response(
             JSON.stringify({ error: "Impossible de déterminer le tarif actuel de ce billet. Actualise la page." }),
@@ -370,12 +373,25 @@ Deno.serve(async (req: Request) => {
             );
           }
 
-          const { count: sameType } = await supabase
-            .from("price_locks")
-            .select("id", { count: "exact", head: true })
-            .eq("user_id", user.id)
-            .eq("event_ticket_type_id", eventTicketType.id)
-            .eq("status", "active");
+          const [{ count: sameType }, { count: activeForEvent }, { count: activeLocks }] = await Promise.all([
+            supabase
+              .from("price_locks")
+              .select("id", { count: "exact", head: true })
+              .eq("user_id", user.id)
+              .eq("event_ticket_type_id", eventTicketType.id)
+              .eq("status", "active"),
+            supabase
+              .from("price_locks")
+              .select("id", { count: "exact", head: true })
+              .eq("user_id", user.id)
+              .eq("event_id", eventTicketType.event_id)
+              .eq("status", "active"),
+            supabase
+              .from("price_locks")
+              .select("id", { count: "exact", head: true })
+              .eq("user_id", user.id)
+              .eq("status", "active"),
+          ]);
           if ((sameType ?? 0) > 0) {
             return new Response(
               JSON.stringify({ error: "Tu as déjà un Price Lock actif pour ce billet." }),
@@ -383,12 +399,6 @@ Deno.serve(async (req: Request) => {
             );
           }
 
-          const { count: activeForEvent } = await supabase
-            .from("price_locks")
-            .select("id", { count: "exact", head: true })
-            .eq("user_id", user.id)
-            .eq("event_id", eventTicketType.event_id)
-            .eq("status", "active");
           if ((activeForEvent ?? 0) > 0) {
             return new Response(
               JSON.stringify({ error: "Tu as déjà un Price Lock actif pour ce festival." }),
@@ -396,11 +406,6 @@ Deno.serve(async (req: Request) => {
             );
           }
 
-          const { count: activeLocks } = await supabase
-            .from("price_locks")
-            .select("id", { count: "exact", head: true })
-            .eq("user_id", user.id)
-            .eq("status", "active");
           if ((activeLocks ?? 0) >= 2) {
             return new Response(
               JSON.stringify({ error: "Maximum 2 Price Locks actifs simultanément." }),
@@ -506,6 +511,7 @@ Deno.serve(async (req: Request) => {
         validatedItems.push({
           item_type: "event_ticket",
           event_ticket_type_id: eventTicketType.id,
+          event_id: eventTicketType.event_id,
           product_name: `${eventTitle} - ${ticketName}`,
           quantity: item.quantity,
           unit_price: unitPrice,
@@ -641,46 +647,35 @@ Deno.serve(async (req: Request) => {
     const eventItems = validatedItems.filter(
       (item) => item.item_type === "event_ticket"
     );
+    const pendingAttendees = [];
+    const expiresAt = new Date(Date.now() + 30 * 60 * 1000).toISOString();
     for (const item of eventItems) {
       const attendeeKey = `${item.event_ticket_type_id}::${item.purchase_type}`;
       const attendeesForTicket = requestData.attendees_by_ticket?.[attendeeKey] || [];
 
       for (let i = 0; i < item.quantity; i++) {
-        const qrCode = `EVT-${order.id}-${item.event_ticket_type_id}-${i}-${Date.now()}`;
         const attendeeInfo = attendeesForTicket[i];
-
-        const { data: ticketType } = await supabase
-          .from("event_ticket_types")
-          .select("event_id")
-          .eq("id", item.event_ticket_type_id!)
-          .maybeSingle();
-
-        if (ticketType) {
-          const { error: attendeeError } = await supabase
-            .from("pending_event_attendees")
-            .insert({
-              reservation_id: order.id,
-              event_id: ticketType.event_id,
-              user_id: user.id,
-              event_ticket_type_id: item.event_ticket_type_id,
-              purchase_type: item.purchase_type,
-              qr_code: qrCode,
-              expires_at: new Date(
-                Date.now() + 30 * 60 * 1000
-              ).toISOString(),
-              attendee_first_name: attendeeInfo?.firstName || null,
-              attendee_last_name: attendeeInfo?.lastName || null,
-              attendee_email: attendeeInfo?.email || null,
-              attendee_phone: attendeeInfo?.phone || null,
-            });
-
-          if (attendeeError) {
-            console.error(
-              "Pending attendee insert error:",
-              attendeeError
-            );
-          }
-        }
+        pendingAttendees.push({
+          reservation_id: order.id,
+          event_id: item.event_id,
+          user_id: user.id,
+          event_ticket_type_id: item.event_ticket_type_id,
+          purchase_type: item.purchase_type,
+          qr_code: `EVT-${order.id}-${item.event_ticket_type_id}-${i}-${Date.now()}`,
+          expires_at: expiresAt,
+          attendee_first_name: attendeeInfo?.firstName || null,
+          attendee_last_name: attendeeInfo?.lastName || null,
+          attendee_email: attendeeInfo?.email || null,
+          attendee_phone: attendeeInfo?.phone || null,
+        });
+      }
+    }
+    if (pendingAttendees.length > 0) {
+      const { error: attendeeError } = await supabase
+        .from("pending_event_attendees")
+        .insert(pendingAttendees);
+      if (attendeeError) {
+        console.error("Pending attendee insert error:", attendeeError);
       }
     }
 
