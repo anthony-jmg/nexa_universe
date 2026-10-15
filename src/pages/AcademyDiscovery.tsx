@@ -17,69 +17,7 @@ interface ProfessorInfo {
   fullName: string;
   avatarUrl: string | null;
   specialties: string[];
-  isMock?: boolean;
 }
-
-// Données de démonstration pour prévisualiser la page. Passer à false pour n'afficher
-// que les vrais professeurs.
-const SHOW_MOCK_PROFESSORS = true;
-
-const MOCK_PROFESSORS: ProfessorInfo[] = [
-  {
-    id: 'mock-1',
-    website_url: 'https://example.com/carlos-mendez',
-    website_cover_image: '/Cours_de_danse_latin_en_studio_chaleureux.png',
-    fullName: 'Carlos Mendez',
-    avatarUrl: null,
-    specialties: ['Salsa Cubaine', 'Bachata'],
-    isMock: true,
-  },
-  {
-    id: 'mock-2',
-    website_url: 'https://example.com/sofia-alvarez',
-    website_cover_image: '/nexa_academy.webp',
-    fullName: 'Sofia Alvarez',
-    avatarUrl: null,
-    specialties: ['Bachata Sensual', 'Kizomba'],
-    isMock: true,
-  },
-  {
-    id: 'mock-3',
-    website_url: 'https://example.com/david-okoye',
-    website_cover_image: '/nexa_pass_festival.webp',
-    fullName: 'David Okoye',
-    avatarUrl: null,
-    specialties: ['Kizomba', 'Semba', 'Tarraxinha'],
-    isMock: true,
-  },
-  {
-    id: 'mock-4',
-    website_url: 'https://example.com/lena-moreau',
-    website_cover_image: '/nexa_trip.webp',
-    fullName: 'Léna Moreau',
-    avatarUrl: null,
-    specialties: ['Salsa LA', 'Lady Styling'],
-    isMock: true,
-  },
-  {
-    id: 'mock-5',
-    website_url: 'https://example.com/marco-silva',
-    website_cover_image: null,
-    fullName: 'Marco Silva',
-    avatarUrl: null,
-    specialties: ['Zouk', 'Bachata'],
-    isMock: true,
-  },
-  {
-    id: 'mock-6',
-    website_url: 'https://example.com/nadia-benali',
-    website_cover_image: null,
-    fullName: 'Nadia Benali',
-    avatarUrl: null,
-    specialties: ['Kizomba Fusion', 'Danse Afro'],
-    isMock: true,
-  },
-];
 
 function isValidHttpUrl(value: string): boolean {
   try {
@@ -135,9 +73,7 @@ export default function AcademyDiscovery({
     setLoading(false);
   }
 
-  const displayProfessors = SHOW_MOCK_PROFESSORS
-    ? [...professors, ...MOCK_PROFESSORS]
-    : professors;
+  const displayProfessors = professors;
 
   function scrollToProfessors() {
     listRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -227,7 +163,7 @@ export default function AcademyDiscovery({
               <div className="rounded-[20px] border border-white/[0.08] bg-[#0c1424]/95 px-6 py-16 text-center">
                 <GraduationCap className="w-10 h-10 text-gold-500/40 mx-auto mb-4" />
                 <p className="text-sm sm:text-base text-gray-300 font-medium">
-                  Les formations partenaires arrivent bientôt.
+                  Les prochaines formations arrivent bientôt.
                 </p>
                 <p className="text-xs text-gray-500 mt-1.5">
                   Reviens prochainement pour découvrir les premiers professeurs partenaires.
@@ -252,11 +188,6 @@ export default function AcademyDiscovery({
                           <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-gold-500/30 to-transparent" />
                           <GraduationCap className="w-12 h-12 text-gold-500/30" />
                         </div>
-                      )}
-                      {professor.isMock && (
-                        <span className="absolute right-3 top-3 rounded-full bg-gray-950/80 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-gold-400 backdrop-blur-sm border border-gold-500/30">
-                          Démo
-                        </span>
                       )}
                       <div className="absolute inset-0 bg-gradient-to-t from-[#0c1424]/80 via-transparent to-transparent pointer-events-none" />
                     </div>
@@ -291,11 +222,7 @@ export default function AcademyDiscovery({
                       <div className="mt-6 flex flex-1 items-end gap-3">
                         <button
                           onClick={() =>
-                            onNavigate(
-                              professor.isMock
-                                ? 'professors'
-                                : `professor-${professor.id}`
-                            )
+                            onNavigate(`professor-${professor.id}`)
                           }
                           className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-white/[0.06] border border-white/15 px-4 py-3 text-sm font-semibold text-white transition-all hover:bg-white/10 hover:border-white/25 active:scale-95"
                         >

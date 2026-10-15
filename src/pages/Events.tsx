@@ -43,7 +43,6 @@ export function Events({ onNavigate }: EventsProps) {
         )
       `)      .in('event_status', ['published', 'upcoming'])
       .eq('is_active', true)
-      .eq('is_test', false)
       .order('start_date', { ascending: true });
 
     if (error) {

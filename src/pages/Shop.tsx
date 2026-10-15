@@ -14,6 +14,11 @@ import { currentPrice, nextPrice, nextPriceChangeAt, priceLockDeadline, priceLoc
 
 const PRICE_LOCK_DEPOSIT = 20;
 const PRICE_INCREASE_STEP = 15;
+
+const getPriceLockMinimum = (event: EventWithTickets, ticket: EventTicketType): number => {
+  const configuredMinimum = Number(ticket.price_lock_deposit_amount);
+  return event.is_test ? configuredMinimum : Math.max(configuredMinimum, PRICE_LOCK_DEPOSIT);
+};
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 const formatDateShort = (date: Date) =>
@@ -55,6 +60,8 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
   const [selectedSize, setSelectedSize] = useState('');
   const [quantity, setQuantity] = useState(1);
   const [ticketQuantities, setTicketQuantities] = useState<Record<string, number>>({});
+  const [priceLockDeposits, setPriceLockDeposits] = useState<Record<string, string>>({});
+  const [validPriceLockDeposits, setValidPriceLockDeposits] = useState<Record<string, number>>({});
   const [quickAddLockMode, setQuickAddLockMode] = useState(false);
   const [balancePaymentMode, setBalancePaymentMode] = useState<'manual' | 'automatic' | null>(null);
   const [autoBalanceConsent, setAutoBalanceConsent] = useState(false);
@@ -218,7 +225,6 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
       `, { count: 'exact' })
       .in('event_status', ['published', 'upcoming'])
       .eq('is_active', true)
-      .eq('is_test', false)
       .gte('start_date', new Date().toISOString());
 
     if (debouncedSearchQuery.trim()) {
@@ -414,6 +420,8 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
     if (event.event_ticket_types && event.event_ticket_types.length > 1 && !eventTicketTypeId) {
       setSelectedEvent(event);
       setTicketQuantities({});
+      setPriceLockDeposits({});
+      setValidPriceLockDeposits({});
       setQuickAddError('');
       setQuickAddNotice('');
       setBalancePaymentMode(null);
@@ -460,13 +468,31 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
       return;
     }
 
+    if (quickAddLockMode) {
+      const invalidDeposit = ticketsToAdd.some(([ticketTypeId]) => {
+        const ticket = selectedEvent.event_ticket_types?.find(ett => ett.id === ticketTypeId);
+        if (!ticket) return true;
+        const amount = Number((priceLockDeposits[ticketTypeId] || '').replace(',', '.'));
+        const minimum = getPriceLockMinimum(selectedEvent, ticket);
+        return !Number.isFinite(amount) || amount < minimum || amount >= currentPrice(ticket as any);
+      });
+      if (invalidDeposit) {
+        setQuickAddError('Le montant choisi doit être au moins égal au minimum et inférieur au prix bloqué.');
+        return;
+      }
+    }
+
     try {
       for (const [ticketTypeId, qty] of ticketsToAdd) {
+        const ticket = selectedEvent.event_ticket_types?.find(ett => ett.id === ticketTypeId);
+        const depositAmount = ticket
+          ? Number((priceLockDeposits[ticketTypeId] ?? '').replace(',', '.'))
+          : undefined;
         await addEventTicketToCart(
           ticketTypeId,
           quickAddLockMode ? 1 : qty,
           purchaseType,
-          quickAddLockMode ? { balancePaymentMode } : undefined
+          quickAddLockMode ? { balancePaymentMode, depositAmount } : undefined
         );
       }
     } catch (error: any) {
@@ -478,10 +504,32 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
     setSuccess(`${totalTickets} billet${totalTickets > 1 ? 's' : ''} ajouté${totalTickets > 1 ? 's' : ''} au panier`);
     setSelectedEvent(null);
     setTicketQuantities({});
+    setPriceLockDeposits({});
+    setValidPriceLockDeposits({});
     setBalancePaymentMode(null);
     setAutoBalanceConsent(false);
     setTimeout(() => setSuccess(''), 3000);
   };
+
+  const displayedPriceLockDeposit = (ticket: EventTicketType): number => {
+    if (!selectedEvent) return Number(ticket.price_lock_deposit_amount);
+    const minimum = getPriceLockMinimum(selectedEvent, ticket);
+    const entered = priceLockDeposits[ticket.id] ?? '';
+    const amount = Number(entered.replace(',', '.'));
+    const price = currentPrice(ticket as any);
+    const isValid = entered.trim() !== '' && Number.isFinite(amount) && amount >= minimum && amount < price;
+    return isValid ? amount : (validPriceLockDeposits[ticket.id] ?? minimum);
+  };
+
+  const hasInvalidPriceLockDeposit = Boolean(
+    quickAddLockMode && selectedEvent?.event_ticket_types?.some(ticket => {
+      if ((ticketQuantities[ticket.id] || 0) <= 0 || !priceLockAvailable(ticket as any)) return false;
+      const minimum = getPriceLockMinimum(selectedEvent, ticket);
+      const entered = priceLockDeposits[ticket.id] ?? '';
+      const amount = Number(entered.replace(',', '.'));
+      return entered.trim() === '' || !Number.isFinite(amount) || amount < minimum || amount >= currentPrice(ticket as any);
+    })
+  );
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-950 via-gray-900 to-gray-950 pt-14 sm:pt-16 lg:pt-14 pb-6 sm:pb-10 lg:pb-6 relative overflow-hidden">
@@ -1090,9 +1138,9 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
 
       {selectedEvent && (
         <div className="fixed inset-0 bg-black bg-opacity-70 backdrop-blur-sm flex items-center justify-center z-50 p-3 sm:p-4">
-          <div className="bg-gray-900 bg-opacity-95 backdrop-blur-sm rounded-xl sm:rounded-2xl max-w-lg w-full p-4 sm:p-8 border border-[#B8913D] border-opacity-30 shadow-2xl max-h-[90vh] overflow-y-auto">
-            <h3 className="text-lg sm:text-2xl font-medium text-white mb-1.5 sm:mb-2">{selectedEvent.title}</h3>
-            <p className="text-xs sm:text-sm text-gray-400 mb-4 sm:mb-6">Sélectionnez les quantités pour chaque type de billet</p>
+          <div className="bg-gray-900/95 backdrop-blur-sm rounded-2xl max-w-xl w-full p-4 sm:p-6 border border-[#D4AC5B]/25 shadow-2xl max-h-[90vh] overflow-y-auto">
+            <h3 className="text-xl sm:text-2xl font-semibold tracking-tight text-white mb-1">{selectedEvent.title}</h3>
+            <p className="text-xs sm:text-sm text-gray-400 mb-4 sm:mb-5">Choisis ton mode de réservation et le montant de ton premier versement.</p>
 
             {quickAddError && (
               <div className="mb-4 p-3 bg-red-900/40 border border-red-600/40 rounded-lg">
@@ -1107,21 +1155,21 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
             )}
 
             {eventLockExists && (
-              <div className="mb-4 p-3 bg-[#B8913D]/10 border border-[#D4AC5B]/40 rounded-lg">
+              <div className="mb-4 p-3 bg-[#B8913D]/[0.08] border border-[#D4AC5B]/30 rounded-xl">
                 <p className="text-xs text-[#F0D38A] font-medium">Tu as déjà un Price Lock actif pour ce festival.</p>
                 <p className="text-[11px] text-gray-400 mt-0.5">Un seul Price Lock est autorisé par compte et par événement. Le mode achat comptant reste disponible.</p>
               </div>
             )}
 
-            <div className="mb-4 sm:mb-6">
-              <h4 className="text-base sm:text-lg font-medium text-white text-center mb-3">Comment souhaites-tu réserver ton pass ?</h4>
+            <div className="mb-4 sm:mb-5">
+              <h4 className="text-sm sm:text-base font-semibold tracking-tight text-white mb-2.5">Comment souhaites-tu réserver ton pass ?</h4>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3">
                 <button
                   onClick={() => {
                     setQuickAddLockMode(false);
                     setQuickAddNotice('');
                   }}
-                  className={`flex items-start gap-3 px-4 py-4 sm:py-3.5 rounded-xl text-left transition-all border ${
+                  className={`flex items-start gap-3 px-3.5 py-3 rounded-xl text-left transition-all border ${
                     !quickAddLockMode
                       ? 'border-[#D4AC5B] bg-[#D4AC5B]/15 shadow-lg shadow-[#D4AC5B]/10'
                       : 'border-gray-700 bg-gray-800/50 text-gray-300 hover:border-gray-600'
@@ -1137,6 +1185,16 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
                 <button
                   onClick={() => {
                     setQuickAddLockMode(true);
+                    setPriceLockDeposits(Object.fromEntries(
+                      (selectedEvent.event_ticket_types || [])
+                        .filter(t => t.is_active && priceLockAvailable(t as any))
+                        .map(t => [t.id, String(getPriceLockMinimum(selectedEvent, t))])
+                    ));
+                    setValidPriceLockDeposits(Object.fromEntries(
+                      (selectedEvent.event_ticket_types || [])
+                        .filter(t => t.is_active && priceLockAvailable(t as any))
+                        .map(t => [t.id, getPriceLockMinimum(selectedEvent, t)])
+                    ));
                     setTicketQuantities(prev => {
                       const next: Record<string, number> = {};
                       let kept = false;
@@ -1153,7 +1211,7 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
                     });
                     setQuickAddNotice('Comment fonctionne Price Lock ?\nTu verses une partie aujourd’hui pour bloquer ton tarif, puis tu règles le reste en une seule fois avant la date indiquée.\nUn seul Price Lock peut être actif par festival.');
                   }}
-                  className={`flex items-start gap-3 px-4 py-4 sm:py-3.5 rounded-xl text-left transition-all border ${
+                  className={`flex items-start gap-3 px-3.5 py-3 rounded-xl text-left transition-all border ${
                     quickAddLockMode
                       ? 'border-[#D4AC5B] bg-[#D4AC5B]/15 shadow-lg shadow-[#D4AC5B]/10'
                       : 'border-gray-700 bg-gray-800/50 text-gray-300 hover:border-gray-600'
@@ -1169,13 +1227,23 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
               </div>
             </div>
 
-            <div className="mb-4 sm:mb-6 space-y-2.5 sm:space-y-4">
+            <div className="mb-4 sm:mb-5 space-y-2.5 sm:space-y-3">
               {selectedEvent.event_ticket_types?.filter(ett => ett.is_active).map((ett) => {
                 const price = currentPrice(ett as any);
                 const ticketsLeft = ett.quantity_available === null ? 999 : ett.quantity_available - ett.quantity_sold;
                 const currentQty = ticketQuantities[ett.id] || 0;
                 const lockEligible = priceLockAvailable(ett as any);
                 const showLock = quickAddLockMode && lockEligible;
+                const minimumDeposit = getPriceLockMinimum(selectedEvent, ett);
+                const enteredDeposit = priceLockDeposits[ett.id] ?? '';
+                const parsedDeposit = Number(enteredDeposit.replace(',', '.'));
+                const amountIsValid = enteredDeposit.trim() !== '' && Number.isFinite(parsedDeposit) && parsedDeposit >= minimumDeposit && parsedDeposit < price;
+                const selectedDeposit = amountIsValid ? parsedDeposit : (validPriceLockDeposits[ett.id] ?? minimumDeposit);
+                const depositError = enteredDeposit.trim() === '' || !Number.isFinite(parsedDeposit) || parsedDeposit < minimumDeposit
+                  ? `Le versement minimum pour ce Price Lock est de ${minimumDeposit.toFixed(2)} €.`
+                  : parsedDeposit >= price
+                    ? 'Pour payer la totalité du pass, choisis Acheter maintenant.'
+                    : '';
                 const maxQty = showLock ? 1 : Math.min(10, ticketsLeft);
                 const otherTypeSelected = quickAddLockMode && currentQty === 0 && Object.entries(ticketQuantities).some(([id, q]) => q > 0 && id !== ett.id);
                 const priceLockUnavailable = quickAddLockMode && (eventLockExists || !lockEligible);
@@ -1184,7 +1252,7 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
                 return (
                   <div
                     key={ett.id}
-                    className={`p-3 sm:p-4 rounded-lg border transition-all ${
+                    className={`p-3 sm:p-3.5 rounded-xl border transition-all ${
                       ticketsLeft <= 0
                         ? 'bg-gray-800 bg-opacity-50 border-gray-700 opacity-50'
                         : qtyControlsDisabled
@@ -1194,9 +1262,9 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
                         : 'bg-gray-800 bg-opacity-50 border-gray-700 hover:border-[#B8913D] hover:border-opacity-50'
                     }`}
                   >
-                    <div className="flex items-start justify-between mb-2 sm:mb-3">
+                    <div className="flex items-start justify-between gap-3 mb-2.5">
                       <div className="flex-1">
-                        <div className="font-semibold text-white text-sm sm:text-lg">{ett.ticket_type.name}</div>
+                        <div className="font-semibold text-white text-base sm:text-lg leading-snug">{ett.ticket_type.name}</div>
                         {ett.ticket_type.description && (
                           <div className="text-[10px] sm:text-xs text-gray-400 mt-0.5 sm:mt-1">{ett.ticket_type.description}</div>
                         )}
@@ -1211,7 +1279,7 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
                           </div>
                         )}
                       </div>
-                      <div className="text-right ml-2 sm:ml-4">
+                      <div className="text-right w-[48%] sm:w-auto shrink-0">
                         {quickAddLockMode && !lockEligible ? (
                           <div className="text-[11px] sm:text-xs text-gray-400 mt-1">Price Lock indisponible</div>
                         ) : showLock ? (
@@ -1219,8 +1287,32 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
                             <div className="text-[10px] uppercase tracking-wide text-gray-400">Prix bloqué</div>
                             <div className="text-base sm:text-xl font-bold text-[#B8913D]">{price.toFixed(2)}€</div>
                             <div className="text-[11px] sm:text-xs text-gray-300 mt-1">
-                              Aujourd’hui : <span className="font-semibold text-white">{Number(ett.price_lock_deposit_amount).toFixed(0)} €</span>
+                              Aujourd’hui : <span className="font-semibold text-white">{selectedDeposit.toFixed(2)} €</span>
                             </div>
+                            <input
+                              type="text"
+                              inputMode="decimal"
+                              value={enteredDeposit}
+                              min={minimumDeposit}
+                              max={Math.max(0, price - 0.01)}
+                              step="0.01"
+                              onChange={(e) => {
+                                const value = e.target.value.replace(/[^0-9.,]/g, '');
+                                const amount = Number(value.replace(',', '.'));
+                                setPriceLockDeposits(prev => ({ ...prev, [ett.id]: value }));
+                                if (value.trim() !== '' && Number.isFinite(amount) && amount >= minimumDeposit && amount < price) {
+                                  setValidPriceLockDeposits(prev => ({ ...prev, [ett.id]: amount }));
+                                }
+                                setQuickAddError('');
+                              }}
+                              placeholder={`Autre montant · min. ${minimumDeposit.toFixed(2)} €`}
+                              aria-label={`Montant du dépôt pour ${ett.ticket_type.name}`}
+                              aria-invalid={Boolean(depositError)}
+                              className={`mt-2 w-full max-w-[150px] px-2 py-1.5 text-right text-xs bg-gray-900 rounded-lg text-white placeholder-gray-500 focus:ring-1 outline-none ${depositError ? 'border border-red-500/70 focus:ring-red-500' : 'border border-gray-700 focus:ring-[#B8913D]'}`}
+                            />
+                            {depositError && (
+                              <p className="mt-1 max-w-[180px] text-[10px] leading-snug text-red-300">{depositError}</p>
+                            )}
                             {(() => {
                               const payDeadline = priceLockDeadline(ett as any);
                               return (
@@ -1228,11 +1320,11 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
                                   {payDeadline ? (
                                     <>
                                       Reste à payer avant le {payDeadline.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })} :{' '}
-                                      <span className="font-semibold text-[#F0D38A]">{Math.max(0, price - Number(ett.price_lock_deposit_amount)).toFixed(0)} €</span>
+                                      <span className="font-semibold text-[#F0D38A]">{Math.max(0, price - selectedDeposit).toFixed(2)} €</span>
                                     </>
                                   ) : (
                                     <>
-                                      Reste à payer : <span className="font-semibold text-[#F0D38A]">{Math.max(0, price - Number(ett.price_lock_deposit_amount)).toFixed(0)} €</span>
+                                      Reste à payer : <span className="font-semibold text-[#F0D38A]">{Math.max(0, price - selectedDeposit).toFixed(2)} €</span>
                                     </>
                                   )}
                                 </div>
@@ -1316,7 +1408,7 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
                       </div>
                       {currentQty > 0 && (
                         <div className="text-xs sm:text-sm font-medium text-[#B8913D] min-w-[60px] sm:min-w-[80px] text-right">
-                          {((showLock ? Number(ett.price_lock_deposit_amount) : price) * currentQty).toFixed(2)}€
+                          {((showLock ? selectedDeposit : price) * currentQty).toFixed(2)}€
                         </div>
                       )}
                     </div>
@@ -1363,7 +1455,8 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
                         const firstSelected = selectedEvent.event_ticket_types?.find(e => (ticketQuantities[e.id] || 0) > 0);
                         if (!firstSelected) return '…';
                         const p = currentPrice(firstSelected as any);
-                        return Math.max(0, p - Number(firstSelected.price_lock_deposit_amount)).toFixed(0);
+                        const deposit = displayedPriceLockDeposit(firstSelected);
+                        return Math.max(0, p - deposit).toFixed(2);
                       })()} € sera débité automatiquement le {(() => {
                         const firstSelected = selectedEvent.event_ticket_types?.find(e => (ticketQuantities[e.id] || 0) > 0);
                         const dl = firstSelected ? priceLockDeadline(firstSelected as any) : null;
@@ -1390,7 +1483,7 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
             )}
 
             {Object.values(ticketQuantities).some(qty => qty > 0) && (
-              <div className="mb-4 sm:mb-6 p-3 sm:p-4 bg-gradient-to-r from-[#B8913D]/20 to-[#A07F35]/20 rounded-lg border border-[#B8913D]">
+              <div className="mb-4 sm:mb-5 p-3 sm:p-3.5 bg-[#B8913D]/[0.08] rounded-xl border border-[#D4AC5B]/40">
                 <div className="flex justify-between items-center">
                   <span className="text-white text-sm sm:text-base font-semibold">
                     {quickAddLockMode ? 'À payer aujourd’hui (versements)' : 'À payer aujourd’hui'}
@@ -1401,7 +1494,7 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
                       .reduce((total, ett) => {
                         const qty = ticketQuantities[ett.id] || 0;
                         const unit = quickAddLockMode && (ett as any).price_lock_enabled
-                          ? Number(ett.price_lock_deposit_amount)
+                          ? displayedPriceLockDeposit(ett)
                           : currentPrice(ett as any);
                         return total + (unit * qty);
                       }, 0)
@@ -1419,6 +1512,8 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
                 onClick={() => {
                   setSelectedEvent(null);
                   setTicketQuantities({});
+                  setPriceLockDeposits({});
+                  setValidPriceLockDeposits({});
                   setQuickAddError('');
                   setQuickAddNotice('');
                 }}
@@ -1428,9 +1523,9 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
               </button>
               <button
                 onClick={handleQuickAddEventTicket}
-                disabled={!Object.values(ticketQuantities).some(qty => qty > 0) || (quickAddLockMode && (!balancePaymentMode || (balancePaymentMode === 'automatic' && !autoBalanceConsent)))}
+                disabled={!Object.values(ticketQuantities).some(qty => qty > 0) || hasInvalidPriceLockDeposit || (quickAddLockMode && (!balancePaymentMode || (balancePaymentMode === 'automatic' && !autoBalanceConsent)))}
                 className={`flex-1 py-2.5 sm:py-3 text-xs sm:text-base rounded-lg font-medium transition-all ${
-                  Object.values(ticketQuantities).some(qty => qty > 0)
+                  Object.values(ticketQuantities).some(qty => qty > 0) && !hasInvalidPriceLockDeposit
                     ? 'bg-gradient-to-r from-[#B8913D] to-[#A07F35] text-white hover:shadow-lg hover:shadow-[#B8913D]/50'
                     : 'bg-gray-800 text-gray-500 cursor-not-allowed'
                 }`}
@@ -1440,7 +1535,10 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
                   {quickAddLockMode
                     ? `Ajouter le Price Lock au panier — ${selectedEvent.event_ticket_types
                         ?.filter(ett => ett.is_active && priceLockAvailable(ett as any))
-                        .reduce((total, ett) => total + Number(ett.price_lock_deposit_amount) * (ticketQuantities[ett.id] || 0), 0)
+                        .reduce((total, ett) => {
+                          const deposit = displayedPriceLockDeposit(ett);
+                          return total + deposit * (ticketQuantities[ett.id] || 0);
+                        }, 0)
                         .toFixed(2)}€`
                     : `Ajouter au panier — ${selectedEvent.event_ticket_types
                         ?.filter(ett => ett.is_active)

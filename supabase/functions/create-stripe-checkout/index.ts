@@ -117,14 +117,17 @@ async function resolvePriceLockBalance(
   };
 }
 
-// Price Lock : premier versement — montant et règles TOUJOURS fixés côté serveur
-// depuis la fonction centrale de paliers (event_ticket_price_tiers). Le client
-// ne transmet qu'un identifiant de billet ; le montant de la requête est ignoré.
+// Price Lock : premier versement — montant ET règles TOUJOURS fixés côté serveur.
+// Si l'utilisateur a choisi un montant (selected_deposit_amount en metadata),
+// la fonction SQL create_stripe_price_lock_deposit le revalide intégralement
+// (minimum 20 €, < prix bloqué, fenêtre, quota, limites). Sinon, repli exact
+// sur le dépôt fixe configuré du billet (comportement historique).
 async function resolvePriceLockDeposit(
   supabase: any,
   userId: string,
-  ticketTypeId: string
-): Promise<{ error?: string; name?: string; amount?: number }> {
+  ticketTypeId: string,
+  selectedDepositAmount?: number | null
+): Promise<{ error?: string; name?: string; amount?: number; selected?: number | null }> {
   if (!ticketTypeId) return { error: 'Billet introuvable pour le Price Lock.' };
 
   const { data: ett } = await supabase
@@ -156,15 +159,15 @@ async function resolvePriceLockDeposit(
   if (now < opensAt) return { error: 'Le Price Lock n’est pas encore ouvert pour ce billet.' };
   if (now >= increaseAt) return { error: 'Price Lock fermé pour ce billet : la hausse est déjà passée.' };
 
-  // Un seul Price Lock actif par utilisateur et par billet
-  const { count: sameType } = await supabase
+  // Un seul Price Lock actif par utilisateur et par ÉVÉNEMENT (tous billets confondus)
+  const { count: sameEvent } = await supabase
     .from('price_locks')
     .select('id', { count: 'exact', head: true })
     .eq('user_id', userId)
-    .eq('event_ticket_type_id', ticketTypeId)
+    .eq('event_id', ett.event_id)
     .eq('status', 'active');
-  if ((sameType ?? 0) > 0) {
-    return { error: 'Tu as déjà un Price Lock actif pour ce billet.' };
+  if ((sameEvent ?? 0) > 0) {
+    return { error: 'Tu as déjà un Price Lock actif pour ce festival.' };
   }
 
   // Max 2 Price Locks actifs simultanément par utilisateur
@@ -190,9 +193,27 @@ async function resolvePriceLockDeposit(
   }
 
   const ticketName = (ett as any).ticket_type?.name || 'Billet';
+
+  // Montant choisi par l'utilisateur : revalidation serveur via fonction SQL dédiée.
+  if (selectedDepositAmount != null) {
+    const { data: validated, error: validateError } = await supabase.rpc(
+      'create_stripe_price_lock_deposit',
+      { p_user_id: userId, p_ticket_type_id: ticketTypeId, p_amount: selectedDepositAmount }
+    );
+    if (validateError || typeof validated !== 'number') {
+      return { error: validateError?.message || 'Le versement choisi n’est pas valide pour ce Price Lock.' };
+    }
+    return {
+      name: `Price Lock — ${ticketName}`,
+      amount: validated,
+      selected: validated,
+    };
+  }
+
   return {
     name: `Price Lock — ${ticketName}`,
     amount: Number(ett.price_lock_deposit_amount),
+    selected: null,
   };
 }
 
@@ -293,7 +314,15 @@ Deno.serve(async (req: Request) => {
     let resolvedItems = items;
     if (payment_type === 'price_lock_deposit') {
       const ticketTypeId = metadata.event_ticket_type_id || metadata.target_id;
-      const resolved = await resolvePriceLockDeposit(supabase, user.id, ticketTypeId);
+      // Montant choisi par l'utilisateur : jamais lu depuis le panier, uniquement
+      // depuis la metadata dédiée puis revalidé côté base (minimum, plafond).
+      const rawSelected = (metadata as Record<string, any>).selected_deposit_amount;
+      const parsedSelected = rawSelected != null ? Number(rawSelected) : null;
+      const selectedDepositAmount =
+        parsedSelected != null && Number.isFinite(parsedSelected) && parsedSelected > 0
+          ? parsedSelected
+          : null;
+      const resolved = await resolvePriceLockDeposit(supabase, user.id, ticketTypeId, selectedDepositAmount);
       if (resolved.error) {
         return new Response(
           JSON.stringify({ error: resolved.error }),

@@ -264,7 +264,6 @@ export function Landing({ onNavigate }: LandingProps) {
         `)
         .in('event_status', ['published', 'upcoming'])
         .eq('is_active', true)
-        .eq('is_test', false)
         .gte('start_date', new Date().toISOString())
         .order('start_date', { ascending: true })
         .limit(3);

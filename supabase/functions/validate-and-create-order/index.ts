@@ -409,7 +409,30 @@ Deno.serve(async (req: Request) => {
           }
 
           lockedPriceSnapshot = unitPrice;
-          depositAmount = Number(eventTicketType.price_lock_deposit_amount);
+          // Le panier porte le montant choisi par l'utilisateur : revalidé côté
+          // base (minimum configuré, 20 €, < tarif verrouillé) avant facturation.
+          if (cartDepositAmount != null) {
+            const { data: validatedDeposit, error: depositError } = await supabase.rpc(
+              "create_stripe_price_lock_deposit",
+              {
+                p_user_id: user.id,
+                p_ticket_type_id: eventTicketType.id,
+                p_amount: cartDepositAmount,
+              }
+            );
+            if (depositError || validatedDeposit == null) {
+              return new Response(
+                JSON.stringify({
+                  error: depositError?.message || "Montant de versement Price Lock invalide.",
+                  event_ticket_type_id: eventTicketType.id,
+                }),
+                { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+              );
+            }
+            depositAmount = Number(validatedDeposit);
+          } else {
+            depositAmount = Number(eventTicketType.price_lock_deposit_amount);
+          }
           if (depositAmount >= unitPrice) {
             return new Response(
               JSON.stringify({ error: "Le dépôt Price Lock doit être inférieur au tarif actuel." }),
@@ -475,25 +498,8 @@ Deno.serve(async (req: Request) => {
             );
           }
         }
-        if (purchaseType === "price_lock_deposit" && cartDepositAmount != null) {
-          const depositDrifted = Math.abs(depositAmount! - cartDepositAmount) >= 0.01;
-          if (depositDrifted) {
-            return new Response(
-              JSON.stringify({
-                error: "Le versement Price Lock a changé depuis l'ajout au panier.",
-                code: "PRICE_CHANGED",
-                event_ticket_type_id: eventTicketType.id,
-                cart_price: cartDepositAmount,
-                current_price: depositAmount,
-                ticket_name: `${eventTitle} - ${ticketName}`,
-              }),
-              {
-                status: 409,
-                headers: { ...corsHeaders, "Content-Type": "application/json" },
-              }
-            );
-          }
-        }
+        // Versement Price Lock : le montant choisi dans le panier a déjà été
+        // revalidé via create_stripe_price_lock_deposit (minimum, < tarif).
 
         totalAmount += unitPrice * item.quantity;
 

@@ -10,6 +10,7 @@ export interface PriceLockSummary {
   nextPrice: number;
   priceIncreaseDate: string;
   depositAmount: number;
+  minimumDeposit: number;
   lockedPrice: number;
   guaranteeEndDate: string;
   remainingAmount: number;
@@ -48,6 +49,7 @@ interface TicketTypeRow {
   sale_end_date: string | null;
   ticket_type: { name: string };
   price_tiers: Array<{ label: string; price: number | string; starts_at: string; ends_at: string | null }>;
+  event: { is_test: boolean } | null;
 }
 
 interface PricingTier {
@@ -100,7 +102,8 @@ export async function fetchPriceLockSummary(
       quantity_sold,
       is_active,
       ticket_type:ticket_types(name),
-      price_tiers:event_ticket_price_tiers(label, price, starts_at, ends_at)
+      price_tiers:event_ticket_price_tiers(label, price, starts_at, ends_at),
+      event:events(is_test)
     `)
     .eq('id', ticketTypeId)
     .maybeSingle();
@@ -151,6 +154,9 @@ export async function fetchPriceLockSummary(
   }
 
   const depositAmount = ett.price_lock_deposit_amount;
+  const isTestEvent = ett.event?.is_test ?? false;
+  // Minimum fonctionnel : 20 € pour les événements publics, montant configuré pour les événements test.
+  const minDeposit = isTestEvent ? depositAmount : Math.max(depositAmount, 20);
   // Expiration : prochaine hausse + garantie, plafonnée à la fin de vente.
   const guaranteedEnd = new Date(next.starts_at.getTime() + ett.price_lock_guarantee_days * DAY_MS);
   const saleEnd = ett.sale_end_date ? new Date(ett.sale_end_date) : null;
@@ -164,28 +170,33 @@ export async function fetchPriceLockSummary(
     currentPrice: current.price,
     nextPrice: next.price,
     priceIncreaseDate: next.starts_at.toISOString(),
-    depositAmount,
+    depositAmount: minDeposit,
+    minimumDeposit: minDeposit,
     lockedPrice: current.price,
     guaranteeEndDate: guaranteeEnd.toISOString(),
-    remainingAmount: Math.max(0, current.price - depositAmount),
+    remainingAmount: Math.max(0, current.price - minDeposit),
   };
 }
 
 /**
  * Démarre le paiement Stripe du premier versement Price Lock.
+ * chosenAmount : montant librement choisi par l'utilisateur (>= minimum,
+ * < prix bloqué) — revalidé côté serveur avant la création de la session.
  * Le lock n'est PAS créé ici : il sera créé par le backend uniquement
  * après confirmation réelle du paiement (webhook / verify-payment).
  */
 export async function startPriceLockDepositCheckout(
-  summary: PriceLockSummary
+  summary: PriceLockSummary,
+  chosenAmount?: number
 ): Promise<string> {
+  const deposit = chosenAmount ?? summary.minimumDeposit;
   const origin = window.location.origin;
   return createStripeCheckout({
     payment_type: 'price_lock_deposit',
     items: [{
       id: summary.ticketTypeId,
       name: `Price Lock — ${summary.eventTitle} (${summary.ticketTypeName})`,
-      price: summary.depositAmount,
+      price: deposit,
       quantity: 1,
     }],
     metadata: {
@@ -193,6 +204,7 @@ export async function startPriceLockDepositCheckout(
       event_ticket_type_id: summary.ticketTypeId,
       target_id: summary.ticketTypeId,
       payment_type: 'price_lock_deposit',
+      selected_deposit_amount: String(deposit),
     },
     success_url: `${origin}/shop?price_lock=success&session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: `${origin}/shop?price_lock=cancelled`,
@@ -202,10 +214,21 @@ export async function startPriceLockDepositCheckout(
 export async function fetchUserPriceLock(
   ticketTypeId: string
 ): Promise<PriceLockRecord | null> {
+  // Règle métier : un seul Price Lock actif par utilisateur et par ÉVÉNEMENT,
+  // tous types de billets confondus. On récupère d'abord l'event_id du billet,
+  // puis on cherche un lock actif sur cet événement (pas seulement ce billet).
+  const { data: ett } = await supabase
+    .from('event_ticket_types')
+    .select('event_id')
+    .eq('id', ticketTypeId)
+    .maybeSingle();
+
+  if (!ett) return null;
+
   const { data } = await supabase
     .from('price_locks')
     .select('id, event_id, event_ticket_type_id, locked_price, deposit_amount, total_paid, remaining_amount, expires_at, status')
-    .eq('event_ticket_type_id', ticketTypeId)
+    .eq('event_id', ett.event_id)
     .eq('status', 'active')
     .maybeSingle();
   return (data as unknown as PriceLockRecord) ?? null;

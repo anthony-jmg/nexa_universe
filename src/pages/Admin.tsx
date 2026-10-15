@@ -10,7 +10,7 @@ import { EventsManagement } from '../components/EventsManagement';
 import { TicketTypesManagement } from '../components/TicketTypesManagement';
 import ProfessorPayments from '../components/ProfessorPayments';
 import { Database } from '../lib/database.types';
-import { Video, Users, Plus, CreditCard as Edit2, Trash2, X, Check, AlertCircle, ShoppingBag, Package, Search, Filter, Tag, Calendar, Ticket, DollarSign, GraduationCap } from 'lucide-react';
+import { Video, Users, Plus, CreditCard as Edit2, Trash2, X, Check, AlertCircle, ShoppingBag, Package, Search, Filter, Tag, Calendar, Ticket, DollarSign, GraduationCap, Globe } from 'lucide-react';
 
 type Video = Database['public']['Tables']['videos']['Row'];
 type Profile = Database['public']['Tables']['profiles']['Row'];
@@ -72,7 +72,7 @@ interface AdminProps {
 
 export function Admin({ onNavigate }: AdminProps) {
   const { user, profile } = useAuth();
-  const [activeTab, setActiveTab] = useState<'videos' | 'users' | 'products' | 'product-types' | 'orders' | 'events' | 'ticket-types' | 'payments' | 'professor-requests'>('videos');
+  const [activeTab, setActiveTab] = useState<'videos' | 'users' | 'products' | 'product-types' | 'orders' | 'events' | 'ticket-types' | 'payments' | 'professor-requests' | 'professors'>('videos');
   const [videos, setVideos] = useState<Video[]>([]);
   const [users, setUsers] = useState<Profile[]>([]);
   const [professors, setProfessors] = useState<Professor[]>([]);
@@ -728,6 +728,7 @@ export function Admin({ onNavigate }: AdminProps) {
               { id: 'ticket-types', icon: Ticket, label: 'Ticket Types' },
               { id: 'payments', icon: DollarSign, label: 'Payments' },
               { id: 'professor-requests', icon: GraduationCap, label: 'Demandes Prof' },
+              { id: 'professors', icon: Globe, label: 'Professeurs' },
             ] as const).map(({ id, icon: Icon, label }) => (
               <button
                 key={id}
@@ -1594,6 +1595,8 @@ export function Admin({ onNavigate }: AdminProps) {
           <ProfessorPayments />
         ) : activeTab === 'professor-requests' ? (
           <ProfessorRequestsSection onCountChange={setPendingProfessorRequestsCount} />
+        ) : activeTab === 'professors' ? (
+          <ProfessorDiscoveryManagement professors={professors} onRefresh={loadProfessors} setError={setError} setSuccess={setSuccess} />
         ) : null}
       </div>
     </div>
@@ -1805,6 +1808,199 @@ function ProfessorRequestsSection({ onCountChange }: { onCountChange?: (count: n
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function ProfessorDiscoveryManagement({
+  professors,
+  onRefresh,
+  setError,
+  setSuccess,
+}: {
+  professors: Professor[];
+  onRefresh: () => Promise<void>;
+  setError: (msg: string) => void;
+  setSuccess: (msg: string) => void;
+}) {
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [websiteUrl, setWebsiteUrl] = useState('');
+  const [coverImage, setCoverImage] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  const startEdit = (prof: Professor) => {
+    setEditingId(prof.id);
+    setWebsiteUrl(prof.website_url || '');
+    setCoverImage(prof.website_cover_image || '');
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+    setWebsiteUrl('');
+    setCoverImage('');
+  };
+
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingId) return;
+
+    const trimmedUrl = websiteUrl.trim();
+    if (trimmedUrl) {
+      try {
+        const parsed = new URL(trimmedUrl);
+        if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+          setError('Le site doit être une URL HTTP ou HTTPS valide');
+          return;
+        }
+      } catch {
+        setError('Le site doit être une URL valide (ex: https://monsite.com)');
+        return;
+      }
+    }
+
+    setSaving(true);
+    const { error } = await supabase
+      .from('professors')
+      .update({
+        website_url: trimmedUrl || null,
+        website_cover_image: coverImage || null,
+      })
+      .eq('id', editingId);
+
+    setSaving(false);
+
+    if (error) {
+      setError(error.message);
+      return;
+    }
+
+    setSuccess('Professeur mis à jour');
+    setTimeout(() => setSuccess(''), 3000);
+    cancelEdit();
+    await onRefresh();
+  };
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-2xl font-light text-white">Professeurs — Academy Discovery</h2>
+        <p className="text-gray-400 text-sm mt-1">
+          Renseignez le site internet et l'image de couverture pour afficher un professeur dans la nouvelle Academy.
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4">
+        {professors.length === 0 && (
+          <div className="bg-gray-800/50 rounded-xl p-8 text-center">
+            <GraduationCap className="w-10 h-10 text-gray-600 mx-auto mb-3" />
+            <p className="text-gray-400">Aucun professeur trouvé.</p>
+          </div>
+        )}
+        {professors.map((prof) => (
+          <div
+            key={prof.id}
+            className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl p-6 border border-gray-700/50"
+          >
+            {editingId === prof.id ? (
+              <form onSubmit={handleSave} className="space-y-5">
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#B8913D] to-[#A07F35] flex items-center justify-center text-white font-bold text-sm">
+                    {prof.profiles?.full_name?.charAt(0)?.toUpperCase() || '?'}
+                  </div>
+                  <h3 className="text-lg font-medium text-white">{prof.profiles?.full_name || 'Professeur'}</h3>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    Site internet
+                  </label>
+                  <input
+                    type="url"
+                    value={websiteUrl}
+                    onChange={(e) => setWebsiteUrl(e.target.value)}
+                    placeholder="https://monsiteprof.com"
+                    className="w-full px-4 py-3 bg-gray-900/50 border border-gray-600 text-white rounded-lg focus:ring-2 focus:ring-[#B8913D] focus:border-transparent outline-none transition-all"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Facultatif. Doit être une URL HTTP ou HTTPS valide. Le professeur n'apparaîtra dans Discovery que si ce champ est renseigné.
+                  </p>
+                </div>
+
+                <ImageUpload
+                  currentImageUrl={coverImage}
+                  onImageUrlChange={setCoverImage}
+                  label="Image de couverture Academy"
+                  aspectRatio="video"
+                />
+
+                <div className="flex justify-end space-x-3">
+                  <button
+                    type="button"
+                    onClick={cancelEdit}
+                    className="px-6 py-3 border border-gray-600 text-gray-300 rounded-lg hover:bg-gray-700/50 transition-colors"
+                  >
+                    Annuler
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={saving}
+                    className="px-6 py-3 bg-gradient-to-r from-[#B8913D] to-[#A07F35] text-white rounded-lg hover:shadow-lg transition-all disabled:opacity-50"
+                  >
+                    {saving ? 'Enregistrement...' : 'Enregistrer'}
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <div className="flex items-start justify-between">
+                <div className="flex items-start space-x-4 flex-1">
+                  <div className="w-16 h-10 rounded-lg overflow-hidden bg-gray-700 flex-shrink-0">
+                    {prof.website_cover_image ? (
+                      <img
+                        src={prof.website_cover_image}
+                        alt={prof.profiles?.full_name || 'Professeur'}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <Globe className="w-5 h-5 text-gray-500" />
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-lg font-medium text-white">{prof.profiles?.full_name || 'Professeur'}</h3>
+                    <div className="flex items-center gap-3 mt-1 text-sm">
+                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                        prof.website_url
+                          ? 'bg-green-500/20 text-green-300 border border-green-500/30'
+                          : 'bg-gray-500/20 text-gray-400 border border-gray-500/30'
+                      }`}>
+                        {prof.website_url ? 'Visible Discovery' : 'Non visible'}
+                      </span>
+                      {prof.website_url && (
+                        <a
+                          href={prof.website_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-[#B8913D] hover:underline truncate"
+                        >
+                          {prof.website_url}
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                <button
+                  onClick={() => startEdit(prof)}
+                  className="p-2 text-[#B8913D] hover:bg-[#B8913D] hover:bg-opacity-10 rounded-lg transition-colors flex-shrink-0"
+                  title="Modifier"
+                >
+                  <Edit2 className="w-4 h-4" />
+                </button>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

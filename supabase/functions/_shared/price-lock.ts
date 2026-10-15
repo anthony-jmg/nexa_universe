@@ -59,13 +59,22 @@ export async function createPriceLockAfterPayment(
     return { lockId: activeLock.id, alreadyExists: true };
   }
 
-  // Création : le trigger applicque et protège toutes les règles métier
+  // Création : le trigger applicque et protège toutes les règles métier.
+  // Le montant choisi par l'utilisateur (revalidé par le checkout) est transmis
+  // via selected_deposit_amount ; le trigger le valide une seconde fois côté
+  // base et calcule deposit/total_paid/remaining. Sans montant (flux historique),
+  // le trigger applique le dépôt fixe configuré sur le billet.
+  const insertPayload: Record<string, unknown> = {
+    user_id: userId,
+    event_ticket_type_id: ticketTypeId,
+  };
+  if (Number.isFinite(depositAmount) && depositAmount > 0) {
+    insertPayload.selected_deposit_amount = depositAmount;
+  }
+
   const { data: lock, error: insertError } = await supabase
     .from("price_locks")
-    .insert({
-      user_id: userId,
-      event_ticket_type_id: ticketTypeId,
-    })
+    .insert(insertPayload)
     .select()
     .single();
 

@@ -36,7 +36,7 @@ interface CartContextType {
   cart: CartItem[];
   eventTickets: EventTicketCartItem[];
   addToCart: (product: Product, quantity: number, size?: string) => Promise<void>;
-  addEventTicketToCart: (eventTicketTypeId: string, quantity: number, purchaseType?: EventTicketPurchaseType, options?: { balancePaymentMode?: 'manual' | 'automatic' }) => Promise<void>;
+  addEventTicketToCart: (eventTicketTypeId: string, quantity: number, purchaseType?: EventTicketPurchaseType, options?: { balancePaymentMode?: 'manual' | 'automatic'; depositAmount?: number }) => Promise<void>;
   removeFromCart: (productId: string, size?: string) => Promise<void>;
   removeEventTicketFromCart: (eventTicketTypeId: string, purchaseType?: EventTicketPurchaseType) => Promise<void>;
   updateQuantity: (productId: string, quantity: number, size?: string) => Promise<void>;
@@ -285,7 +285,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     eventTicketTypeId: string,
     quantity: number,
     purchaseType: EventTicketPurchaseType = 'full_purchase',
-    options?: { balancePaymentMode?: 'manual' | 'automatic' }
+    options?: { balancePaymentMode?: 'manual' | 'automatic'; depositAmount?: number }
   ) => {
     const isDeposit = purchaseType === 'price_lock_deposit';
     const qty = isDeposit ? 1 : quantity;
@@ -359,7 +359,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         // Prix issu du palier actif (source de vérité) ; le montant est
         // revalidé côté serveur au checkout.
         const price = currentPrice(ticket);
-        const deposit = Number(ticket.price_lock_deposit_amount);
+        const deposit = options?.depositAmount ?? Number(ticket.price_lock_deposit_amount);
         const amountDueNow = purchaseType === 'price_lock_deposit' ? deposit : price;
 
         const tempItem: EventTicketCartItem = {
@@ -404,7 +404,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       if (eventTicketData) {
         const ticket = eventTicketData as any;
         const price = currentPrice(ticket);
-        const deposit = Number(ticket.price_lock_deposit_amount);
+        const deposit = options?.depositAmount ?? Number(ticket.price_lock_deposit_amount);
         const amountDueNow = purchaseType === 'price_lock_deposit' ? deposit : price;
 
         setEventTickets((prev) => {
@@ -413,6 +413,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
           if (existingIndex > -1) {
             const newEventTickets = [...prev];
             newEventTickets[existingIndex].quantity += qty;
+            newEventTickets[existingIndex].depositAmount = purchaseType === 'price_lock_deposit' ? deposit : undefined;
+            newEventTickets[existingIndex].amountDueNow = amountDueNow;
             return newEventTickets;
           }
 

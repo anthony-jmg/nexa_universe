@@ -94,7 +94,9 @@ Deno.serve(async (req: Request) => {
           user.id,
           ticketTypeId,
           paymentIntentId,
-          (session.amount_total || 0) / 100
+          Number(session.metadata?.selected_deposit_amount ?? 0) > 0
+            ? Number(session.metadata.selected_deposit_amount)
+            : (session.amount_total || 0) / 100
         );
 
         if (result.error) {
@@ -231,7 +233,9 @@ Deno.serve(async (req: Request) => {
               user.id,
               item.event_ticket_type_id,
               paymentIntentId,
-              (session.amount_total || 0) / 100
+              Number(session.metadata?.selected_deposit_amount ?? 0) > 0
+                ? Number(session.metadata.selected_deposit_amount)
+                : (session.amount_total || 0) / 100
             );
             if (result.error) {
               console.error(`Failed to create price lock for order item ${item.id}:`, result.error);

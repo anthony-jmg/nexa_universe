@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Lock, X, Check, AlertCircle, Loader2, Calendar, Tag, CreditCard, Wallet, PartyPopper, TrendingUp } from 'lucide-react';
 import {
   PriceLockSummary,
@@ -23,6 +23,24 @@ export function PriceLockModal({ summary, existingLock, onClose, onViewEvents, o
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState('');
   const [confirmedLock, setConfirmedLock] = useState<PriceLockRecord | null>(existingLock);
+  const minDeposit = summary.minimumDeposit;
+  const suggestedAmounts = useMemo(() => {
+    const amounts = new Set<number>([minDeposit]);
+    for (const ratio of [0.3, 0.5]) {
+      const value = Math.round(summary.lockedPrice * ratio);
+      if (value >= minDeposit && value < summary.lockedPrice) amounts.add(value);
+    }
+    return Array.from(amounts).sort((a, b) => a - b);
+  }, [minDeposit, summary.lockedPrice]);
+  const [selectedAmount, setSelectedAmount] = useState<number>(minDeposit);
+  const [lastValidAmount, setLastValidAmount] = useState<number>(minDeposit);
+  const [customAmount, setCustomAmount] = useState('');
+
+  useEffect(() => {
+    setSelectedAmount(minDeposit);
+    setLastValidAmount(minDeposit);
+    setCustomAmount('');
+  }, [minDeposit]);
 
   useEffect(() => {
     if (existingLock) {
@@ -33,11 +51,19 @@ export function PriceLockModal({ summary, existingLock, onClose, onViewEvents, o
     }
   }, [existingLock]);
 
+  const effectiveAmount = customAmount.trim() !== '' ? Number(customAmount.replace(',', '.')) : selectedAmount;
+  const amountValid =
+    Number.isFinite(effectiveAmount) &&
+    effectiveAmount >= minDeposit - 0.001 &&
+    effectiveAmount < summary.lockedPrice - 0.001;
+  const displayedAmount = amountValid ? effectiveAmount : lastValidAmount;
+  const remainingAfter = Math.max(0, summary.lockedPrice - displayedAmount);
+
   const handlePay = async () => {
     setProcessing(true);
     setError('');
     try {
-      await startPriceLockDepositCheckout(summary);
+      await startPriceLockDepositCheckout(summary, Math.round(effectiveAmount * 100) / 100);
       // La redirection Stripe a lieu ; au retour, la page détecte le statut du paiement.
     } catch (err) {
       setStage('error');
@@ -94,9 +120,51 @@ export function PriceLockModal({ summary, existingLock, onClose, onViewEvents, o
                 </span>
               </div>
               <div className="h-px bg-gradient-to-r from-transparent via-[#D4AC5B]/25 to-transparent" />
+
+              <div>
+                <p className="text-xs text-gray-400 flex items-center gap-1.5 mb-2"><Wallet className="w-3.5 h-3.5 text-[#B8913D]" />Combien veux-tu verser aujourd’hui ?</p>
+                <div className="grid grid-cols-3 gap-2">
+                  {suggestedAmounts.map((amount) => (
+                    <button
+                      key={amount}
+                      type="button"
+                      onClick={() => { setSelectedAmount(amount); setLastValidAmount(amount); setCustomAmount(''); }}
+                      className={`py-2.5 rounded-lg text-sm font-semibold border transition-all ${
+                        customAmount.trim() === '' && selectedAmount === amount
+                          ? 'bg-[#D4AC5B]/20 border-[#D4AC5B] text-[#F0D38A]'
+                          : 'border-gray-700 text-gray-300 hover:border-[#D4AC5B]/50 hover:bg-[#D4AC5B]/10'
+                      }`}
+                    >
+                      {formatPrice(amount)}
+                    </button>
+                  ))}
+                </div>
+                <div className="mt-2">
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    min={minDeposit}
+                    max={Math.max(0, summary.lockedPrice - 0.01)}
+                    step="0.01"
+                    value={customAmount}
+                    onChange={(e) => {
+                      const v = e.target.value.replace(/[^0-9.,]/g, '');
+                      const amount = Number(v.replace(',', '.'));
+                      setCustomAmount(v);
+                      if (v.trim() !== '' && Number.isFinite(amount) && amount >= minDeposit && amount < summary.lockedPrice) {
+                        setLastValidAmount(amount);
+                      }
+                    }}
+                    placeholder={`Autre montant (min. ${formatPrice(minDeposit)})`}
+                    aria-invalid={!amountValid}
+                    className={`w-full px-3 py-2.5 bg-gray-800 rounded-lg text-white text-sm placeholder-gray-500 focus:ring-2 outline-none ${!amountValid ? 'border border-red-500/70 focus:ring-red-500' : 'border border-gray-700 focus:ring-[#B8913D]'}`}
+                  />
+                </div>
+              </div>
+
               <div className="flex items-center justify-between gap-3">
                 <span className="text-xs text-gray-400 flex items-center gap-1.5"><Wallet className="w-3.5 h-3.5 text-[#B8913D]" />Aujourd’hui</span>
-                <span className="text-lg font-bold text-[#F0D38A]">{formatPrice(summary.depositAmount)}</span>
+                <span className="text-lg font-bold text-[#F0D38A]">{formatPrice(displayedAmount)}</span>
               </div>
               <div className="flex items-center justify-between gap-3">
                 <span className="text-xs text-gray-400 flex items-center gap-1.5"><Lock className="w-3.5 h-3.5 text-[#B8913D]" />Prix bloqué</span>
@@ -107,21 +175,28 @@ export function PriceLockModal({ summary, existingLock, onClose, onViewEvents, o
                 <span className="text-sm font-semibold text-white">{formatDateFr(summary.guaranteeEndDate)}</span>
               </div>
               <div className="flex items-center justify-between gap-3">
-                <span className="text-xs text-gray-400 flex items-center gap-1.5"><CreditCard className="w-3.5 h-3.5 text-[#B8913D]" />Reste à payer après ce versement</span>
-                <span className="text-sm font-semibold text-white">{formatPrice(summary.remainingAmount)}</span>
+                <span className="text-xs text-gray-400 flex items-center gap-1.5"><CreditCard className="w-3.5 h-3.5 text-[#B8913D]" />Reste à payer avant le {formatDateFr(summary.guaranteeEndDate)}</span>
+                <span className="text-sm font-semibold text-white">{formatPrice(remainingAfter)}</span>
               </div>
             </div>
 
             <div className="mt-4 space-y-1.5">
               <p className="text-sm text-white leading-relaxed">
-                Verse <span className="font-semibold text-[#D4AC5B]">{formatPrice(summary.depositAmount)}</span> aujourd’hui pour conserver le tarif actuel de <span className="font-semibold">{formatPrice(summary.lockedPrice)}</span>.
+                Verse <span className="font-semibold text-[#D4AC5B]">{formatPrice(displayedAmount)}</span> aujourd’hui pour conserver le tarif actuel de <span className="font-semibold">{formatPrice(summary.lockedPrice)}</span>.
               </p>
               <p className="text-xs text-gray-400">
-                Les {formatPrice(summary.depositAmount).replace(' €', ' €')} sont déduits du montant final.
+                Les {formatPrice(displayedAmount)} sont déduits du montant final.
               </p>
               <p className="text-xs text-gray-400">
-                Tu règleras les <span className="font-medium text-gray-200">{formatPrice(summary.remainingAmount)}</span> restants en une seule fois, avant le {formatDateFr(summary.guaranteeEndDate)}.
+                Tu règleras les <span className="font-medium text-gray-200">{formatPrice(remainingAfter)}</span> restants en une seule fois, avant le {formatDateFr(summary.guaranteeEndDate)}.
               </p>
+              {!amountValid && (
+                <p className="text-xs text-amber-400 pt-1">
+                  {effectiveAmount >= summary.lockedPrice
+                    ? 'Le versement doit rester inférieur au prix bloqué — sinon, utilise « Acheter maintenant ».'
+                    : `Le versement minimum pour ce Price Lock est de ${formatPrice(minDeposit)}.`}
+                </p>
+              )}
               <p className="text-[11px] text-gray-500 leading-relaxed pt-1">
                 Si ton Price Lock expire, les sommes déjà versées restent déduites, mais le tarif public en vigueur s’applique.
               </p>
@@ -137,7 +212,7 @@ export function PriceLockModal({ summary, existingLock, onClose, onViewEvents, o
             <div className="mt-5 space-y-2">
               <button
                 onClick={handlePay}
-                disabled={processing}
+                disabled={processing || !amountValid}
                 className={`w-full py-3.5 rounded-xl text-sm font-semibold transition-all flex items-center justify-center gap-2 ${
                   processing
                     ? 'bg-gray-800 text-gray-400 cursor-not-allowed'
@@ -145,7 +220,7 @@ export function PriceLockModal({ summary, existingLock, onClose, onViewEvents, o
                 }`}
               >
                 {processing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Lock className="w-4 h-4" />}
-                <span>{processing ? 'Redirection vers le paiement…' : `Payer ${formatPrice(summary.depositAmount)} et bloquer ${formatPrice(summary.lockedPrice)}`}</span>
+                <span>{processing ? 'Redirection vers le paiement…' : `Payer ${formatPrice(displayedAmount)} et bloquer ${formatPrice(summary.lockedPrice)}`}</span>
               </button>
               <button
                 onClick={onClose}

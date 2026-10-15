@@ -69,7 +69,6 @@ export function EventDetail({ eventId, onNavigate }: EventDetailProps) {
       .eq('id', eventId)
       .in('event_status', ['published', 'upcoming'])
       .eq('is_active', true)
-      .eq('is_test', false)
       .maybeSingle();
 
     if (!error && data) {
@@ -113,8 +112,7 @@ export function EventDetail({ eventId, onNavigate }: EventDetailProps) {
       const deposit = Number(ett?.price_lock_deposit_amount ?? 20);
       return sum + s.quantity * deposit;
     }, 0);
-  };
-  const descriptionPreview = event?.description && event.description.length > 220
+  };  const descriptionPreview = event?.description && event.description.length > 220
     ? `${event.description.slice(0, 220).trim()}…`
     : event?.description;
 

@@ -882,7 +882,7 @@ export function EventsManagement() {
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                           <div>
                             <label className="block text-sm font-medium text-gray-300 mb-2">
-                              Montant du versement *
+                              Versement minimum Price Lock *
                             </label>
                             <input
                               type="number"
@@ -892,6 +892,9 @@ export function EventsManagement() {
                               required
                               className="w-full px-4 py-2 bg-gray-900 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-[#B8913D] outline-none"
                             />
+                            <p className="text-xs text-gray-500 mt-1">
+                              Le client pourra verser davantage s'il le souhaite (minimum global : 20 € pour les événements publics).
+                            </p>
                           </div>
 
                           <div>

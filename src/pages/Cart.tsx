@@ -449,6 +449,7 @@ function StepCart({
           const deposit = ticket.depositAmount ?? ticket.eventTicketType.price_lock_deposit_amount ?? 20;
           const dueNow = isPriceLock ? deposit : lockedPrice;
           const futureBalance = lockedPrice - deposit;
+          const remaining = Math.max(0, futureBalance);
 
           return (
             <div key={`${ticket.eventTicketType.id}-${ticket.purchaseType}`} className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl p-5 border border-[#B8913D] border-opacity-50">
@@ -477,8 +478,9 @@ function StepCart({
                   </p>
                   {isPriceLock && (
                     <div className="mt-2 space-y-0.5 text-xs">
+                      <p className="text-gray-300">Aujourd'hui : <span className="font-semibold text-white">{deposit.toFixed(2)}€</span></p>
                       <p className="text-gray-300">Prix bloqué : <span className="font-semibold text-white">{lockedPrice.toFixed(2)}€</span></p>
-                      <p className="text-gray-300">Solde futur : <span className="font-semibold text-white">{futureBalance.toFixed(2)}€</span></p>
+                      <p className="text-gray-300">Solde futur : <span className="font-semibold text-white">{remaining.toFixed(2)}€</span></p>
                       {(() => {
                         const deadline = priceLockDeadline(ticket.eventTicketType);
                         if (!deadline) return null;
@@ -493,9 +495,9 @@ function StepCart({
                               <div>
                                 <p className="text-gray-300">Paiement du reste : <span className="font-semibold text-white">{mode}</span></p>
                                 {ticket.balancePaymentMode === 'automatic' ? (
-                                  <p className="text-gray-500">{futureBalance.toFixed(2)} € seront prélevés le {dateStr} si tu ne les as pas réglés avant.</p>
+                                  <p className="text-gray-500">{remaining.toFixed(2)} € seront prélevés le {dateStr} si tu ne les as pas réglés avant.</p>
                                 ) : (
-                                  <p className="text-gray-500">{futureBalance.toFixed(2)} € à régler avant le {dateStr}</p>
+                                  <p className="text-gray-500">{remaining.toFixed(2)} € à régler avant le {dateStr}</p>
                                 )}
                               </div>
                               <button
