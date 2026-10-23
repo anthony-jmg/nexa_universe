@@ -10,6 +10,9 @@ const corsHeaders = {
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+// Durée de vie d'une session Stripe de commande panier (minimum Stripe : 30 min).
+const ORDER_CHECKOUT_TTL_SECONDS = 32 * 60;
+
 function validateCheckoutRequest(data: any): string[] {
   const errors: string[] = [];
 
@@ -234,12 +237,15 @@ async function resolveOrderItems(
 
   const { data: order } = await supabase
     .from('orders')
-    .select('id, user_id, status, total_amount')
+    .select('id, user_id, status, total_amount, expires_at')
     .eq('id', orderId)
     .maybeSingle();
 
   if (!order || order.user_id !== userId) return { error: 'Commande introuvable.' };
   if (order.status !== 'pending') return { error: 'Cette commande n’est plus en attente de paiement.' };
+  if (order.expires_at && new Date(order.expires_at).getTime() <= Date.now()) {
+    return { error: 'Cette commande a expiré. Recommence ta commande.' };
+  }
 
   const { data: orderItems } = await supabase
     .from('order_items')
@@ -704,6 +710,12 @@ Deno.serve(async (req: Request) => {
         success_url,
         cancel_url,
         metadata: sessionMetadata,
+        // Commande panier : la session expire avant la commande (orders.expires_at
+        // = création + 1 h), pour qu'aucun paiement n'arrive sur une commande
+        // annulée par cancel_expired_orders. Stripe impose au moins 30 min.
+        ...(payment_type === "order"
+          ? { expires_at: Math.floor(Date.now() / 1000) + ORDER_CHECKOUT_TTL_SECONDS }
+          : {}),
         // Price Lock en prélèvement automatique : le moyen de paiement est
         // sauvegardé (référence Stripe uniquement) pour le débit du solde.
         // Le mode est relu depuis order_items, pas depuis la requête client.
@@ -725,7 +737,9 @@ Deno.serve(async (req: Request) => {
       currency: "eur",
       status: "pending",
       metadata: metadata,
-      expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+      expires_at: session.expires_at
+        ? new Date(session.expires_at * 1000).toISOString()
+        : new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
     });
 
     if (insertError) {
