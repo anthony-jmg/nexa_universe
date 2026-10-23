@@ -1,7 +1,8 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import Stripe from "npm:stripe@17.6.0";
 import { createClient } from "npm:@supabase/supabase-js@2.57.4";
-import { createPriceLockAfterPayment } from "../_shared/price-lock.ts";
+import { createPriceLockAfterPayment, refundPayment } from "../_shared/price-lock.ts";
+import { fulfillPaidOrder } from "../_shared/order-fulfillment.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -45,7 +46,8 @@ Deno.serve(async (req: Request) => {
     console.log(`Received webhook: ${event.type}`);
 
     switch (event.type) {
-      case "checkout.session.completed": {
+      case "checkout.session.completed":
+      case "checkout.session.async_payment_succeeded": {
         const session = event.data.object as Stripe.Checkout.Session;
         await handleCheckoutCompleted(supabase, stripe, session);
         break;
@@ -149,6 +151,13 @@ async function handleCheckoutCompleted(
     return;
   }
 
+  // Paiement différé (ex. virement / prélèvement SEPA) : rien n'est livré
+  // avant checkout.session.async_payment_succeeded.
+  if (session.payment_status !== "paid") {
+    console.log(`Checkout ${session.id} completed but payment_status=${session.payment_status}: waiting`);
+    return;
+  }
+
   const paymentIntentId = typeof session.payment_intent === "string"
     ? session.payment_intent
     : session.payment_intent?.id;
@@ -156,17 +165,21 @@ async function handleCheckoutCompleted(
   if (paymentType === "price_lock_deposit") {
     const ticketTypeId = session.metadata?.event_ticket_type_id || session.metadata?.target_id;
     if (ticketTypeId && paymentIntentId) {
+      // Versement = montant réellement encaissé (validé par le checkout).
       const result = await createPriceLockAfterPayment(
         supabase,
         userId,
         ticketTypeId,
         paymentIntentId,
-        Number(session.metadata?.selected_deposit_amount ?? 0) > 0
-          ? Number(session.metadata.selected_deposit_amount)
-          : (session.amount_total || 0) / 100
+        (session.amount_total || 0) / 100
       );
       if (result.error) {
         console.error("Failed to create price lock:", result.error);
+        // Lock refusé après paiement : remboursement intégral de l'acompte.
+        const refund = await refundPayment(stripe, paymentIntentId, `price-lock-refund-${paymentIntentId}`);
+        if (refund.error) {
+          console.error(`Refund failed for payment ${paymentIntentId}:`, refund.error);
+        }
         return;
       }
 
@@ -250,148 +263,10 @@ async function handleCheckoutCompleted(
   }
 
   if (paymentType === "order") {
-    const orderId = session.metadata?.order_id;
-    if (orderId) {
-      // Le montant encaissé doit correspondre au total validé de la commande :
-      // sinon rien n'est livré (ni statut payé, ni billets, ni Price Lock).
-      const { data: paidOrder } = await supabase
-        .from("orders")
-        .select("id, user_id, total_amount")
-        .eq("id", orderId)
-        .maybeSingle();
-      const amountPaid = (session.amount_total || 0) / 100;
-      if (
-        !paidOrder ||
-        paidOrder.user_id !== userId ||
-        Math.abs(amountPaid - Number(paidOrder.total_amount)) >= 0.01
-      ) {
-        console.error(
-          `Order ${orderId}: payment mismatch (paid ${amountPaid}, expected ${paidOrder?.total_amount}, user ${userId}) — not fulfilled`
-        );
-        return;
-      }
-
-      const { data: orderItems } = await supabase
-        .from("order_items")
-        .select("id, product_id, quantity, item_type, event_ticket_type_id, purchase_type, details")
-        .eq("order_id", orderId);
-
-      const hasPhysicalProducts = orderItems?.some((item: any) => item.item_type === "product" && item.product_id);
-      const newStatus = hasPhysicalProducts ? "paid" : "completed";
-
-      await supabase
-        .from("orders")
-        .update({
-          status: newStatus,
-          stripe_payment_intent_id: paymentIntentId,
-        })
-        .eq("id", orderId);
-
-      if (orderItems && orderItems.length > 0) {
-        for (const item of orderItems) {
-          if (item.product_id) {
-            const { data: product } = await supabase
-              .from("products")
-              .select("stock_quantity")
-              .eq("id", item.product_id)
-              .maybeSingle();
-
-            if (product && product.stock_quantity >= 0) {
-              await supabase
-                .from("products")
-                .update({ stock_quantity: product.stock_quantity - item.quantity })
-                .eq("id", item.product_id);
-            }
-          }
-        }
-      }
-
-      // Price Lock : le lock n'est créé qu'ici, après paiement confirmé.
-      // Les règles (snapshot du prix, fenêtre, quota, limites utilisateur)
-      // restent appliquées par le trigger backend existant.
-      let orderPriceLockId: string | null = null;
-      const priceLockItems = (orderItems || []).filter(
-        (item: any) => item.purchase_type === "price_lock_deposit" && item.event_ticket_type_id
-      );
-      for (const item of priceLockItems) {
-        const result = await createPriceLockAfterPayment(
-          supabase,
-          userId,
-          item.event_ticket_type_id,
-          paymentIntentId,
-          Number(session.metadata?.selected_deposit_amount ?? 0) > 0
-            ? Number(session.metadata.selected_deposit_amount)
-            : (session.amount_total || 0) / 100
-        );
-        if (result.error) {
-          console.error(`Failed to create price lock for order item ${item.id}:`, result.error);
-          continue;
-        }
-        if (!orderPriceLockId && result.lockId) {
-          orderPriceLockId = result.lockId;
-        }
-        if (result.lockId && item.id) {
-          // Le panier n'est pas la source de vérité : le mode validé dans les
-          // order_items devient la configuration définitive du lock.
-          const details = (item.details || {}) as Record<string, any>;
-          const balanceMode = details.balance_payment_mode === "automatic" ? "automatic" : "manual";
-          const lockPatch: Record<string, any> = {
-            balance_payment_mode: balanceMode,
-            order_item_id: item.id,
-          };
-          if (balanceMode === "automatic") {
-            const { data: createdLock } = await supabase
-              .from("price_locks")
-              .select("expires_at")
-              .eq("id", result.lockId)
-              .maybeSingle();
-            lockPatch.auto_balance_payment_at = createdLock?.expires_at ?? null;
-            lockPatch.auto_balance_consent_at = new Date().toISOString();
-            lockPatch.stripe_customer_id = session.customer as string;
-            const paymentIntent = paymentIntentId
-              ? await stripe.paymentIntents.retrieve(paymentIntentId)
-              : null;
-            if (paymentIntent?.payment_method) {
-              lockPatch.stripe_payment_method_id = paymentIntent.payment_method as string;
-            }
-          }
-          await supabase
-            .from("price_locks")
-            .update(lockPatch)
-            .eq("id", result.lockId)
-            .is("order_item_id", null);
-        }
-      }
-
-      const { error: rpcError } = await supabase.rpc("convert_pending_to_actual_attendees", { p_order_id: orderId });
-      if (rpcError) {
-        console.error(`Failed to convert pending attendees for order ${orderId}:`, rpcError);
-      }
-
-      if (paymentIntentId) {
-        const { data: existingOrderPayment } = await supabase
-          .from("stripe_payments")
-          .select("id")
-          .eq("stripe_payment_intent_id", paymentIntentId)
-          .maybeSingle();
-
-        if (!existingOrderPayment) {
-          await supabase.from("stripe_payments").insert({
-            user_id: userId,
-            stripe_payment_intent_id: paymentIntentId,
-            stripe_customer_id: session.customer as string,
-            amount: (session.amount_total || 0) / 100,
-            currency: session.currency || "eur",
-            status: "succeeded",
-            payment_type: "order",
-            order_id: orderId,
-            price_lock_id: orderPriceLockId,
-            metadata: session.metadata,
-          });
-        }
-      }
-
-      console.log(`Order ${orderId} paid: status set to '${newStatus}', stock updated, reservations released, attendees created, price locks: ${priceLockItems.length}`);
+    // Traitement unique et idempotent, partagé avec verify-payment.
+    const result = await fulfillPaidOrder(supabase, stripe, session, userId);
+    if (!result.ok) {
+      console.error(`Order ${session.metadata?.order_id} not fulfilled: ${result.reason}`);
     }
   } else if (paymentType === "video") {
     const videoId = session.metadata?.video_id;
