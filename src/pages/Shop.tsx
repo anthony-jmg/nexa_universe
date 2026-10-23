@@ -429,6 +429,39 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
     }
   };
 
+  // Modale de choix « Acheter maintenant / Price Lock » : rien n'est ajouté au
+  // panier avant que l'utilisateur ait choisi et validé (handleQuickAddEventTicket).
+  const openTicketChoiceModal = (event: EventWithTickets) => {
+    setSelectedEvent(event);
+    setTicketQuantities({});
+    setPriceLockDeposits({});
+    setValidPriceLockDeposits({});
+    setQuickAddError('');
+    setQuickAddNotice('');
+    setBalancePaymentMode(null);
+    setAutoBalanceConsent(false);
+    setEventLockExists(false);
+    if (user) {
+      supabase
+        .from('price_locks')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', user.id)
+        .eq('event_id', event.id)
+        .eq('status', 'active')
+        .then(({ count }) => setEventLockExists((count ?? 0) > 0));
+    }
+  };
+
+  // CTA « Acheter ou réserver » : ouvre toujours la modale de choix, même
+  // quand l'événement n'a qu'un seul type de billet.
+  const handleBuyOrReserve = (event: EventWithTickets) => {
+    if (!user) {
+      onNavigate('signin');
+      return;
+    }
+    openTicketChoiceModal(event);
+  };
+
   const handleAddEventTicketToCart = (event: EventWithTickets, eventTicketTypeId?: string, purchaseType: 'full_purchase' | 'price_lock_deposit' = 'full_purchase') => {
     if (!user) {
       onNavigate('signin');
@@ -439,24 +472,7 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
       ett.is_active && (ett.quantity_available === null || ett.quantity_available - ett.quantity_sold > 0)
     );
     if (allSoldOut || (event.event_ticket_types && event.event_ticket_types.length > 1 && !eventTicketTypeId)) {
-      setSelectedEvent(event);
-      setTicketQuantities({});
-      setPriceLockDeposits({});
-      setValidPriceLockDeposits({});
-      setQuickAddError('');
-      setQuickAddNotice('');
-      setBalancePaymentMode(null);
-      setAutoBalanceConsent(false);
-      setEventLockExists(false);
-      if (user) {
-        supabase
-          .from('price_locks')
-          .select('id', { count: 'exact', head: true })
-          .eq('user_id', user.id)
-          .eq('event_id', event.id)
-          .eq('status', 'active')
-          .then(({ count }) => setEventLockExists((count ?? 0) > 0));
-      }
+      openTicketChoiceModal(event);
       return;
     }
 
@@ -769,7 +785,7 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
                       ) : (
                         <div className="mt-auto grid grid-cols-2 gap-2 pt-4">
                           <button
-                            onClick={() => handleAddEventTicketToCart(event)}
+                            onClick={() => handleBuyOrReserve(event)}
                             className={`px-2 py-2.5 rounded-xl text-xs font-semibold transition-all ${
                               isFull
                                 ? 'border border-gray-600 text-gray-300 hover:bg-gray-800 hover:text-white'
