@@ -100,13 +100,21 @@ async function resolvePriceLockBalance(
 
   const { data: lock } = await supabase
     .from('price_locks')
-    .select('id, user_id, status, remaining_amount, locked_price, deposit_amount, event_ticket_type_id, ticket_type:event_ticket_types(ticket_type:ticket_types(name))')
+    .select('id, user_id, status, remaining_amount, locked_price, deposit_amount, event_ticket_type_id, auto_balance_payment_status, auto_balance_debit_attempted_at, ticket_type:event_ticket_types(ticket_type:ticket_types(name))')
     .eq('id', lockId)
     .maybeSingle();
 
   if (!lock) return { error: 'Price Lock introuvable.' };
   if (lock.user_id !== userId) return { error: 'Ce Price Lock ne vous appartient pas.' };
   if (lock.status !== 'active') return { error: 'Ce Price Lock n\u2019est plus actif.' };
+  // Débit automatique en cours : pas de second paiement en parallèle.
+  if (
+    lock.auto_balance_payment_status === 'processing' &&
+    lock.auto_balance_debit_attempted_at &&
+    Date.now() - new Date(lock.auto_balance_debit_attempted_at).getTime() < 2 * 60 * 60 * 1000
+  ) {
+    return { error: 'Le prélèvement automatique de ce solde est en cours. Réessaie dans quelques minutes.' };
+  }
 
   const remaining = Number(lock.remaining_amount);
   if (!Number.isFinite(remaining) || remaining <= 0) {

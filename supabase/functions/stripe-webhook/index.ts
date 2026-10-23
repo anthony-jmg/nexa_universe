@@ -1,7 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import Stripe from "npm:stripe@17.6.0";
 import { createClient } from "npm:@supabase/supabase-js@2.57.4";
-import { createPriceLockAfterPayment, refundPayment } from "../_shared/price-lock.ts";
+import { applyBalancePayment, createPriceLockAfterPayment, refundPayment } from "../_shared/price-lock.ts";
 import { fulfillPaidOrder } from "../_shared/order-fulfillment.ts";
 
 const corsHeaders = {
@@ -203,6 +203,13 @@ async function handleCheckoutCompleted(
         });
       }
 
+      // Achat hors panier : le participant 'awaiting_balance' est créé ici
+      // (le panier le crée via convert_pending_to_actual_attendees).
+      const { error: attendeeError } = await supabase.rpc("ensure_price_lock_attendee", { p_lock_id: result.lockId });
+      if (attendeeError) {
+        console.error(`Failed to create attendee for lock ${result.lockId}:`, attendeeError);
+      }
+
       console.log(`Price lock ${result.lockId} created for user ${userId}`);
       return;
     }
@@ -212,52 +219,23 @@ async function handleCheckoutCompleted(
     const lockId = session.metadata?.price_lock_id || session.metadata?.target_id;
     if (lockId && paymentIntentId) {
       const balanceAmount = (session.amount_total || 0) / 100;
-
-      // Enregistre le solde via la fonction backend existante (idempotente,
-      // une seule fois, montant exact exigé, statut -> 'completed').
-      const { data: completedLock, error: recordError } = await supabase.rpc(
-        "record_price_lock_payment",
-        {
-          p_lock_id: lockId,
-          p_amount: balanceAmount,
-          p_stripe_payment_intent_id: paymentIntentId,
-        }
+      // Idempotent (webhook + verify-payment) ; remboursé si le lock ne peut
+      // plus être soldé par ce paiement.
+      const result = await applyBalancePayment(supabase, stripe, {
+        lockId,
+        paymentIntentId,
+        amount: balanceAmount,
+        userId,
+        customerId: session.customer as string,
+        currency: session.currency || "eur",
+        metadata: session.metadata,
+        autoDebit: false,
+      });
+      console.log(
+        result.ok
+          ? `Price lock ${lockId} balance paid (${balanceAmount} €), status: ${result.lock?.status}`
+          : `Price lock ${lockId} balance not applied (${result.error}), refunded: ${result.refunded}`
       );
-      if (recordError) {
-        console.error("Failed to record price lock balance payment:", recordError);
-        return;
-      }
-
-      // Convertit les détenteurs en attente de solde en Full Pass confirmés.
-      const { error: completeError } = await supabase.rpc(
-        "complete_price_lock_attendees",
-        { p_lock_id: lockId }
-      );
-      if (completeError) {
-        console.error(`Failed to complete attendees for lock ${lockId}:`, completeError);
-      }
-
-      const { data: existingPayment } = await supabase
-        .from("stripe_payments")
-        .select("id")
-        .eq("stripe_payment_intent_id", paymentIntentId)
-        .maybeSingle();
-
-      if (!existingPayment) {
-        await supabase.from("stripe_payments").insert({
-          user_id: completedLock?.user_id || userId,
-          stripe_payment_intent_id: paymentIntentId,
-          stripe_customer_id: session.customer as string,
-          amount: balanceAmount,
-          currency: session.currency || "eur",
-          status: "succeeded",
-          payment_type: "price_lock_balance",
-          price_lock_id: lockId,
-          metadata: session.metadata,
-        });
-      }
-
-      console.log(`Price lock ${lockId} balance paid (${balanceAmount} €), status: ${completedLock?.status}`);
       return;
     }
   }
@@ -354,45 +332,29 @@ async function handlePaymentSucceeded(
     }
     const balanceAmount = (paymentIntent.amount_received || paymentIntent.amount) / 100;
 
-    const { data: completedLock, error: recordError } = await supabase.rpc(
-      "record_price_lock_payment",
-      {
-        p_lock_id: lockId,
-        p_amount: balanceAmount,
-        p_stripe_payment_intent_id: paymentIntent.id,
-      }
-    );
-    if (recordError) {
-      console.error(`Failed to record auto debit for lock ${lockId}:`, recordError.message);
-      return;
-    }
-
-    await supabase.rpc("complete_price_lock_attendees", { p_lock_id: lockId });
-
-    const { data: existingPayment } = await supabase
-      .from("stripe_payments")
-      .select("id")
-      .eq("stripe_payment_intent_id", paymentIntent.id)
-      .maybeSingle();
-    if (!existingPayment) {
-      await supabase.from("stripe_payments").insert({
-        user_id: completedLock?.user_id ?? paymentIntent.metadata.user_id,
-        stripe_payment_intent_id: paymentIntent.id,
-        stripe_customer_id: paymentIntent.customer as string,
-        amount: balanceAmount,
-        currency: paymentIntent.currency || "eur",
-        status: "succeeded",
-        payment_type: "price_lock_balance",
-        price_lock_id: lockId,
-        metadata: paymentIntent.metadata,
-      });
-    }
+    const result = await applyBalancePayment(supabase, stripe, {
+      lockId,
+      paymentIntentId: paymentIntent.id,
+      amount: balanceAmount,
+      userId: paymentIntent.metadata.user_id ?? null,
+      customerId: paymentIntent.customer as string,
+      currency: paymentIntent.currency || "eur",
+      metadata: paymentIntent.metadata,
+      autoDebit: true,
+    });
 
     await supabase.rpc("finalize_price_lock_auto_debit", {
       p_lock_id: lockId,
       p_pi_id: paymentIntent.id,
-      p_succeeded: true,
+      p_succeeded: result.ok,
+      ...(result.ok ? {} : { p_failure_reason: `Débit non appliqué (${result.error}), remboursé : ${result.refunded}` }),
     });
+
+    if (!result.ok) {
+      console.error(`Auto debit ${paymentIntent.id} not applied to lock ${lockId}: ${result.error}`);
+      return;
+    }
+    const completedLock = result.lock;
 
     console.log(`Auto debit recorded for lock ${lockId}: ${balanceAmount} €, status: ${completedLock?.status}`);
   }

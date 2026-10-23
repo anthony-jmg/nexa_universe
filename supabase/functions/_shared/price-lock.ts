@@ -94,6 +94,86 @@ export async function createPriceLockAfterPayment(
   return { lockId: lock.id };
 }
 
+export interface BalancePaymentInput {
+  lockId: string;
+  paymentIntentId: string;
+  amount: number;
+  userId: string | null;
+  customerId: string | null;
+  currency: string;
+  metadata: Record<string, unknown> | null;
+  autoDebit: boolean;
+}
+
+export type BalancePaymentResult =
+  | { ok: true; lock: any }
+  | { ok: false; error: string; refunded: boolean };
+
+/**
+ * Paiement du solde d'un Price Lock (manuel via Checkout ou débit automatique).
+ *
+ * 1. Le paiement est d'abord enregistré dans stripe_payments (unique par
+ *    payment intent) : record_price_lock_payment le rattache au lock en même
+ *    temps qu'il solde, ce qui rend tout second appel (webhook + verify, retry
+ *    Stripe) idempotent.
+ * 2. Si le lock ne peut pas être soldé par ce paiement (déjà soldé par un
+ *    autre paiement, expiré, débit automatique en cours...), le paiement est
+ *    remboursé : un client n'est jamais débité deux fois pour le même solde.
+ */
+export async function applyBalancePayment(
+  supabase: any,
+  stripe: any,
+  input: BalancePaymentInput
+): Promise<BalancePaymentResult> {
+  await supabase.from("stripe_payments").upsert(
+    {
+      user_id: input.userId,
+      stripe_payment_intent_id: input.paymentIntentId,
+      stripe_customer_id: input.customerId,
+      amount: input.amount,
+      currency: input.currency || "eur",
+      status: "succeeded",
+      payment_type: "price_lock_balance",
+      metadata: input.metadata,
+    },
+    { onConflict: "stripe_payment_intent_id", ignoreDuplicates: true }
+  );
+
+  const { data: lock, error: recordError } = await supabase.rpc("record_price_lock_payment", {
+    p_lock_id: input.lockId,
+    p_amount: input.amount,
+    p_stripe_payment_intent_id: input.paymentIntentId,
+    p_auto_debit: input.autoDebit,
+  });
+
+  if (recordError) {
+    console.error(`Balance payment ${input.paymentIntentId} not applied to lock ${input.lockId}:`, recordError.message);
+    const refund = await refundPayment(
+      stripe,
+      input.paymentIntentId,
+      `price-lock-balance-refund-${input.paymentIntentId}`
+    );
+    if (refund.error) {
+      console.error(`Refund failed for balance payment ${input.paymentIntentId}:`, refund.error);
+    } else {
+      await supabase
+        .from("stripe_payments")
+        .update({ status: "refunded" })
+        .eq("stripe_payment_intent_id", input.paymentIntentId);
+    }
+    return { ok: false, error: recordError.message, refunded: !refund.error };
+  }
+
+  const { error: completeError } = await supabase.rpc("complete_price_lock_attendees", {
+    p_lock_id: input.lockId,
+  });
+  if (completeError) {
+    console.error(`Failed to confirm attendees for lock ${input.lockId}:`, completeError);
+  }
+
+  return { ok: true, lock };
+}
+
 const DAY_MS = 24 * 60 * 60 * 1000;
 const AUTO_DEBIT_LEAD_DAYS = 3;
 

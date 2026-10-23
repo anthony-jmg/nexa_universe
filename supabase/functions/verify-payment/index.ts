@@ -1,7 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import Stripe from "npm:stripe@17.6.0";
 import { createClient } from "npm:@supabase/supabase-js@2.57.4";
-import { createPriceLockAfterPayment, refundPayment } from "../_shared/price-lock.ts";
+import { applyBalancePayment, createPriceLockAfterPayment, refundPayment } from "../_shared/price-lock.ts";
 import { fulfillPaidOrder } from "../_shared/order-fulfillment.ts";
 
 const corsHeaders = {
@@ -133,6 +133,12 @@ Deno.serve(async (req: Request) => {
           });
         }
 
+        // Achat hors panier : participant 'awaiting_balance' (idempotent).
+        const { error: attendeeError } = await supabase.rpc("ensure_price_lock_attendee", { p_lock_id: result.lockId });
+        if (attendeeError) {
+          console.error(`Failed to create attendee for lock ${result.lockId}:`, attendeeError);
+        }
+
         return new Response(
           JSON.stringify({
             success: true,
@@ -147,49 +153,23 @@ Deno.serve(async (req: Request) => {
     if (paymentType === "price_lock_balance") {
       const lockId = session.metadata?.price_lock_id || session.metadata?.target_id;
       if (lockId && paymentIntentId) {
-        const balanceAmount = (session.amount_total || 0) / 100;
-
-        const { data: completedLock, error: recordError } = await supabase.rpc(
-          "record_price_lock_payment",
-          {
-            p_lock_id: lockId,
-            p_amount: balanceAmount,
-            p_stripe_payment_intent_id: paymentIntentId,
-          }
-        );
-        if (recordError) {
+        // Idempotent (webhook + verify-payment) ; remboursé si le lock ne peut
+        // plus être soldé par ce paiement.
+        const result = await applyBalancePayment(supabase, stripe, {
+          lockId,
+          paymentIntentId,
+          amount: (session.amount_total || 0) / 100,
+          userId: user.id,
+          customerId: session.customer as string,
+          currency: session.currency || "eur",
+          metadata: session.metadata,
+          autoDebit: false,
+        });
+        if (!result.ok) {
           return new Response(
-            JSON.stringify({ success: false, error: recordError.message }),
+            JSON.stringify({ success: false, error: result.error, refunded: result.refunded }),
             { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
           );
-        }
-
-        const { error: completeError } = await supabase.rpc(
-          "complete_price_lock_attendees",
-          { p_lock_id: lockId }
-        );
-        if (completeError) {
-          console.error(`Failed to complete attendees for lock ${lockId}:`, completeError);
-        }
-
-        const { data: existingPayment } = await supabase
-          .from("stripe_payments")
-          .select("id")
-          .eq("stripe_payment_intent_id", paymentIntentId)
-          .maybeSingle();
-
-        if (!existingPayment) {
-          await supabase.from("stripe_payments").insert({
-            user_id: completedLock?.user_id || user.id,
-            stripe_payment_intent_id: paymentIntentId,
-            stripe_customer_id: session.customer as string,
-            amount: balanceAmount,
-            currency: session.currency || "eur",
-            status: "succeeded",
-            payment_type: "price_lock_balance",
-            price_lock_id: lockId,
-            metadata: session.metadata,
-          });
         }
 
         return new Response(
@@ -197,7 +177,7 @@ Deno.serve(async (req: Request) => {
             success: true,
             payment_type: "price_lock_balance",
             price_lock_id: lockId,
-            status: completedLock?.status,
+            status: result.lock?.status,
           }),
           { headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
