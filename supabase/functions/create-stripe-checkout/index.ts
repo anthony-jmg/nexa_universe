@@ -15,7 +15,7 @@ function validateCheckoutRequest(data: any): string[] {
 
   if (!data.payment_type) {
     errors.push('payment_type is required');
-  } else if (!'order,video,program,professor_subscription,event_ticket,price_lock_deposit,price_lock_balance'.split(',').includes(data.payment_type)) {
+  } else if (!'order,video,program,professor_subscription,price_lock_deposit,price_lock_balance'.split(',').includes(data.payment_type)) {
     errors.push('Invalid payment_type');
   }
 
@@ -220,6 +220,176 @@ async function resolvePriceLockDeposit(
   };
 }
 
+type ResolvedItems = { error?: string; items?: CheckoutItem[] };
+
+// Commande panier : les lignes facturées sont TOUJOURS relues depuis
+// order_items (prix validés par validate-and-create-order). Les prix envoyés
+// par le client sont ignorés.
+async function resolveOrderItems(
+  supabase: any,
+  userId: string,
+  orderId: string | undefined
+): Promise<ResolvedItems & { hasAutoBalance?: boolean }> {
+  if (!orderId || !UUID_REGEX.test(orderId)) return { error: 'Commande introuvable.' };
+
+  const { data: order } = await supabase
+    .from('orders')
+    .select('id, user_id, status, total_amount')
+    .eq('id', orderId)
+    .maybeSingle();
+
+  if (!order || order.user_id !== userId) return { error: 'Commande introuvable.' };
+  if (order.status !== 'pending') return { error: 'Cette commande n’est plus en attente de paiement.' };
+
+  const { data: orderItems } = await supabase
+    .from('order_items')
+    .select('id, product_id, event_ticket_type_id, quantity, unit_price, purchase_type, details')
+    .eq('order_id', orderId);
+
+  if (!orderItems || orderItems.length === 0) return { error: 'Commande vide.' };
+
+  const productIds = orderItems.map((i: any) => i.product_id).filter(Boolean);
+  const ticketTypeIds = orderItems.map((i: any) => i.event_ticket_type_id).filter(Boolean);
+  const [{ data: products }, { data: ticketTypes }] = await Promise.all([
+    productIds.length
+      ? supabase.from('products').select('id, name').in('id', productIds)
+      : Promise.resolve({ data: [] }),
+    ticketTypeIds.length
+      ? supabase
+          .from('event_ticket_types')
+          .select('id, ticket_types(name), events(title)')
+          .in('id', ticketTypeIds)
+      : Promise.resolve({ data: [] }),
+  ]);
+  const productNames = new Map((products || []).map((p: any) => [p.id, p.name]));
+  const ticketNames = new Map(
+    (ticketTypes || []).map((t: any) => [
+      t.id,
+      `${t.events?.title ?? 'Event'} - ${t.ticket_types?.name ?? 'Ticket'}`,
+    ])
+  );
+
+  // Les lignes gratuites ne sont pas envoyées à Stripe (minimum 1 centime par
+  // ligne), sinon le montant encaissé ne correspondrait plus au total.
+  const paidItems = orderItems.filter((item: any) => Number(item.unit_price) > 0);
+  if (paidItems.length === 0) return { error: 'Aucun article payant dans cette commande.' };
+
+  const items: CheckoutItem[] = paidItems.map((item: any) => {
+    const isDeposit = item.purchase_type === 'price_lock_deposit';
+    const baseName = item.product_id
+      ? productNames.get(item.product_id) ?? 'Article'
+      : ticketNames.get(item.event_ticket_type_id) ?? 'Billet';
+    return {
+      id: item.product_id || item.event_ticket_type_id || item.id,
+      name: isDeposit ? `Price Lock — ${baseName}` : baseName,
+      price: Number(item.unit_price),
+      quantity: item.quantity,
+    };
+  });
+
+  const total = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  if (Math.abs(total - Number(order.total_amount)) >= 0.01) {
+    console.error(`Order ${orderId}: items total ${total} != order total ${order.total_amount}`);
+    return { error: 'Montant de la commande incohérent. Recommence ta commande.' };
+  }
+
+  const hasAutoBalance = orderItems.some(
+    (item: any) =>
+      item.purchase_type === 'price_lock_deposit' &&
+      item.details?.balance_payment_mode === 'automatic'
+  );
+
+  return { items, hasAutoBalance };
+}
+
+async function resolveVideoItem(supabase: any, videoId: string | undefined): Promise<ResolvedItems> {
+  if (!videoId || !UUID_REGEX.test(videoId)) return { error: 'Vidéo introuvable.' };
+
+  const { data: video } = await supabase
+    .from('videos')
+    .select('id, title, price, visibility')
+    .eq('id', videoId)
+    .maybeSingle();
+
+  if (!video) return { error: 'Vidéo introuvable.' };
+  const price = Number(video.price);
+  if (video.visibility !== 'paid' || !Number.isFinite(price) || price <= 0) {
+    return { error: 'Cette vidéo n’est pas en vente.' };
+  }
+
+  return { items: [{ id: video.id, name: video.title || 'Vidéo', price, quantity: 1 }] };
+}
+
+// Programme : prix de base relu en base, remise abonné appliquée uniquement si
+// l'abonnement actif au professeur est vérifié côté serveur.
+async function resolveProgramItem(
+  supabase: any,
+  userId: string,
+  programId: string | undefined
+): Promise<ResolvedItems> {
+  if (!programId || !UUID_REGEX.test(programId)) return { error: 'Programme introuvable.' };
+
+  const { data: program } = await supabase
+    .from('programs')
+    .select('id, title, price, is_active, professor_id')
+    .eq('id', programId)
+    .maybeSingle();
+
+  if (!program || program.is_active === false) return { error: 'Programme introuvable.' };
+  let price = Number(program.price);
+  if (!Number.isFinite(price) || price <= 0) return { error: 'Ce programme n’est pas en vente.' };
+
+  if (program.professor_id) {
+    const [{ data: subscription }, { data: professor }] = await Promise.all([
+      supabase
+        .from('professor_subscriptions')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('professor_id', program.professor_id)
+        .eq('status', 'active')
+        .maybeSingle(),
+      supabase
+        .from('professors')
+        .select('subscriber_discount_percentage')
+        .eq('id', program.professor_id)
+        .maybeSingle(),
+    ]);
+    const discount = Number(professor?.subscriber_discount_percentage ?? 0);
+    if (subscription && discount > 0 && discount <= 100) {
+      price = price * (1 - discount / 100);
+    }
+  }
+
+  return {
+    items: [{ id: program.id, name: program.title || 'Programme', price: Math.round(price * 100) / 100, quantity: 1 }],
+  };
+}
+
+async function resolveProfessorSubscriptionItem(
+  supabase: any,
+  professorId: string | undefined
+): Promise<ResolvedItems> {
+  if (!professorId || !UUID_REGEX.test(professorId)) return { error: 'Professeur introuvable.' };
+
+  const [{ data: professor }, { data: profile }] = await Promise.all([
+    supabase.from('professors').select('id, subscription_price').eq('id', professorId).maybeSingle(),
+    supabase.from('profiles').select('full_name').eq('id', professorId).maybeSingle(),
+  ]);
+
+  if (!professor) return { error: 'Professeur introuvable.' };
+  const price = Number(professor.subscription_price);
+  if (!Number.isFinite(price) || price <= 0) return { error: 'Abonnement indisponible pour ce professeur.' };
+
+  return {
+    items: [{
+      id: professor.id,
+      name: `Abonnement mensuel — ${profile?.full_name || 'Professeur'}`,
+      price,
+      quantity: 1,
+    }],
+  };
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response(null, {
@@ -299,10 +469,12 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    const { payment_type, items, success_url, cancel_url, metadata = {}, price_id } = requestData;
+    const { payment_type, success_url, cancel_url, metadata = {} } = requestData;
 
-    // Price Lock : le montant facturé est recalculé côté serveur depuis le billet réel
-    let resolvedItems = items;
+    // Tous les montants facturés sont recalculés côté serveur : les prix et
+    // price_id envoyés par le client sont ignorés.
+    let resolvedItems: CheckoutItem[] = [];
+    let hasPriceLockAutoBalance = false;
     if (payment_type === 'price_lock_deposit') {
       const ticketTypeId = metadata.event_ticket_type_id || metadata.target_id;
       // Montant choisi par l'utilisateur : jamais lu depuis le panier, uniquement
@@ -347,6 +519,28 @@ Deno.serve(async (req: Request) => {
         price: resolved.amount!,
         quantity: 1,
       }];
+    } else {
+      let resolved: ResolvedItems & { hasAutoBalance?: boolean };
+      if (payment_type === 'order') {
+        resolved = await resolveOrderItems(supabase, user.id, metadata.order_id);
+      } else if (payment_type === 'video') {
+        resolved = await resolveVideoItem(supabase, metadata.video_id);
+      } else if (payment_type === 'program') {
+        resolved = await resolveProgramItem(supabase, user.id, metadata.target_id);
+      } else {
+        resolved = await resolveProfessorSubscriptionItem(supabase, metadata.professor_id);
+      }
+      if (resolved.error || !resolved.items) {
+        return new Response(
+          JSON.stringify({ error: resolved.error || 'Paiement impossible.' }),
+          {
+            status: 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          }
+        );
+      }
+      resolvedItems = resolved.items;
+      hasPriceLockAutoBalance = resolved.hasAutoBalance === true;
     }
 
     // Resolve professor's Stripe Connect account for direct payouts
@@ -354,7 +548,9 @@ Deno.serve(async (req: Request) => {
     let platformFeePercentage = 20;
 
     if (["video", "program", "professor_subscription"].includes(payment_type)) {
-      let professorId = metadata.professor_id;
+      // Le professeur bénéficiaire est toujours déduit du contenu acheté,
+      // jamais d'un professor_id fourni par le client.
+      let professorId = payment_type === "professor_subscription" ? metadata.professor_id : undefined;
 
       // If professor_id not in metadata, resolve from video or program
       if (!professorId && payment_type === "video" && metadata.video_id) {
@@ -426,77 +622,47 @@ Deno.serve(async (req: Request) => {
     let session;
     let totalAmount: number;
 
+    // user_id / payment_type posés APRÈS la metadata client : jamais écrasables.
+    const sessionMetadata = {
+      ...metadata,
+      user_id: user.id,
+      payment_type,
+    };
+
     if (isSubscription) {
-      totalAmount = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+      totalAmount = resolvedItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
 
       const subscriptionTransferData = professorConnectAccountId
         ? { transfer_data: { destination: professorConnectAccountId, amount_percent: (100 - platformFeePercentage) } }
         : {};
 
-      if (price_id) {
-        session = await stripe.checkout.sessions.create({
-          customer: stripeCustomerId,
-          line_items: [
-            {
-              price: price_id,
-              quantity: 1,
-            },
-          ],
-          mode: "subscription",
-          success_url,
-          cancel_url,
-          metadata: {
-            user_id: user.id,
-            payment_type,
-            ...metadata,
-          },
-          subscription_data: {
-            metadata: {
-              user_id: user.id,
-              payment_type,
-              ...metadata,
-            },
-            ...subscriptionTransferData,
-          },
-        });
-      } else {
-        const item = items[0];
-        session = await stripe.checkout.sessions.create({
-          customer: stripeCustomerId,
-          line_items: [
-            {
-              price_data: {
-                currency: "eur",
-                unit_amount: Math.round(item.price * 100),
-                recurring: {
-                  interval: "month",
-                },
-                product_data: {
-                  name: item.name,
-                  metadata: item.metadata || {},
-                },
+      const item = resolvedItems[0];
+      session = await stripe.checkout.sessions.create({
+        customer: stripeCustomerId,
+        line_items: [
+          {
+            price_data: {
+              currency: "eur",
+              unit_amount: Math.round(item.price * 100),
+              recurring: {
+                interval: "month",
               },
-              quantity: 1,
+              product_data: {
+                name: item.name,
+              },
             },
-          ],
-          mode: "subscription",
-          success_url,
-          cancel_url,
-          metadata: {
-            user_id: user.id,
-            payment_type,
-            ...metadata,
+            quantity: 1,
           },
-          subscription_data: {
-            metadata: {
-              user_id: user.id,
-              payment_type,
-              ...metadata,
-            },
-            ...subscriptionTransferData,
-          },
-        });
-      }
+        ],
+        mode: "subscription",
+        success_url,
+        cancel_url,
+        metadata: sessionMetadata,
+        subscription_data: {
+          metadata: sessionMetadata,
+          ...subscriptionTransferData,
+        },
+      });
     } else {
       const lineItems = resolvedItems.map((item) => {
         const sanitizedMetadata: Record<string, string> = {};
@@ -537,15 +703,11 @@ Deno.serve(async (req: Request) => {
         mode: "payment",
         success_url,
         cancel_url,
-        metadata: {
-          user_id: user.id,
-          payment_type,
-          ...metadata,
-        },
+        metadata: sessionMetadata,
         // Price Lock en prélèvement automatique : le moyen de paiement est
         // sauvegardé (référence Stripe uniquement) pour le débit du solde.
-        ...(payment_type === "order" &&
-        (metadata as Record<string, any>).has_price_lock_auto_balance === "true"
+        // Le mode est relu depuis order_items, pas depuis la requête client.
+        ...(payment_type === "order" && hasPriceLockAutoBalance
           ? { payment_intent_data: { setup_future_usage: "off_session" as const } }
           : {}),
         ...paymentIntentData,

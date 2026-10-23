@@ -252,6 +252,25 @@ async function handleCheckoutCompleted(
   if (paymentType === "order") {
     const orderId = session.metadata?.order_id;
     if (orderId) {
+      // Le montant encaissé doit correspondre au total validé de la commande :
+      // sinon rien n'est livré (ni statut payé, ni billets, ni Price Lock).
+      const { data: paidOrder } = await supabase
+        .from("orders")
+        .select("id, user_id, total_amount")
+        .eq("id", orderId)
+        .maybeSingle();
+      const amountPaid = (session.amount_total || 0) / 100;
+      if (
+        !paidOrder ||
+        paidOrder.user_id !== userId ||
+        Math.abs(amountPaid - Number(paidOrder.total_amount)) >= 0.01
+      ) {
+        console.error(
+          `Order ${orderId}: payment mismatch (paid ${amountPaid}, expected ${paidOrder?.total_amount}, user ${userId}) — not fulfilled`
+        );
+        return;
+      }
+
       const { data: orderItems } = await supabase
         .from("order_items")
         .select("id, product_id, quantity, item_type, event_ticket_type_id, purchase_type, details")

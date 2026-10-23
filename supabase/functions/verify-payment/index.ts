@@ -202,11 +202,27 @@ Deno.serve(async (req: Request) => {
       if (orderId) {
         const { data: order } = await supabase
           .from("orders")
-          .select("id, status")
+          .select("id, status, user_id, total_amount")
           .eq("id", orderId)
           .maybeSingle();
 
-        if (order && order.status !== "paid" && order.status !== "processing" && order.status !== "shipped" && order.status !== "completed") {
+        // Montant encaissé ≠ total validé de la commande : rien n'est livré.
+        const amountPaid = (session.amount_total || 0) / 100;
+        if (
+          !order ||
+          order.user_id !== user.id ||
+          Math.abs(amountPaid - Number(order.total_amount)) >= 0.01
+        ) {
+          console.error(
+            `Order ${orderId}: payment mismatch (paid ${amountPaid}, expected ${order?.total_amount}) — not fulfilled`
+          );
+          return new Response(
+            JSON.stringify({ success: false, error: "Montant payé incohérent avec la commande. Contacte le support." }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
+        if (order.status !== "paid" && order.status !== "processing" && order.status !== "shipped" && order.status !== "completed") {
           const { data: orderItems } = await supabase
             .from("order_items")
             .select("id, product_id, item_type, event_ticket_type_id, purchase_type")
