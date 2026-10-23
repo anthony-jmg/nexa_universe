@@ -194,17 +194,17 @@ CREATE TRIGGER trg_event_attendees_guard_client_writes
   BEFORE INSERT OR UPDATE ON event_attendees
   FOR EACH ROW EXECUTE FUNCTION guard_event_attendees_client_writes();
 
--- Pas d'entrée tant que le solde Price Lock n'est pas réglé (check_in_attendee
--- passe le billet en status = 'used').
+-- Pas d'entrée tant que le solde Price Lock n'est pas réglé : un billet
+-- 'awaiting_balance' ne peut passer qu'à 'not_checked_in' (solde payé, via
+-- complete_price_lock_attendees) ou 'cancelled'.
 CREATE OR REPLACE FUNCTION public.block_check_in_awaiting_balance()
 RETURNS trigger
 LANGUAGE plpgsql
 SET search_path = public
 AS $$
 BEGIN
-  IF NEW.status = 'used'
-     AND OLD.status IS DISTINCT FROM 'used'
-     AND OLD.check_in_status = 'awaiting_balance' THEN
+  IF OLD.check_in_status = 'awaiting_balance'
+     AND NEW.check_in_status = 'checked_in' THEN
     RAISE EXCEPTION 'Solde Price Lock non réglé : entrée refusée';
   END IF;
   RETURN NEW;
