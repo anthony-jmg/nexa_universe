@@ -114,7 +114,13 @@ export function CartProvider({ children }: { children: ReactNode }) {
       if (error) throw error;
 
       if (cartEventTickets) {
-        const formattedEventTickets: EventTicketCartItem[] = cartEventTickets.map((item: any) => ({
+        // Événement dépublié (brouillon) : masqué par RLS, il revient à null.
+        // L'article est ignoré (ni affiché ni envoyé au paiement) pour ne pas
+        // faire planter le panier.
+        const visibleCartEventTickets = cartEventTickets.filter(
+          (item: { event_ticket_type?: { event?: unknown } | null }) => item.event_ticket_type?.event
+        );
+        const formattedEventTickets: EventTicketCartItem[] = visibleCartEventTickets.map((item: any) => ({
           id: item.id,
           eventTicketType: item.event_ticket_type,
           quantity: item.quantity,
