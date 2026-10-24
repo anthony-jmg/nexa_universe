@@ -275,8 +275,8 @@ const translations: Record<Language, Record<string, string>> = {
     'signup.footer.hasAccount': 'Vous avez déjà un compte ?',
     'signup.footer.signIn': 'Se connecter',
 
-    'purchases.title': 'Mes Achats',
-    'purchases.subtitle': 'Gérez vos abonnements et vos achats',
+    'purchases.title': 'Mes Pass',
+    'purchases.subtitle': 'Retrouvez vos Price Locks et vos billets de festivals',
     'purchases.status.active': 'Actif',
     'purchases.status.trial': 'Essai',
     'purchases.status.inactive': 'Inactif',
@@ -579,8 +579,8 @@ const translations: Record<Language, Record<string, string>> = {
     'signup.footer.hasAccount': 'Already have an account?',
     'signup.footer.signIn': 'Sign in',
 
-    'purchases.title': 'My Purchases',
-    'purchases.subtitle': 'Manage your subscriptions and purchases',
+    'purchases.title': 'My Passes',
+    'purchases.subtitle': 'Find your Price Locks and festival tickets',
     'purchases.status.active': 'Active',
     'purchases.status.trial': 'Trial',
     'purchases.status.inactive': 'Inactive',
@@ -883,8 +883,8 @@ const translations: Record<Language, Record<string, string>> = {
     'signup.footer.hasAccount': 'Já tem uma conta?',
     'signup.footer.signIn': 'Entrar',
 
-    'purchases.title': 'Minhas Compras',
-    'purchases.subtitle': 'Gerencie suas assinaturas e compras',
+    'purchases.title': 'Meus Passes',
+    'purchases.subtitle': 'Encontre seus Price Locks e ingressos de festivais',
     'purchases.status.active': 'Ativo',
     'purchases.status.trial': 'Teste',
     'purchases.status.inactive': 'Inativo',
@@ -1187,8 +1187,8 @@ const translations: Record<Language, Record<string, string>> = {
     'signup.footer.hasAccount': '¿Ya tienes una cuenta?',
     'signup.footer.signIn': 'Iniciar sesión',
 
-    'purchases.title': 'Mis Compras',
-    'purchases.subtitle': 'Gestiona tus suscripciones y compras',
+    'purchases.title': 'Mis Pases',
+    'purchases.subtitle': 'Encuentra tus Price Locks y entradas de festivales',
     'purchases.status.active': 'Activo',
     'purchases.status.trial': 'Prueba',
     'purchases.status.inactive': 'Inactivo',

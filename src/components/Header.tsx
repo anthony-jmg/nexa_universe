@@ -180,7 +180,7 @@ export function Header({ onNavigate, currentPage }: HeaderProps) {
                           }}
                           className="block w-full text-left px-4 py-2 text-sm text-gray-300 hover:text-white hover:bg-white/5 transition-colors"
                         >
-                          Mes achats
+                          Mes Pass
                         </button>
                       )}
                       <div className="border-t border-gray-800/50 my-2"></div>
@@ -339,7 +339,7 @@ export function Header({ onNavigate, currentPage }: HeaderProps) {
                     >
                       <span className="flex items-center space-x-3">
                         <Package className="w-5 h-5 text-gold-400" />
-                        <span>Mes achats</span>
+                        <span>Mes Pass</span>
                       </span>
                     </button>
                     <button

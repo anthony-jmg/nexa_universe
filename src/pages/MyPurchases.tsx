@@ -3,15 +3,10 @@ import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useCart } from '../contexts/CartContext';
 import { supabase } from '../lib/supabase';
-import { Database } from '../lib/database.types';
 import { BackgroundDecor } from '../components/BackgroundDecor';
 import {
-  User,
-  Video,
-  ShoppingBag,
   Calendar,
   CheckCircle,
-  Package,
   AlertCircle,
   Clock,
   Ticket,
@@ -25,52 +20,6 @@ import { startPriceLockBalanceCheckout } from '../lib/priceLock';
 import { formatEuro } from '../lib/formatEuro';
 import { openPassPdf } from '../lib/passService';
 
-type ProfessorSubscription = Database['public']['Tables']['professor_subscriptions']['Row'] & {
-  professors: {
-    profiles: {
-      full_name: string;
-      avatar_url: string;
-    };
-    subscription_price: number;
-  };
-};
-
-type VideoPurchase = Database['public']['Tables']['video_purchases']['Row'] & {
-  videos: {
-    title: string;
-    thumbnail_url: string;
-    duration_minutes: number;
-    level: string;
-  };
-};
-
-type ProgramPurchase = {
-  id: string;
-  user_id: string;
-  program_id: string;
-  price_paid: number;
-  status: 'active' | 'refunded' | 'expired';
-  purchased_at: string;
-  expires_at: string | null;
-  programs: {
-    title: string;
-    description: string;
-    thumbnail_url: string;
-    level: string;
-    duration_total_minutes: number;
-  };
-};
-
-type Order = Database['public']['Tables']['orders']['Row'] & {
-  order_items: {
-    id: string;
-    item_type: string;
-    quantity: number;
-    unit_price: number;
-    selected_size: string | null;
-  }[];
-};
-
 interface AttendeeWithDetails {
   id: string;
   event_id: string;
@@ -83,6 +32,7 @@ interface AttendeeWithDetails {
   created_at: string | null;
   pass_status: 'pending' | 'available';
   pass_file_path: string | null;
+  weezevent_sync_status: 'pending' | 'synced' | 'failed' | 'skipped';
   attendee_first_name: string | null;
   attendee_last_name: string | null;
   attendee_email: string | null;
@@ -118,9 +68,12 @@ interface PriceLockWithEvent {
   remaining_amount: number;
   expires_at: string | null;
   status: string;
+  balance_payment_mode: 'manual' | 'automatic';
+  auto_balance_payment_at: string | null;
   auto_balance_payment_status: string | null;
   event_ticket_types: {
     id: string;
+    ticket_types: { name: string } | null;
     price_tiers: PriceLockTier[];
   } | null;
   events: {
@@ -138,11 +91,6 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
   const { user, profile } = useAuth();
   const { t } = useLanguage();
   const { clearCart } = useCart();
-  const [activeTab, setActiveTab] = useState<'subscriptions' | 'programs' | 'videos' | 'orders' | 'tickets'>('subscriptions');
-  const [professorSubscriptions, setProfessorSubscriptions] = useState<ProfessorSubscription[]>([]);
-  const [programPurchases, setProgramPurchases] = useState<ProgramPurchase[]>([]);
-  const [videoPurchases, setVideoPurchases] = useState<VideoPurchase[]>([]);
-  const [orders, setOrders] = useState<Order[]>([]);
   const [tickets, setTickets] = useState<AttendeeWithDetails[]>([]);
   const [priceLocks, setPriceLocks] = useState<PriceLockWithEvent[]>([]);
   const [payingLockId, setPayingLockId] = useState<string | null>(null);
@@ -170,10 +118,6 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
       cancelPendingOrder();
     } else {
       loadData();
-    }
-
-    if (payment === 'success') {
-      setActiveTab('orders');
     }
   }, [user]);
 
@@ -236,104 +180,10 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
 
     setLoading(true);
     await Promise.all([
-      loadProfessorSubscriptions(),
-      loadProgramPurchases(),
-      loadVideoPurchases(),
-      loadOrders(),
       loadTickets(),
       loadPriceLocks()
     ]);
     setLoading(false);
-  };
-
-  const loadProfessorSubscriptions = async () => {
-    if (!user) return;
-
-    const { data, error } = await supabase
-      .from('professor_subscriptions')
-      .select('*, professors(profiles(full_name, avatar_url), subscription_price)')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false });
-
-    if (!error && data) {
-      setProfessorSubscriptions(data as ProfessorSubscription[]);
-    }
-  };
-
-  const loadProgramPurchases = async () => {
-    if (!user) return;
-
-    const { data, error } = await supabase
-      .from('program_purchases')
-      .select('*, programs(id, title, description, thumbnail_url, level)')
-      .eq('user_id', user.id)
-      .order('purchased_at', { ascending: false });
-
-    if (!error && data) {
-      const programIds = data.map(p => p.programs?.id).filter(Boolean) as string[];
-
-      if (programIds.length > 0) {
-        const { data: programsData } = await supabase
-          .from('programs')
-          .select(`
-            id,
-            videos!program_id(
-              duration_minutes
-            )
-          `)
-          .in('id', programIds);
-
-        const programDurations = new Map<string, number>();
-        if (programsData) {
-          programsData.forEach((program: any) => {
-            const videos = program.videos || [];
-            const totalDuration = videos.reduce((sum: number, v: any) => sum + (v.duration_minutes || 0), 0);
-            programDurations.set(program.id, totalDuration);
-          });
-        }
-
-        const enrichedData = data.map(purchase => ({
-          ...purchase,
-          programs: {
-            ...purchase.programs,
-            duration_total_minutes: programDurations.get(purchase.programs?.id || '') || 0
-          }
-        }));
-
-        setProgramPurchases(enrichedData as ProgramPurchase[]);
-      } else {
-        setProgramPurchases(data as ProgramPurchase[]);
-      }
-    }
-  };
-
-  const loadVideoPurchases = async () => {
-    if (!user) return;
-
-    const { data, error } = await supabase
-      .from('video_purchases')
-      .select('*, videos(title, thumbnail_url, duration_minutes, level)')
-      .eq('user_id', user.id)
-      .order('purchased_at', { ascending: false });
-
-    if (!error && data) {
-      setVideoPurchases(data as VideoPurchase[]);
-    }
-  };
-
-  const loadOrders = async () => {
-    if (!user) return;
-
-    const { data, error } = await supabase
-      .from('orders')
-      .select('*, order_items(id, item_type, quantity, unit_price, selected_size)')
-      .eq('user_id', user.id)
-      .not('status', 'in', '(pending,cancelled)')
-      .order('created_at', { ascending: false });
-
-    if (!error && data) {
-      setOrders(data as Order[]);
-    }
   };
 
   const loadTickets = async () => {
@@ -380,9 +230,12 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
         remaining_amount,
         expires_at,
         status,
+        balance_payment_mode,
+        auto_balance_payment_at,
         auto_balance_payment_status,
         event_ticket_types (
           id,
+          ticket_types (name),
           price_tiers:event_ticket_price_tiers (price, starts_at, ends_at)
         ),
         events (id, title, start_date)
@@ -434,82 +287,36 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
     }
   };
 
-  const getSubscriptionStatusColor = (status: string) => {
-    switch (status) {
-      case 'active':
-        return 'bg-green-500/20 text-green-300 border-green-500/30';
-      case 'trial':
-        return 'bg-blue-500/20 text-blue-300 border-blue-500/30';
-      case 'inactive':
-      case 'cancelled':
-        return 'bg-gray-500/20 text-gray-400 border-gray-500/30';
-      default:
-        return 'bg-gray-500/20 text-gray-400 border-gray-500/30';
-    }
-  };
+  // Statut lisible du billet : paiement du solde, puis émission du billet
+  // officiel (Weezevent). Aucune erreur technique n'est affichée au client.
+  const getTicketStatusBadge = (ticket: AttendeeWithDetails) => {
+    const badge = (className: string, Icon: typeof Clock, label: string) => (
+      <span className={`inline-flex items-center space-x-1 px-3 py-1 rounded-full text-sm border ${className}`}>
+        <Icon className="w-4 h-4 flex-shrink-0" />
+        <span>{label}</span>
+      </span>
+    );
+    const gold = 'bg-[#D4AC5B] bg-opacity-20 text-[#F0D38A] border-[#D4AC5B] border-opacity-50';
+    const green = 'bg-green-900 bg-opacity-40 text-green-400 border-green-600 border-opacity-40';
 
-  const getOrderStatusColor = (status: string) => {
-    switch (status) {
-      case 'completed':
-        return 'bg-green-500/20 text-green-300 border-green-500/30';
-      case 'shipped':
-        return 'bg-blue-500/20 text-blue-300 border-blue-500/30';
-      case 'processing':
-      case 'paid':
-        return 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30';
-      case 'pending':
-        return 'bg-orange-500/20 text-orange-300 border-orange-500/30';
+    switch (ticket.check_in_status) {
       case 'cancelled':
-        return 'bg-red-500/20 text-red-300 border-red-500/30';
-      default:
-        return 'bg-gray-500/20 text-gray-400 border-gray-500/30';
-    }
-  };
-
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'not_checked_in':
-        return (
-          <span className="inline-flex items-center space-x-1 px-3 py-1 bg-green-900 bg-opacity-40 text-green-400 rounded-full text-sm border border-green-600 border-opacity-40">
-            <CheckCircle className="w-4 h-4" />
-            <span>Confirme</span>
-          </span>
-        );
+        return badge('bg-red-900 bg-opacity-40 text-red-400 border-red-600 border-opacity-40', XCircle, 'Annulé');
       case 'checked_in':
-        return (
-          <span className="inline-flex items-center space-x-1 px-3 py-1 bg-blue-900 bg-opacity-40 text-blue-400 rounded-full text-sm border border-blue-600 border-opacity-40">
-            <CheckCircle className="w-4 h-4" />
-            <span>Utilise</span>
-          </span>
-        );
-      case 'cancelled':
-        return (
-          <span className="inline-flex items-center space-x-1 px-3 py-1 bg-red-900 bg-opacity-40 text-red-400 rounded-full text-sm border border-red-600 border-opacity-40">
-            <XCircle className="w-4 h-4" />
-            <span>Annule</span>
-          </span>
-        );
+        return badge('bg-blue-900 bg-opacity-40 text-blue-400 border-blue-600 border-opacity-40', CheckCircle, 'Utilisé');
       case 'awaiting_balance':
-        return (
-          <span className="inline-flex items-center space-x-1 px-3 py-1 bg-[#D4AC5B] bg-opacity-20 text-[#F0D38A] rounded-full text-sm border border-[#D4AC5B] border-opacity-50">
-            <Clock className="w-4 h-4" />
-            <span>Solde à payer</span>
-          </span>
-        );
-      default:
-        return (
-          <span className="inline-flex items-center space-x-1 px-3 py-1 bg-green-900 bg-opacity-40 text-green-400 rounded-full text-sm border border-green-600 border-opacity-40">
-            <CheckCircle className="w-4 h-4" />
-            <span>Valide</span>
-          </span>
-        );
+        return badge(gold, Clock, 'Paiement du solde en attente');
     }
-  };
-
-  const isSubscriptionExpiringSoon = (expiresAt: string | null) => {
-    if (!expiresAt) return false;
-    const daysUntilExpiry = Math.floor((new Date(expiresAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
-    return daysUntilExpiry <= 7 && daysUntilExpiry > 0;
+    if (ticket.weezevent_sync_status === 'failed') {
+      return badge('bg-orange-900 bg-opacity-40 text-orange-400 border-orange-600 border-opacity-40', AlertCircle, 'Problème lors de l’émission du billet');
+    }
+    if (ticket.weezevent_sync_status === 'synced') {
+      return badge(green, CheckCircle, 'Billet officiel envoyé');
+    }
+    if (ticket.pass_status === 'available') {
+      return badge(green, FileText, 'Billet officiel disponible');
+    }
+    return badge(gold, Clock, 'Billet officiel en attente d’émission');
   };
 
   if (!profile) return null;
@@ -531,74 +338,6 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
           <p className="text-sm sm:text-base text-gray-400 px-4">{t('purchases.subtitle')}</p>
         </div>
 
-        <div className="mb-6 sm:mb-8">
-          <div className="hidden sm:flex justify-center">
-            <div className="inline-flex space-x-2 sm:space-x-3 p-1.5 sm:p-2 bg-gray-800/50 border border-gray-700/50 rounded-full shadow-md">
-              {(['subscriptions', 'programs', 'videos', 'orders', 'tickets'] as const).map((tab) => {
-                const icons = { subscriptions: User, programs: Package, videos: Video, orders: ShoppingBag, tickets: Ticket };
-                const labels = { subscriptions: 'Professeurs', programs: 'Programmes', videos: 'Vidéos', orders: 'Commandes', tickets: 'Billets' };
-                const counts = { subscriptions: professorSubscriptions.length, programs: programPurchases.length, videos: videoPurchases.length, orders: orders.length, tickets: tickets.length };
-                const Icon = icons[tab];
-                return (
-                  <button
-                    key={tab}
-                    onClick={() => setActiveTab(tab)}
-                    className={`px-4 md:px-6 py-2.5 md:py-3 rounded-full text-sm font-medium transition-all flex items-center space-x-2 whitespace-nowrap ${
-                      activeTab === tab
-                        ? 'bg-gradient-to-r from-[#B8913D] to-[#D4AC5B] text-white'
-                        : 'text-gray-300 hover:bg-gray-700/70'
-                    }`}
-                  >
-                    <Icon className="w-4 h-4" />
-                    <span>{labels[tab]}</span>
-                    {!loading && counts[tab] > 0 && (
-                      <span className={`ml-1 min-w-[18px] h-[18px] flex items-center justify-center rounded-full text-[10px] font-bold px-1 ${
-                        activeTab === tab ? 'bg-white/25 text-white' : 'bg-[#B8913D]/20 text-[#B8913D]'
-                      }`}>
-                        {counts[tab]}
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          <div className="sm:hidden">
-            <div className="grid grid-cols-5 gap-1 p-1 bg-gray-800/50 border border-gray-700/50 rounded-2xl shadow-md">
-              {(['subscriptions', 'programs', 'videos', 'orders', 'tickets'] as const).map((tab) => {
-                const icons = { subscriptions: User, programs: Package, videos: Video, orders: ShoppingBag, tickets: Ticket };
-                const labels = { subscriptions: 'Profs', programs: 'Progs', videos: 'Vidéos', orders: 'Cmdes', tickets: 'Billets' };
-                const counts = { subscriptions: professorSubscriptions.length, programs: programPurchases.length, videos: videoPurchases.length, orders: orders.length, tickets: tickets.length };
-                const Icon = icons[tab];
-                return (
-                  <button
-                    key={tab}
-                    onClick={() => setActiveTab(tab)}
-                    className={`relative flex flex-col items-center justify-center py-2.5 px-1 rounded-xl text-[10px] font-medium transition-all ${
-                      activeTab === tab
-                        ? 'bg-gradient-to-br from-[#B8913D] to-[#D4AC5B] text-white shadow-lg'
-                        : 'text-gray-400 hover:text-gray-200 hover:bg-gray-700/40'
-                    }`}
-                  >
-                    <div className="relative">
-                      <Icon className="w-4 h-4 mb-1" />
-                      {!loading && counts[tab] > 0 && (
-                        <span className={`absolute -top-1.5 -right-1.5 min-w-[14px] h-[14px] flex items-center justify-center rounded-full text-[9px] font-bold px-0.5 ${
-                          activeTab === tab ? 'bg-white text-[#B8913D]' : 'bg-[#B8913D] text-white'
-                        }`}>
-                          {counts[tab]}
-                        </span>
-                      )}
-                    </div>
-                    <span className="leading-none">{labels[tab]}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-
         {loading ? (
           <div className="text-center py-16 sm:py-20">
             <div className="inline-block w-10 h-10 sm:w-12 sm:h-12 border-4 border-[#B8913D] border-t-transparent rounded-full animate-spin"></div>
@@ -606,309 +345,18 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
               <p className="mt-4 text-gray-400 text-sm">Confirmation du paiement en cours...</p>
             )}
           </div>
-        ) : activeTab === 'subscriptions' ? (
-          <div className="space-y-4">
-            {professorSubscriptions.length === 0 ? (
-              <div className="bg-gradient-to-br from-gray-800/60 to-gray-900/60 backdrop-blur-sm border border-gray-700/50 rounded-2xl sm:rounded-3xl p-8 sm:p-12 text-center">
-                <User className="w-12 h-12 sm:w-16 sm:h-16 text-gray-600 mx-auto mb-4" />
-                <h3 className="text-lg sm:text-xl font-medium text-white mb-2 px-2">Aucun abonnement professeur</h3>
-                <p className="text-sm sm:text-base text-gray-400 mb-6 px-4">Abonnez-vous à vos professeurs préférés pour accéder à leur contenu exclusif</p>
-                <button
-                  onClick={() => onNavigate('professors')}
-                  className="px-5 sm:px-6 py-2.5 sm:py-3 bg-gradient-to-r from-[#B8913D] to-[#D4AC5B] text-white text-sm sm:text-base rounded-full hover:shadow-xl transition-all hover:scale-105"
-                >
-                  Découvrir les professeurs
-                </button>
-              </div>
-            ) : (
-              professorSubscriptions.map((sub) => (
-                <div
-                  key={sub.id}
-                  className="bg-gradient-to-br from-gray-800/60 to-gray-900/60 backdrop-blur-sm border border-gray-700/50 rounded-xl sm:rounded-2xl p-4 sm:p-6 hover:border-[#B8913D]/50 transition-all group"
-                >
-                  <div className="flex flex-col sm:flex-row items-start gap-4">
-                    <div className="w-14 h-14 sm:w-16 sm:h-16 bg-gray-700 rounded-lg sm:rounded-xl overflow-hidden flex-shrink-0">
-                      {sub.professors.profiles.avatar_url ? (
-                        <img
-                          src={sub.professors.profiles.avatar_url}
-                          alt={sub.professors.profiles.full_name}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center">
-                          <User className="w-6 h-6 sm:w-8 sm:h-8 text-gray-400" />
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0 w-full">
-                      <h3 className="text-base sm:text-lg font-medium text-white mb-2">
-                        {sub.professors.profiles.full_name}
-                      </h3>
-                      <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-xs sm:text-sm">
-                        <span className={`px-2 sm:px-3 py-1 rounded-full font-medium border ${getSubscriptionStatusColor(sub.status)}`}>
-                          {sub.status === 'active' ? 'Actif' :
-                           sub.status === 'cancelled' ? 'Annulé' : 'Inactif'}
-                        </span>
-                        <span className="text-gray-400 flex items-center space-x-1">
-                          <Calendar className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
-                          <span className="truncate">Depuis le {new Date(sub.started_at).toLocaleDateString('fr-FR')}</span>
-                        </span>
-                        {sub.expires_at && (
-                          <span className="text-gray-400 flex items-center space-x-1">
-                            <Clock className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
-                            <span className="truncate">Expire le {new Date(sub.expires_at).toLocaleDateString('fr-FR')}</span>
-                          </span>
-                        )}
-                        <span className="text-[#B8913D] font-medium">
-                          {sub.professors.subscription_price}€/mois
-                        </span>
-                      </div>
-                      {sub.expires_at && isSubscriptionExpiringSoon(sub.expires_at) && sub.status === 'active' && (
-                        <div className="mt-2 flex items-center space-x-2 text-yellow-400 text-xs sm:text-sm">
-                          <AlertCircle className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
-                          <span>Expire bientôt</span>
-                        </div>
-                      )}
-                    </div>
-                    <button
-                      onClick={() => onNavigate('professor-' + sub.professor_id)}
-                      className="w-full sm:w-auto px-4 py-2 border border-[#B8913D] text-[#B8913D] rounded-lg hover:bg-[#B8913D] hover:text-white transition-all sm:opacity-0 sm:group-hover:opacity-100 text-sm"
-                    >
-                      Voir le profil
-                    </button>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        ) : activeTab === 'programs' ? (
-          <div className="space-y-4">
-            {programPurchases.length === 0 ? (
-              <div className="bg-gradient-to-br from-gray-800/60 to-gray-900/60 backdrop-blur-sm border border-gray-700/50 rounded-2xl sm:rounded-3xl p-8 sm:p-12 text-center">
-                <Package className="w-12 h-12 sm:w-16 sm:h-16 text-gray-600 mx-auto mb-4" />
-                <h3 className="text-lg sm:text-xl font-medium text-white mb-2 px-2">Aucun programme acheté</h3>
-                <p className="text-sm sm:text-base text-gray-400 mb-6 px-4">Achetez des programmes complets pour progresser efficacement</p>
-                <button
-                  onClick={() => onNavigate('academy')}
-                  className="px-5 sm:px-6 py-2.5 sm:py-3 bg-gradient-to-r from-[#B8913D] to-[#D4AC5B] text-white text-sm sm:text-base rounded-full hover:shadow-xl transition-all hover:scale-105"
-                >
-                  Explorer les programmes
-                </button>
-              </div>
-            ) : (
-              programPurchases.map((purchase) => (
-                <div
-                  key={purchase.id}
-                  className="bg-gradient-to-br from-gray-800/60 to-gray-900/60 backdrop-blur-sm border border-gray-700/50 rounded-xl sm:rounded-2xl p-4 sm:p-6 hover:border-[#B8913D]/50 transition-all group"
-                >
-                  <div className="flex flex-col sm:flex-row items-start gap-4">
-                    <div className="w-full sm:w-24 h-20 sm:h-16 bg-gray-700 rounded-lg overflow-hidden flex-shrink-0">
-                      {purchase.programs.thumbnail_url ? (
-                        <img
-                          src={purchase.programs.thumbnail_url}
-                          alt={purchase.programs.title}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center">
-                          <Package className="w-6 h-6 sm:w-8 sm:h-8 text-gray-400" />
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0 w-full">
-                      <h3 className="text-base sm:text-lg font-medium text-white mb-2">
-                        {purchase.programs.title}
-                      </h3>
-                      <p className="text-gray-400 text-xs sm:text-sm mb-2 line-clamp-2">{purchase.programs.description}</p>
-                      <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-xs sm:text-sm">
-                        <span className={`px-2 sm:px-3 py-1 rounded-full font-medium border ${
-                          purchase.status === 'active' ? 'bg-green-500/20 text-green-300 border-green-500/30' :
-                          purchase.status === 'refunded' ? 'bg-red-500/20 text-red-300 border-red-500/30' :
-                          'bg-gray-500/20 text-gray-400 border-gray-500/30'
-                        }`}>
-                          {purchase.status === 'active' ? 'Accessible' :
-                           purchase.status === 'refunded' ? 'Remboursé' : 'Expiré'}
-                        </span>
-                        <span className="text-gray-400">{purchase.programs.duration_total_minutes} min</span>
-                        <span className="px-2 py-1 bg-gray-700/50 text-gray-300 rounded text-xs">
-                          {purchase.programs.level}
-                        </span>
-                        <span className="text-gray-400 flex items-center space-x-1">
-                          <Calendar className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
-                          <span className="truncate">Acheté le {new Date(purchase.purchased_at).toLocaleDateString('fr-FR')}</span>
-                        </span>
-                        <span className="text-[#B8913D] font-medium">
-                          {purchase.price_paid}€
-                        </span>
-                      </div>
-                      {purchase.expires_at && (
-                        <div className="mt-2 flex items-center space-x-2 text-gray-400 text-xs sm:text-sm">
-                          <Clock className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
-                          <span>Expire le {new Date(purchase.expires_at).toLocaleDateString('fr-FR')}</span>
-                        </div>
-                      )}
-                      {purchase.expires_at && isSubscriptionExpiringSoon(purchase.expires_at) && purchase.status === 'active' && (
-                        <div className="mt-2 flex items-center space-x-2 text-yellow-400 text-xs sm:text-sm">
-                          <AlertCircle className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
-                          <span>Expire bientôt</span>
-                        </div>
-                      )}
-                    </div>
-                    {purchase.status === 'active' && (
-                      <button
-                        onClick={() => onNavigate('program-' + purchase.program_id)}
-                        className="w-full sm:w-auto px-4 py-2 bg-gradient-to-r from-[#B8913D] to-[#D4AC5B] text-white rounded-lg hover:shadow-lg transition-all sm:opacity-0 sm:group-hover:opacity-100 text-sm"
-                      >
-                        Accéder
-                      </button>
-                    )}
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        ) : activeTab === 'videos' ? (
-          <div className="space-y-4">
-            {videoPurchases.length === 0 ? (
-              <div className="bg-gradient-to-br from-gray-800/60 to-gray-900/60 backdrop-blur-sm border border-gray-700/50 rounded-2xl sm:rounded-3xl p-8 sm:p-12 text-center">
-                <Video className="w-12 h-12 sm:w-16 sm:h-16 text-gray-600 mx-auto mb-4" />
-                <h3 className="text-lg sm:text-xl font-medium text-white mb-2 px-2">Aucune vidéo achetée</h3>
-                <p className="text-sm sm:text-base text-gray-400 mb-6 px-4">Achetez des vidéos individuelles pour enrichir votre apprentissage</p>
-                <button
-                  onClick={() => onNavigate('academy')}
-                  className="px-5 sm:px-6 py-2.5 sm:py-3 bg-gradient-to-r from-[#B8913D] to-[#D4AC5B] text-white text-sm sm:text-base rounded-full hover:shadow-xl transition-all hover:scale-105"
-                >
-                  Explorer l'académie
-                </button>
-              </div>
-            ) : (
-              videoPurchases.map((purchase) => (
-                <div
-                  key={purchase.id}
-                  className="bg-gradient-to-br from-gray-800/60 to-gray-900/60 backdrop-blur-sm border border-gray-700/50 rounded-xl sm:rounded-2xl p-4 sm:p-6 hover:border-[#B8913D]/50 transition-all group"
-                >
-                  <div className="flex flex-col sm:flex-row items-start gap-4">
-                    <div className="w-full sm:w-24 h-20 sm:h-16 bg-gray-700 rounded-lg overflow-hidden flex-shrink-0">
-                      {purchase.videos.thumbnail_url ? (
-                        <img
-                          src={purchase.videos.thumbnail_url}
-                          alt={purchase.videos.title}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center">
-                          <Video className="w-6 h-6 sm:w-8 sm:h-8 text-gray-400" />
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0 w-full">
-                      <h3 className="text-base sm:text-lg font-medium text-white mb-2">
-                        {purchase.videos.title}
-                      </h3>
-                      <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-xs sm:text-sm">
-                        <span className={`px-2 sm:px-3 py-1 rounded-full font-medium border ${
-                          purchase.status === 'active' ? 'bg-green-500/20 text-green-300 border-green-500/30' :
-                          purchase.status === 'refunded' ? 'bg-red-500/20 text-red-300 border-red-500/30' :
-                          'bg-gray-500/20 text-gray-400 border-gray-500/30'
-                        }`}>
-                          {purchase.status === 'active' ? 'Accessible' :
-                           purchase.status === 'refunded' ? 'Remboursé' : 'Expiré'}
-                        </span>
-                        <span className="text-gray-400">{purchase.videos.duration_minutes} min</span>
-                        <span className="px-2 py-1 bg-gray-700/50 text-gray-300 rounded text-xs">
-                          {purchase.videos.level}
-                        </span>
-                        <span className="text-gray-400 flex items-center space-x-1">
-                          <Calendar className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
-                          <span className="truncate">Acheté le {new Date(purchase.purchased_at).toLocaleDateString('fr-FR')}</span>
-                        </span>
-                        <span className="text-[#B8913D] font-medium">
-                          {purchase.amount_paid}€
-                        </span>
-                      </div>
-                    </div>
-                    {purchase.status === 'active' && (
-                      <button
-                        onClick={() => onNavigate('video-' + purchase.video_id)}
-                        className="w-full sm:w-auto px-4 py-2 bg-gradient-to-r from-[#B8913D] to-[#D4AC5B] text-white rounded-lg hover:shadow-lg transition-all sm:opacity-0 sm:group-hover:opacity-100 text-sm"
-                      >
-                        Regarder
-                      </button>
-                    )}
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        ) : activeTab === 'orders' ? (
-          <div className="space-y-4">
-            {orders.length === 0 ? (
-              <div className="bg-gradient-to-br from-gray-800/60 to-gray-900/60 backdrop-blur-sm border border-gray-700/50 rounded-2xl sm:rounded-3xl p-8 sm:p-12 text-center">
-                <Package className="w-12 h-12 sm:w-16 sm:h-16 text-gray-600 mx-auto mb-4" />
-                <h3 className="text-lg sm:text-xl font-medium text-white mb-2 px-2">Aucune commande</h3>
-                <p className="text-sm sm:text-base text-gray-400 px-4">Vos commandes passées apparaîtront ici</p>
-              </div>
-            ) : (
-              orders.map((order) => (
-                <div
-                  key={order.id}
-                  className="bg-gradient-to-br from-gray-800/60 to-gray-900/60 backdrop-blur-sm border border-gray-700/50 rounded-xl sm:rounded-2xl p-4 sm:p-6"
-                >
-                  <div className="flex flex-col sm:flex-row items-start justify-between gap-4 mb-4">
-                    <div className="flex-1 w-full min-w-0">
-                      <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-2">
-                        <h3 className="text-base sm:text-lg font-medium text-white">
-                          Commande #{order.id.substring(0, 8)}
-                        </h3>
-                        <span className={`px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm font-medium border ${getOrderStatusColor(order.status)}`}>
-                          {order.status === 'completed' ? 'Livrée' :
-                           order.status === 'shipped' ? 'Expédiée' :
-                           order.status === 'processing' ? 'En traitement' :
-                           order.status === 'paid' ? 'Payée' :
-                           order.status === 'pending' ? 'En attente' : 'Annulée'}
-                        </span>
-                      </div>
-                      <div className="flex flex-wrap items-center gap-3 sm:gap-4 text-xs sm:text-sm text-gray-400">
-                        <span className="flex items-center space-x-1">
-                          <Calendar className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
-                          <span>{new Date(order.created_at).toLocaleDateString('fr-FR')}</span>
-                        </span>
-                        {order.status === 'completed' && (
-                          <span className="flex items-center space-x-1 text-green-400">
-                            <CheckCircle className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
-                            <span>Livrée</span>
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                    <div className="text-left sm:text-right">
-                      <div className="text-xl sm:text-2xl font-bold text-[#B8913D]">
-                        {order.total_amount.toFixed(2)}€
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="border-t border-gray-700/50 pt-4">
-                    <p className="text-xs sm:text-sm text-gray-400 mb-2">Articles:</p>
-                    <div className="space-y-2">
-                      {order.order_items.map((item, idx) => (
-                        <div key={idx} className="flex justify-between items-center text-xs sm:text-sm gap-2">
-                          <span className="text-white truncate">
-                            {item.item_type}{item.selected_size ? ` (${item.selected_size})` : ''} x{item.quantity}
-                          </span>
-                          <span className="text-gray-400 flex-shrink-0">
-                            {(item.unit_price * item.quantity).toFixed(2)}€
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
         ) : (
-          <div className="space-y-6 sm:space-y-8">
+          <div className="space-y-8 sm:space-y-10">
+          <section className="space-y-4 sm:space-y-6">
+            <h2 className="flex items-center gap-2 text-lg sm:text-xl font-medium text-white">
+              <Lock className="w-5 h-5 text-[#B8913D] flex-shrink-0" />
+              <span>Price Locks actifs</span>
+            </h2>
+            {priceLocks.length === 0 && (
+              <div className="bg-gradient-to-br from-gray-800/60 to-gray-900/60 backdrop-blur-sm border border-gray-700/50 rounded-xl sm:rounded-2xl p-4 sm:p-6 text-center">
+                <p className="text-sm sm:text-base text-gray-400">Aucun Price Lock actif</p>
+              </div>
+            )}
             {priceLocks.map((lock) => {
               const now = Date.now();
               const tiers = ((lock.event_ticket_types?.price_tiers || []) as PriceLockTier[]);
@@ -941,6 +389,9 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
                       </span>
                     </div>
                     <p className="text-sm text-gray-300 mb-1">{lock.events?.title}</p>
+                    {lock.event_ticket_types?.ticket_types?.name && (
+                      <p className="text-xs sm:text-sm font-medium text-[#B8913D] mb-1">{lock.event_ticket_types.ticket_types.name}</p>
+                    )}
                     {lock.expires_at && (
                       <p className="text-xs text-gray-400">
                         {isExpired
@@ -960,6 +411,11 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
                         <span>Solde : <span className="text-[#F0D38A] font-semibold">{formatEuro(lock.remaining_amount)}</span></span>
                       )}
                     </div>
+                    {!isExpired && lock.balance_payment_mode === 'automatic' && !lock.auto_balance_payment_status && lock.auto_balance_payment_at && (
+                      <p className="text-xs text-gray-400 mt-2">
+                        Prélèvement automatique du solde prévu le {new Date(lock.auto_balance_payment_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
+                      </p>
+                    )}
                     {!isExpired && lock.auto_balance_payment_status === 'failed' && (
                       // Raison technique (Stripe) volontairement non affichée au client.
                       <p className="mt-3 rounded-lg border border-[#D4AC5B]/40 bg-[#D4AC5B]/10 px-3 py-2 text-xs sm:text-sm text-[#F0D38A]">
@@ -988,11 +444,16 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
               </div>
               );
             })}
-            {tickets.length === 0 && priceLocks.length === 0 ? (
-              <div className="bg-gradient-to-br from-gray-800/60 to-gray-900/60 backdrop-blur-sm border border-gray-700/50 rounded-2xl sm:rounded-3xl p-8 sm:p-12 text-center">
-                <Ticket className="w-12 h-12 sm:w-16 sm:h-16 text-gray-600 mx-auto mb-4" />
-                <h3 className="text-lg sm:text-xl font-medium text-white mb-2 px-2">Aucun billet</h3>
-                <p className="text-sm sm:text-base text-gray-400 mb-6 px-4">Vous n'avez pas encore de billets d'événements</p>
+          </section>
+
+          <section className="space-y-4 sm:space-y-6">
+            <h2 className="flex items-center gap-2 text-lg sm:text-xl font-medium text-white">
+              <Ticket className="w-5 h-5 text-[#B8913D] flex-shrink-0" />
+              <span>Mes billets</span>
+            </h2>
+            {tickets.length === 0 ? (
+              <div className="bg-gradient-to-br from-gray-800/60 to-gray-900/60 backdrop-blur-sm border border-gray-700/50 rounded-xl sm:rounded-2xl p-4 sm:p-6 text-center">
+                <p className="text-sm sm:text-base text-gray-400 mb-4">Vous n’avez pas encore de billet de festival.</p>
                 <button
                   onClick={() => onNavigate('events')}
                   className="px-5 sm:px-6 py-2.5 sm:py-3 bg-gradient-to-r from-[#B8913D] to-[#D4AC5B] text-white text-sm sm:text-base rounded-full hover:shadow-xl transition-all hover:scale-105"
@@ -1087,15 +548,7 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
                               </div>
 
                               <div className="mt-3 pt-3 border-t border-gray-700">
-                                {getStatusBadge(ticket.check_in_status)}
-                                {ticket.check_in_status !== 'cancelled' && (
-                                  <p className="text-xs mt-2 flex items-center gap-1.5">
-                                    <FileText className="w-3 h-3 text-[#B8913D] flex-shrink-0" />
-                                    <span className={ticket.pass_status === 'available' ? 'text-green-400' : 'text-gray-400'}>
-                                      Pass : {ticket.pass_status === 'available' ? 'Disponible' : 'En attente'}
-                                    </span>
-                                  </p>
-                                )}
+                                {getTicketStatusBadge(ticket)}
                               </div>
 
                               {ticket.check_in_status === 'checked_in' && ticket.checked_in_at && (
@@ -1120,6 +573,7 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
                 })}
               </>
             )}
+          </section>
           </div>
         )}
       </div>
@@ -1151,7 +605,7 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
 
               <div>
                 <p className="text-xs sm:text-sm text-gray-400 mb-2">Statut</p>
-                {getStatusBadge(selectedTicket.check_in_status)}
+                {getTicketStatusBadge(selectedTicket)}
               </div>
 
               {(selectedTicket.attendee_first_name || selectedTicket.attendee_last_name || selectedTicket.attendee_email || selectedTicket.attendee_phone) && (
@@ -1177,8 +631,8 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
             {selectedTicket.check_in_status === 'awaiting_balance' && (
               <div className="text-center py-2">
                 <AlertCircle className="w-10 h-10 sm:w-12 sm:h-12 text-orange-400 mx-auto mb-3" />
-                <p className="text-sm sm:text-base text-orange-400 font-medium mb-1">Reste à payer</p>
-                <p className="text-xs text-gray-400">Ton pass sera disponible une fois le solde réglé.</p>
+                <p className="text-sm sm:text-base text-orange-400 font-medium mb-1">Paiement du solde en attente</p>
+                <p className="text-xs text-gray-400">Votre billet officiel sera émis une fois le solde réglé.</p>
               </div>
             )}
 
@@ -1200,13 +654,29 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
             )}
 
             {selectedTicket.check_in_status === 'not_checked_in' && selectedTicket.pass_status === 'pending' && (
-              <div className="text-center py-2">
-                <Clock className="w-10 h-10 sm:w-12 sm:h-12 text-[#D4AC5B] mx-auto mb-3" />
-                <p className="text-sm sm:text-base text-[#F0D38A] font-medium mb-1">Pass : En attente</p>
-                <p className="text-xs text-gray-400">
-                  Ton achat est confirmé. Ton pass sera disponible ici dès qu’il aura été ajouté.
-                </p>
-              </div>
+              selectedTicket.weezevent_sync_status === 'synced' ? (
+                <div className="text-center py-2">
+                  <CheckCircle className="w-10 h-10 sm:w-12 sm:h-12 text-green-400 mx-auto mb-3" />
+                  <p className="text-sm sm:text-base text-green-400 font-medium mb-1">Billet officiel envoyé</p>
+                  <p className="text-xs text-gray-400">Votre billet officiel a été émis et vous a été envoyé.</p>
+                </div>
+              ) : selectedTicket.weezevent_sync_status === 'failed' ? (
+                <div className="text-center py-2">
+                  <AlertCircle className="w-10 h-10 sm:w-12 sm:h-12 text-orange-400 mx-auto mb-3" />
+                  <p className="text-sm sm:text-base text-orange-400 font-medium mb-1">Problème lors de l’émission du billet</p>
+                  <p className="text-xs text-gray-400">
+                    Votre achat est bien confirmé. Contactez-nous si votre billet officiel ne vous parvient pas.
+                  </p>
+                </div>
+              ) : (
+                <div className="text-center py-2">
+                  <Clock className="w-10 h-10 sm:w-12 sm:h-12 text-[#D4AC5B] mx-auto mb-3" />
+                  <p className="text-sm sm:text-base text-[#F0D38A] font-medium mb-1">Billet officiel en attente d’émission</p>
+                  <p className="text-xs text-gray-400">
+                    Votre achat est confirmé. Votre billet officiel sera émis prochainement.
+                  </p>
+                </div>
+              )
             )}
 
             {selectedTicket.check_in_status === 'not_checked_in' && (
