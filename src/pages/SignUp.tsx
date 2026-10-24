@@ -79,7 +79,7 @@ export function SignUp({ onNavigate }: SignUpProps) {
 
         <div className="text-center mb-6 sm:mb-8">
           <div className="flex items-center justify-center mb-4 sm:mb-6">
-            <img src="/nexa-logo.png" alt="NEXA" className="h-12 sm:h-14 md:h-16 w-auto drop-shadow-[0_0_10px_rgba(212,172,91,0.3)]" />
+            <img src="/nexa-logo.webp" alt="NEXA" className="h-12 sm:h-14 md:h-16 w-auto drop-shadow-[0_0_10px_rgba(212,172,91,0.3)]" />
           </div>
           <h2 className="text-2xl sm:text-3xl font-light text-white mb-2">{t('signup.header.title')}</h2>
           <p className="text-sm sm:text-base text-gray-400">{t('signup.header.subtitle')}</p>

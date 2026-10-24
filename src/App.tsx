@@ -274,7 +274,7 @@ function AppContent() {
       <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="text-center">
           <div className="flex items-center justify-center space-x-3 mb-6">
-            <img src="/nexa-logo.png" alt="NEXA" className="h-16 w-auto animate-pulse" />
+            <img src="/nexa-logo.webp" alt="NEXA" className="h-16 w-auto animate-pulse" />
             <span className="text-4xl font-light text-gray-900 tracking-wide animate-pulse">NEXA</span>
           </div>
           <div className="inline-block w-8 h-8 border-4 border-[#B8913D] border-t-transparent rounded-full animate-spin"></div>

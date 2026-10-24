@@ -17,30 +17,23 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks(id) {
+          // Seules les librairies sont regroupées : le code applicatif suit le
+          // découpage des pages lazy (App.tsx), pour que chaque visiteur ne
+          // télécharge que les composants des pages qu'il ouvre.
           if (id.includes('node_modules')) {
+            if (id.includes('lucide-react')) {
+              return 'icons';
+            }
             if (id.includes('react') || id.includes('react-dom')) {
               return 'react-vendor';
             }
             if (id.includes('@supabase')) {
               return 'supabase-vendor';
             }
-            if (id.includes('lucide-react')) {
-              return 'icons';
-            }
             if (id.includes('qrcode')) {
               return 'qrcode-vendor';
             }
             return 'vendor';
-          }
-          if (id.includes('src/pages/')) {
-            const pageName = id.split('src/pages/')[1].split('.')[0];
-            return `page-${pageName.toLowerCase()}`;
-          }
-          if (id.includes('src/contexts/')) {
-            return 'contexts';
-          }
-          if (id.includes('src/components/')) {
-            return 'components';
           }
         },
       },

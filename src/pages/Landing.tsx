@@ -328,16 +328,15 @@ export function Landing({ onNavigate }: LandingProps) {
       <section className="relative overflow-hidden">
         {/* Full-bleed background image */}
         <div className="absolute inset-x-0 top-14 sm:top-14 lg:top-12 bottom-0 z-0">
-          <img
-            src="/hero-mobile.png"
-            alt=""
-            className="w-full h-full object-cover object-top bg-[#070d18] md:hidden"
-          />
-          <img
-            src="/nexa-hero.png"
-            alt=""
-            className="hidden w-full h-full object-cover object-top bg-[#070d18] md:block"
-          />
+          {/* Une seule image téléchargée : version mobile sous 768 px (breakpoint md). */}
+          <picture>
+            <source media="(min-width: 768px)" srcSet="/nexa-hero.webp" />
+            <img
+              src="/hero-mobile.webp"
+              alt=""
+              className="w-full h-full object-cover object-top bg-[#070d18]"
+            />
+          </picture>
           <div className="absolute inset-0 bg-gradient-to-b from-gray-950/70 via-gray-950/50 to-gray-950" />
           <div className="absolute inset-0 bg-gradient-to-r from-gray-950/60 to-transparent" />
         </div>
@@ -477,6 +476,8 @@ export function Landing({ onNavigate }: LandingProps) {
                 <img
                   src="/nexa_pass_festival.webp"
                   alt=""
+                  loading="lazy"
+                  decoding="async"
                   className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-[1.04]"
                 />
                 <div className="absolute inset-0 bg-gradient-to-r from-[#07101e]/95 via-[#07101e]/72 to-[#07101e]/25" />
@@ -511,6 +512,8 @@ export function Landing({ onNavigate }: LandingProps) {
                 <img
                   src="/nexa_academy.webp"
                   alt=""
+                  loading="lazy"
+                  decoding="async"
                   className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-[1.04]"
                 />
                 <div className="absolute inset-0 bg-gradient-to-r from-[#07101e]/95 via-[#07101e]/72 to-[#07101e]/25" />
@@ -672,7 +675,7 @@ export function Landing({ onNavigate }: LandingProps) {
         <div className="max-w-7xl mx-auto">
           <div className="flex flex-col items-center text-center animate-fade-in">
             <div className="flex items-center justify-center mb-4">
-              <img src="/nexa-logo.png" alt="NEXA" className="h-10 sm:h-10 w-auto opacity-80 drop-shadow-[0_0_12px_rgba(212,172,91,0.25)]" />
+              <img src="/nexa-logo.webp" alt="NEXA" className="h-10 sm:h-10 w-auto opacity-80 drop-shadow-[0_0_12px_rgba(212,172,91,0.25)]" />
             </div>
             <p className="text-sm text-gray-400 font-light tracking-wide mb-7 sm:mb-8">
               Apprenez. Voyagez. <span className="text-gold-400/90">Vivez la danse.</span>

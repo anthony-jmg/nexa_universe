@@ -37,7 +37,7 @@ export function Header({ onNavigate, currentPage }: HeaderProps) {
             className="flex items-center group"
           >
             <img
-              src="/nexa-logo.png"
+              src="/nexa-logo.webp"
               alt="NEXA"
               className="h-8 sm:h-9 md:h-10 lg:h-7 w-auto transition-transform group-hover:scale-105 drop-shadow-[0_0_10px_rgba(212,172,91,0.3)]"
             />

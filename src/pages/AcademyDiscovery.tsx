@@ -114,7 +114,7 @@ export default function AcademyDiscovery({
         <section className="relative overflow-hidden">
           <div className="absolute inset-x-0 top-14 sm:top-14 lg:top-12 bottom-0 z-0">
             <img
-              src="/Cours_de_danse_latin_en_studio_chaleureux.png"
+              src="/Cours_de_danse_latin_en_studio_chaleureux.webp"
               alt=""
               className="w-full h-full object-cover object-top bg-[#070d18]"
             />

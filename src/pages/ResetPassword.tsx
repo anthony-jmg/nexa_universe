@@ -129,7 +129,7 @@ export const ResetPassword: React.FC<ResetPasswordProps> = ({ onNavigate }) => {
         <BackgroundDecor />
         <div className="text-center relative z-10">
           <div className="flex items-center justify-center mb-6">
-            <img src="/nexa-logo.png" alt="NEXA" className="h-16 w-auto animate-pulse drop-shadow-[0_0_10px_rgba(212,172,91,0.3)]" />
+            <img src="/nexa-logo.webp" alt="NEXA" className="h-16 w-auto animate-pulse drop-shadow-[0_0_10px_rgba(212,172,91,0.3)]" />
           </div>
           <div className="inline-block w-8 h-8 border-4 border-gold-500 border-t-transparent rounded-full animate-spin"></div>
           <p className="mt-4 text-gray-400">Vérification de votre lien...</p>
@@ -144,7 +144,7 @@ export const ResetPassword: React.FC<ResetPasswordProps> = ({ onNavigate }) => {
       <div className="max-w-md w-full relative z-10">
         <div className="text-center mb-6 sm:mb-8">
           <div className="flex items-center justify-center mb-4 sm:mb-6">
-            <img src="/nexa-logo.png" alt="NEXA" className="h-12 sm:h-14 md:h-16 w-auto drop-shadow-[0_0_10px_rgba(212,172,91,0.3)]" />
+            <img src="/nexa-logo.webp" alt="NEXA" className="h-12 sm:h-14 md:h-16 w-auto drop-shadow-[0_0_10px_rgba(212,172,91,0.3)]" />
           </div>
           <h2 className="text-2xl sm:text-3xl font-light text-white mb-2">
             Nouveau mot de passe

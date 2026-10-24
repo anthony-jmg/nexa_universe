@@ -58,7 +58,7 @@ export const ForgotPassword: React.FC<ForgotPasswordProps> = ({ onNavigate }) =>
 
         <div className="text-center mb-6 sm:mb-8">
           <div className="flex items-center justify-center mb-4 sm:mb-6">
-            <img src="/nexa-logo.png" alt="NEXA" className="h-12 sm:h-14 md:h-16 w-auto drop-shadow-[0_0_10px_rgba(212,172,91,0.3)]" />
+            <img src="/nexa-logo.webp" alt="NEXA" className="h-12 sm:h-14 md:h-16 w-auto drop-shadow-[0_0_10px_rgba(212,172,91,0.3)]" />
           </div>
 
           {!emailSent ? (
