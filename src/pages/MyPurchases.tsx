@@ -118,6 +118,7 @@ interface PriceLockWithEvent {
   remaining_amount: number;
   expires_at: string | null;
   status: string;
+  auto_balance_payment_status: string | null;
   event_ticket_types: {
     id: string;
     price_tiers: PriceLockTier[];
@@ -360,7 +361,9 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
       .order('created_at', { ascending: false });
 
     if (!error && data) {
-      setTickets(data as any);
+      // Événement dépublié (brouillon) : masqué par RLS, il revient à null.
+      // On n'affiche pas ces billets plutôt que de faire planter la page.
+      setTickets((data as unknown as AttendeeWithDetails[]).filter((ticket) => ticket.events));
     }
   };
 
@@ -377,6 +380,7 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
         remaining_amount,
         expires_at,
         status,
+        auto_balance_payment_status,
         event_ticket_types (
           id,
           price_tiers:event_ticket_price_tiers (price, starts_at, ends_at)
@@ -956,6 +960,12 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
                         <span>Solde : <span className="text-[#F0D38A] font-semibold">{formatEuro(lock.remaining_amount)}</span></span>
                       )}
                     </div>
+                    {!isExpired && lock.auto_balance_payment_status === 'failed' && (
+                      // Raison technique (Stripe) volontairement non affichée au client.
+                      <p className="mt-3 rounded-lg border border-[#D4AC5B]/40 bg-[#D4AC5B]/10 px-3 py-2 text-xs sm:text-sm text-[#F0D38A]">
+                        Le prélèvement automatique n’a pas abouti. Vous pouvez régler votre solde manuellement.
+                      </p>
+                    )}
                   </div>
                   {isExpired ? (
                     <button
