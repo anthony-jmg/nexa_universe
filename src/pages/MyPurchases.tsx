@@ -313,8 +313,9 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
     if (ticket.weezevent_sync_status === 'synced') {
       return badge(green, CheckCircle, 'Billet officiel envoyé');
     }
-    if (ticket.pass_status === 'available') {
-      return badge(green, FileText, 'Billet officiel disponible');
+    if (ticket.weezevent_sync_status === 'skipped') {
+      // Pas d'émission Weezevent prévue pour ce billet : on ne promet rien.
+      return badge(green, CheckCircle, 'Achat confirmé');
     }
     return badge(gold, Clock, 'Billet officiel en attente d’émission');
   };
@@ -648,12 +649,12 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
                 </button>
                 {passError && <p className="text-xs text-red-400 text-center">{passError}</p>}
                 <p className="text-xs text-gray-500 text-center">
-                  Présente ce pass officiel (PDF) à l’entrée de l’événement.
+                  Document PDF ajouté par l’équipe Nexa.
                 </p>
               </div>
             )}
 
-            {selectedTicket.check_in_status === 'not_checked_in' && selectedTicket.pass_status === 'pending' && (
+            {selectedTicket.check_in_status === 'not_checked_in' && (
               selectedTicket.weezevent_sync_status === 'synced' ? (
                 <div className="text-center py-2">
                   <CheckCircle className="w-10 h-10 sm:w-12 sm:h-12 text-green-400 mx-auto mb-3" />
@@ -667,6 +668,12 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
                   <p className="text-xs text-gray-400">
                     Votre achat est bien confirmé. Contactez-nous si votre billet officiel ne vous parvient pas.
                   </p>
+                </div>
+              ) : selectedTicket.weezevent_sync_status === 'skipped' ? (
+                <div className="text-center py-2">
+                  <CheckCircle className="w-10 h-10 sm:w-12 sm:h-12 text-green-400 mx-auto mb-3" />
+                  <p className="text-sm sm:text-base text-green-400 font-medium mb-1">Achat confirmé</p>
+                  <p className="text-xs text-gray-400">Votre achat est confirmé.</p>
                 </div>
               ) : (
                 <div className="text-center py-2">
