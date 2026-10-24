@@ -22,6 +22,7 @@ import {
   FileText
 } from 'lucide-react';
 import { startPriceLockBalanceCheckout } from '../lib/priceLock';
+import { formatEuro } from '../lib/formatEuro';
 import { openPassPdf } from '../lib/passService';
 
 type ProfessorSubscription = Database['public']['Tables']['professor_subscriptions']['Row'] & {
@@ -944,15 +945,15 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
                       </p>
                     )}
                     <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs sm:text-sm text-gray-400 mt-2">
-                      <span>Prix bloqué : <span className="text-white font-medium">{Number(lock.locked_price).toFixed(0)} €</span></span>
-                      <span>Déjà payé : <span className="text-white font-medium">{Number(lock.total_paid).toFixed(0)} €</span></span>
+                      <span>Prix bloqué : <span className="text-white font-medium">{formatEuro(lock.locked_price)}</span></span>
+                      <span>Déjà payé : <span className="text-white font-medium">{formatEuro(lock.total_paid)}</span></span>
                       {isExpired ? (
                         <>
                           <span>Tarif actuel : <span className="text-white font-medium">{currentPrice != null ? `${currentPrice.toFixed(0)} €` : '—'}</span></span>
                           <span>Nouveau solde : <span className="text-[#F0D38A] font-semibold">{newBalance != null ? `${newBalance.toFixed(0)} €` : '—'}</span></span>
                         </>
                       ) : (
-                        <span>Solde : <span className="text-[#F0D38A] font-semibold">{Number(lock.remaining_amount).toFixed(0)} €</span></span>
+                        <span>Solde : <span className="text-[#F0D38A] font-semibold">{formatEuro(lock.remaining_amount)}</span></span>
                       )}
                     </div>
                   </div>
@@ -970,7 +971,7 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
                       disabled={payingLockId === lock.id || Number(lock.remaining_amount) <= 0}
                       className="w-full sm:w-auto px-5 py-2.5 bg-gradient-to-r from-[#D4AC5B] to-[#B8913D] text-gray-950 text-sm font-semibold rounded-lg hover:shadow-lg hover:shadow-[#D4AC5B]/30 transition-all disabled:opacity-50 whitespace-nowrap"
                     >
-                      {payingLockId === lock.id ? 'Redirection...' : `Payer le solde — ${Number(lock.remaining_amount).toFixed(0)} €`}
+                      {payingLockId === lock.id ? 'Redirection...' : `Payer le solde — ${formatEuro(lock.remaining_amount)}`}
                     </button>
                   )}
                 </div>
