@@ -140,11 +140,16 @@ describe('Mes Pass', () => {
     expect([...tables].sort()).toEqual(['event_attendees', 'price_locks']);
   });
 
-  it('affiche les états vides', async () => {
-    await renderPage();
+  it('affiche les états vides et renvoie vers Nexa Pass', async () => {
+    const onNavigate = vi.fn();
+    render(<MyPurchases onNavigate={onNavigate} />);
+    await screen.findByText('Price Locks actifs');
 
     expect(screen.getByText('Aucun Price Lock actif')).toBeInTheDocument();
     expect(screen.getByText('Vous n’avez pas encore de billet de festival.')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText('Découvrir les événements'));
+    expect(onNavigate).toHaveBeenCalledWith('shop');
   });
 
   it('affiche un Price Lock actif avec son billet, ses montants et le message d’échec uniquement si failed', async () => {

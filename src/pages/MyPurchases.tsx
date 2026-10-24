@@ -456,7 +456,7 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
               <div className="bg-gradient-to-br from-gray-800/60 to-gray-900/60 backdrop-blur-sm border border-gray-700/50 rounded-xl sm:rounded-2xl p-4 sm:p-6 text-center">
                 <p className="text-sm sm:text-base text-gray-400 mb-4">Vous n’avez pas encore de billet de festival.</p>
                 <button
-                  onClick={() => onNavigate('events')}
+                  onClick={() => onNavigate('shop')}
                   className="px-5 sm:px-6 py-2.5 sm:py-3 bg-gradient-to-r from-[#B8913D] to-[#D4AC5B] text-white text-sm sm:text-base rounded-full hover:shadow-xl transition-all hover:scale-105"
                 >
                   Découvrir les événements
