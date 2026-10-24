@@ -42,8 +42,8 @@ export function ProfessorDetail({ professorId, onNavigate, onBack }: ProfessorDe
     const { data: profData, error: profError } = await supabase
       .from('professors')
       .select(`
-        *,
-        profiles (*)
+        id, profile_id, bio, specialties, experience_years, profile_video_url, is_featured, subscription_price, subscriber_discount_percentage, is_founder, badge_type, created_at,
+        profiles!inner (id, full_name, avatar_url)
       `)
       .eq('id', professorId)
       .maybeSingle();

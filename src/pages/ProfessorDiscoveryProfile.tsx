@@ -4,11 +4,12 @@ import { supabase } from '../lib/supabase';
 import { getAvatarUrl } from '../components/AvatarUpload';
 import { BackgroundDecor } from '../components/BackgroundDecor';
 import { parseVideoUrl } from '../lib/videoUrl';
-import type { Database } from '../lib/database.types';
-
-type Professor = Database['public']['Tables']['professors']['Row'] & {
-  profiles: Database['public']['Tables']['profiles']['Row'];
-};
+import {
+  DISCOVERY_PROFESSOR_COLUMNS,
+  DiscoveryProfessor,
+  isDiscoveryEligible,
+  trackAcademyClick,
+} from '../lib/academyDiscovery';
 
 interface ProfessorDiscoveryProfileProps {
   professorId: string;
@@ -17,7 +18,7 @@ interface ProfessorDiscoveryProfileProps {
 }
 
 export function ProfessorDiscoveryProfile({ professorId, onNavigate, onBack }: ProfessorDiscoveryProfileProps) {
-  const [professor, setProfessor] = useState<Professor | null>(null);
+  const [professor, setProfessor] = useState<DiscoveryProfessor | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -25,35 +26,31 @@ export function ProfessorDiscoveryProfile({ professorId, onNavigate, onBack }: P
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [professorId]);
 
+  // Mêmes règles que la liste : fiche active avec un site valide, sinon
+  // « Professeur introuvable » (aucun accès à une fiche cachée par URL).
   const fetchProfessor = async () => {
-    const { data, error } = await supabase
-      .from('professors')
-      .select(`*, profiles (*)`)
-      .eq('id', professorId)
-      .maybeSingle();
+    setLoading(true);
+    setProfessor(null);
+    if (professorId) {
+      const { data, error } = await supabase
+        .from('professors')
+        .select(DISCOVERY_PROFESSOR_COLUMNS)
+        .eq('id', professorId)
+        .eq('is_active', true)
+        .maybeSingle();
 
-    if (!error && data) {
-      setProfessor(data as any);
+      const fiche = data as unknown as DiscoveryProfessor | null;
+      if (!error && fiche && isDiscoveryEligible(fiche)) {
+        setProfessor(fiche);
+      }
     }
     setLoading(false);
   };
 
-  function trackClick(
-    type: 'academy_profile_click' | 'academy_website_click',
-    destinationUrl: string | null = null
-  ) {
-    supabase
-      .from('academy_click_tracking')
-      .insert({ professor_id: professorId, content_type: type, destination_url: destinationUrl })
-      .then(({ error }) => {
-        if (error) console.warn('Click tracking failed:', error.message);
-      });
-  }
-
   function visitWebsite() {
     if (!professor?.website_url) return;
     window.open(professor.website_url, '_blank', 'noopener,noreferrer');
-    trackClick('academy_website_click', professor.website_url);
+    trackAcademyClick(professor.id, 'academy_website_click', professor.website_url);
   }
 
   if (loading) {
@@ -88,15 +85,15 @@ export function ProfessorDiscoveryProfile({ professorId, onNavigate, onBack }: P
     );
   }
 
-  const fullName = professor.profiles?.full_name || 'Professeur';
-  const avatarUrl = getAvatarUrl(professor.profiles?.avatar_url ?? null);
+  const fullName = professor.full_name || 'Professeur';
+  const avatarUrl = getAvatarUrl(professor.avatar_url ?? null);
   const specialties = (professor.specialties ?? []).filter(Boolean);
   const bio = professor.bio?.trim();
   const experienceYears = professor.experience_years ?? 0;
   const videoUrls = (professor.profile_video_urls ?? [])
     .filter(Boolean)
     .slice(0, 3);
-  const parsedVideos = videoUrls.map(parseVideoUrl).filter(v => v.source !== 'unknown');
+  const parsedVideos = videoUrls.map((url) => parseVideoUrl(url)).filter(v => v.source !== 'unknown');
 
   return (
     <div className="min-h-screen bg-gray-950 relative text-white">
@@ -128,16 +125,16 @@ export function ProfessorDiscoveryProfile({ professorId, onNavigate, onBack }: P
         </div>
 
         {/* Avatar + name + specialties */}
-        <div className="relative px-2 sm:px-6 -mt-12 sm:-mt-16 z-10">
-          <div className="flex flex-col sm:flex-row sm:items-end sm:gap-5">
-            <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full overflow-hidden ring-4 ring-gray-950 bg-gradient-to-br from-[#B8913D] to-[#D4AC5B] flex items-center justify-center flex-shrink-0 mx-auto sm:mx-0">
+        <div className="relative px-2 sm:px-6 z-10">
+          <div className="flex flex-col sm:flex-row sm:items-start sm:gap-5">
+            <div className="w-24 h-24 sm:w-28 sm:h-28 -mt-12 sm:-mt-14 rounded-full overflow-hidden ring-4 ring-gray-950 bg-gradient-to-br from-[#B8913D] to-[#D4AC5B] flex items-center justify-center flex-shrink-0 mx-auto sm:mx-0">
               {avatarUrl ? (
                 <img src={avatarUrl} alt={fullName} className="h-full w-full object-cover" />
               ) : (
                 <span className="text-3xl font-bold text-gray-950">{fullName.charAt(0).toUpperCase()}</span>
               )}
             </div>
-            <div className="flex-1 text-center sm:text-left mt-3 sm:mb-2">
+            <div className="flex-1 text-center sm:text-left mt-3 sm:mt-4">
               <h1 className="text-2xl sm:text-3xl font-bold text-white leading-tight">{fullName}</h1>
               {experienceYears > 0 && (
                 <div className="flex items-center justify-center sm:justify-start gap-1.5 mt-1.5 text-sm text-gray-400">

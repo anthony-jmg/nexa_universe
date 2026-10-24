@@ -9,13 +9,24 @@ import { ProductTypesManagement } from '../components/ProductTypesManagement';
 import { EventsManagement } from '../components/EventsManagement';
 import { TicketTypesManagement } from '../components/TicketTypesManagement';
 import ProfessorPayments from '../components/ProfessorPayments';
+import { getPresentationVideoUrlError } from '../lib/videoUrl';
+import { isValidHttpUrl } from '../lib/academyDiscovery';
 import { Database } from '../lib/database.types';
 import { Video, Users, Plus, CreditCard as Edit2, Trash2, X, Check, AlertCircle, ShoppingBag, Package, Search, Filter, Tag, Calendar, Ticket, DollarSign, GraduationCap, Globe } from 'lucide-react';
 
 type Video = Database['public']['Tables']['videos']['Row'];
 type Profile = Database['public']['Tables']['profiles']['Row'];
-type Professor = Database['public']['Tables']['professors']['Row'] & {
-  profiles: Pick<Profile, 'full_name'>;
+// Fiche professeur : colonnes lisibles côté client (sans Stripe Connect).
+// profiles n'existe que pour un ancien professeur lié à un compte.
+type Professor = Pick<
+  Database['public']['Tables']['professors']['Row'],
+  'id' | 'bio' | 'specialties' | 'experience_years' | 'is_featured' | 'is_founder' | 'website_url' | 'website_cover_image' | 'profile_video_urls'
+> & {
+  profile_id: string | null;
+  full_name: string;
+  avatar_url: string | null;
+  is_active: boolean;
+  profiles: Pick<Profile, 'full_name'> | null;
 };
 type Product = Database['public']['Tables']['products']['Row'];
 type ProductType = Database['public']['Tables']['product_types']['Row'];
@@ -152,8 +163,7 @@ export function Admin({ onNavigate }: AdminProps) {
 
   const loadPendingProfessorRequestsCount = async () => {
     const { count } = await supabase
-      .from('profiles')
-      .select('id', { count: 'exact', head: true })
+      .rpc('admin_list_profiles', undefined, { count: 'exact', head: true })
       .eq('wants_to_be_professor', true)
       .eq('professor_request_status', 'pending');
     setPendingProfessorRequestsCount(count ?? 0);
@@ -173,8 +183,7 @@ export function Admin({ onNavigate }: AdminProps) {
 
   const loadUsers = async () => {
     const { data, error } = await supabase
-      .from('profiles')
-      .select('*')
+      .rpc('admin_list_profiles')
       .order('created_at', { ascending: false });
 
     if (!error && data) {
@@ -185,10 +194,11 @@ export function Admin({ onNavigate }: AdminProps) {
   const loadProfessors = async () => {
     const { data, error } = await supabase
       .from('professors')
-      .select('*, profiles(full_name)');
+      .select('id, profile_id, full_name, avatar_url, bio, specialties, experience_years, website_url, website_cover_image, profile_video_urls, is_featured, is_founder, is_active, profiles(full_name)')
+      .order('created_at', { ascending: false });
 
     if (!error && data) {
-      setProfessors(data as Professor[]);
+      setProfessors(data as unknown as Professor[]);
     }
   };
 
@@ -215,13 +225,23 @@ export function Admin({ onNavigate }: AdminProps) {
   };
 
   const loadOrders = async () => {
-    const { data, error } = await supabase
-      .from('orders')
-      .select('*, profiles(full_name, email)')
-      .order('created_at', { ascending: false });
+    // L'e-mail n'est plus lisible via la jointure profiles : il vient de la
+    // liste admin (admin_list_profiles).
+    const [{ data, error }, { data: people }] = await Promise.all([
+      supabase
+        .from('orders')
+        .select('*, profiles(full_name)')
+        .order('created_at', { ascending: false }),
+      supabase.rpc('admin_list_profiles').select('id, email'),
+    ]);
 
     if (!error && data) {
-      setOrders(data as Order[]);
+      const emails = new Map((people ?? []).map((p: { id: string; email: string }) => [p.id, p.email]));
+      const rows = data as unknown as Array<Order & { profiles: { full_name: string } | null }>;
+      setOrders(rows.map((order) => ({
+        ...order,
+        profiles: order.profiles ? { ...order.profiles, email: emails.get(order.user_id) ?? '' } : null,
+      })) as Order[]);
     }
   };
 
@@ -844,7 +864,7 @@ export function Admin({ onNavigate }: AdminProps) {
                         <option value="">Select a professor</option>
                         {professors.map((prof) => (
                           <option key={prof.id} value={prof.id}>
-                            {prof.profiles.full_name}
+                            {prof.full_name || prof.profiles?.full_name}
                           </option>
                         ))}
                       </select>
@@ -1615,9 +1635,9 @@ function ProfessorRequestsSection({ onCountChange }: { onCountChange?: (count: n
   const loadRequests = async () => {
     setLoading(true);
     const { data, error } = await supabase
-      .from('profiles')
-      .select('id, full_name, email, avatar_url, professor_request_status, professor_request_message, professor_request_at, created_at')
+      .rpc('admin_list_profiles')
       .eq('wants_to_be_professor', true)
+      .select('id, full_name, email, avatar_url, professor_request_status, professor_request_message, professor_request_at, created_at')
       .order('professor_request_at', { ascending: false });
 
     if (!error) {
@@ -1812,7 +1832,7 @@ function ProfessorRequestsSection({ onCountChange }: { onCountChange?: (count: n
   );
 }
 
-function ProfessorDiscoveryManagement({
+export function ProfessorDiscoveryManagement({
   professors,
   onRefresh,
   setError,
@@ -1823,7 +1843,10 @@ function ProfessorDiscoveryManagement({
   setError: (msg: string) => void;
   setSuccess: (msg: string) => void;
 }) {
+  // 'new' = création d'une fiche ; sinon id de la fiche en cours d'édition.
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [fullName, setFullName] = useState('');
+  const [avatarUrl, setAvatarUrl] = useState('');
   const [websiteUrl, setWebsiteUrl] = useState('');
   const [coverImage, setCoverImage] = useState('');
   const [bio, setBio] = useState('');
@@ -1831,7 +1854,9 @@ function ProfessorDiscoveryManagement({
   const [newSpecialty, setNewSpecialty] = useState('');
   const [experienceYears, setExperienceYears] = useState(0);
   const [videoUrls, setVideoUrls] = useState<string[]>([]);
+  const [isFeatured, setIsFeatured] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [togglingId, setTogglingId] = useState<string | null>(null);
   const [clickStats, setClickStats] = useState<Record<string, { profile: number; website: number }>>({});
   const [clickStatsError, setClickStatsError] = useState(false);
 
@@ -1852,19 +1877,11 @@ function ProfessorDiscoveryManagement({
     });
   }, []);
 
-  const startEdit = (prof: Professor) => {
-    setEditingId(prof.id);
-    setWebsiteUrl(prof.website_url || '');
-    setCoverImage(prof.website_cover_image || '');
-    setBio(prof.bio || '');
-    setSpecialties((prof.specialties ?? []).filter(Boolean));
-    setNewSpecialty('');
-    setExperienceYears(prof.experience_years ?? 0);
-    setVideoUrls((prof.profile_video_urls ?? []).filter(Boolean));
-  };
+  const displayName = (prof: Professor) => prof.full_name || prof.profiles?.full_name || 'Professeur';
 
-  const cancelEdit = () => {
-    setEditingId(null);
+  const resetForm = () => {
+    setFullName('');
+    setAvatarUrl('');
     setWebsiteUrl('');
     setCoverImage('');
     setBio('');
@@ -1872,6 +1889,31 @@ function ProfessorDiscoveryManagement({
     setNewSpecialty('');
     setExperienceYears(0);
     setVideoUrls([]);
+    setIsFeatured(false);
+  };
+
+  const startCreate = () => {
+    resetForm();
+    setEditingId('new');
+  };
+
+  const startEdit = (prof: Professor) => {
+    setEditingId(prof.id);
+    setFullName(displayName(prof) === 'Professeur' && !prof.full_name ? '' : displayName(prof));
+    setAvatarUrl(prof.avatar_url || '');
+    setWebsiteUrl(prof.website_url || '');
+    setCoverImage(prof.website_cover_image || '');
+    setBio(prof.bio || '');
+    setSpecialties((prof.specialties ?? []).filter(Boolean));
+    setNewSpecialty('');
+    setExperienceYears(prof.experience_years ?? 0);
+    setVideoUrls((prof.profile_video_urls ?? []).filter(Boolean));
+    setIsFeatured(Boolean(prof.is_featured));
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+    resetForm();
   };
 
   const addSpecialty = () => {
@@ -1902,18 +1944,16 @@ function ProfessorDiscoveryManagement({
     e.preventDefault();
     if (!editingId) return;
 
+    const trimmedName = fullName.trim();
+    if (!trimmedName) {
+      setError('Le nom du professeur est obligatoire');
+      return;
+    }
+
     const trimmedUrl = websiteUrl.trim();
-    if (trimmedUrl) {
-      try {
-        const parsed = new URL(trimmedUrl);
-        if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
-          setError('Le site doit être une URL HTTP ou HTTPS valide');
-          return;
-        }
-      } catch {
-        setError('Le site doit être une URL valide (ex: https://monsite.com)');
-        return;
-      }
+    if (trimmedUrl && !isValidHttpUrl(trimmedUrl)) {
+      setError('Le site doit être une URL HTTP ou HTTPS valide (ex: https://monsite.com)');
+      return;
     }
 
     const cleanedVideoUrls = videoUrls.map(v => v.trim()).filter(Boolean);
@@ -1921,20 +1961,29 @@ function ProfessorDiscoveryManagement({
       setError('Maximum 3 vidéos de présentation');
       return;
     }
+    const videoError = cleanedVideoUrls.map(getPresentationVideoUrlError).find(Boolean);
+    if (videoError) {
+      setError(videoError);
+      return;
+    }
+
+    const payload = {
+      full_name: trimmedName,
+      avatar_url: avatarUrl || null,
+      website_url: trimmedUrl || null,
+      website_cover_image: coverImage || null,
+      bio: bio.trim(),
+      specialties: specialties,
+      experience_years: experienceYears,
+      profile_video_urls: cleanedVideoUrls,
+      is_featured: isFeatured,
+    };
 
     setSaving(true);
-    const { error } = await supabase
-      .from('professors')
-      .update({
-        website_url: trimmedUrl || null,
-        website_cover_image: coverImage || null,
-        bio: bio.trim(),
-        specialties: specialties,
-        experience_years: experienceYears,
-        profile_video_urls: cleanedVideoUrls,
-      })
-      .eq('id', editingId);
-
+    // Fiche Discovery : aucun compte utilisateur créé (profile_id reste vide).
+    const { error } = editingId === 'new'
+      ? await supabase.from('professors').insert(payload)
+      : await supabase.from('professors').update(payload).eq('id', editingId);
     setSaving(false);
 
     if (error) {
@@ -1942,211 +1991,307 @@ function ProfessorDiscoveryManagement({
       return;
     }
 
-    setSuccess('Professeur mis à jour');
+    setSuccess(editingId === 'new' ? 'Professeur ajouté' : 'Professeur mis à jour');
     setTimeout(() => setSuccess(''), 3000);
     cancelEdit();
     await onRefresh();
   };
 
-  return (
-    <div className="space-y-6">
+  const toggleActive = async (prof: Professor) => {
+    setTogglingId(prof.id);
+    const { error } = await supabase
+      .from('professors')
+      .update({ is_active: !prof.is_active })
+      .eq('id', prof.id);
+    setTogglingId(null);
+
+    if (error) {
+      setError(error.message);
+      return;
+    }
+    setSuccess(prof.is_active ? 'Professeur désactivé' : 'Professeur réactivé');
+    setTimeout(() => setSuccess(''), 3000);
+    await onRefresh();
+  };
+
+  const renderForm = (title: string) => (
+    <form onSubmit={handleSave} className="space-y-5">
+      <h3 className="text-lg font-medium text-white">{title}</h3>
+
+      {/* Name */}
       <div>
-        <h2 className="text-2xl font-light text-white">Professeurs — Academy Discovery</h2>
-        <p className="text-gray-400 text-sm mt-1">
-          Renseignez le site internet, l'image de couverture, la bio, les spécialités et les vidéos de présentation.
+        <label className="block text-sm font-medium text-gray-300 mb-2">Nom</label>
+        <input
+          type="text"
+          value={fullName}
+          onChange={(e) => setFullName(e.target.value)}
+          placeholder="Prénom Nom"
+          className="w-full px-4 py-3 bg-gray-900/50 border border-gray-600 text-white rounded-lg focus:ring-2 focus:ring-[#B8913D] focus:border-transparent outline-none transition-all"
+        />
+      </div>
+
+      {/* Avatar */}
+      <ImageUpload
+        currentImageUrl={avatarUrl}
+        onImageUrlChange={setAvatarUrl}
+        label="Photo du professeur"
+        aspectRatio="square"
+      />
+
+      {/* Bio */}
+      <div>
+        <label className="block text-sm font-medium text-gray-300 mb-2">Biographie</label>
+        <textarea
+          value={bio}
+          onChange={(e) => setBio(e.target.value)}
+          rows={4}
+          placeholder="Présentation du professeur..."
+          className="w-full px-4 py-3 bg-gray-900/50 border border-gray-600 text-white rounded-lg focus:ring-2 focus:ring-[#B8913D] focus:border-transparent outline-none transition-all resize-y"
+        />
+      </div>
+
+      {/* Specialties */}
+      <div>
+        <label className="block text-sm font-medium text-gray-300 mb-2">Spécialités</label>
+        <div className="flex flex-wrap gap-2 mb-2">
+          {specialties.map((s) => (
+            <span key={s} className="inline-flex items-center gap-1.5 px-3 py-1 bg-[#B8913D]/20 text-[#D4AC5B] text-xs font-medium rounded-full border border-[#B8913D]/30">
+              {s}
+              <button type="button" onClick={() => removeSpecialty(s)} className="hover:text-white transition-colors">
+                <X className="w-3 h-3" />
+              </button>
+            </span>
+          ))}
+        </div>
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={newSpecialty}
+            onChange={(e) => setNewSpecialty(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addSpecialty(); } }}
+            placeholder="Ajouter une spécialité (ex: Kizomba)"
+            className="flex-1 px-4 py-2.5 bg-gray-900/50 border border-gray-600 text-white rounded-lg focus:ring-2 focus:ring-[#B8913D] focus:border-transparent outline-none text-sm"
+          />
+          <button type="button" onClick={addSpecialty} className="px-4 py-2.5 bg-[#B8913D]/20 text-[#D4AC5B] rounded-lg hover:bg-[#B8913D]/30 transition-all text-sm font-medium">
+            <Plus className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+
+      {/* Experience years */}
+      <div>
+        <label className="block text-sm font-medium text-gray-300 mb-2">Années d'expérience</label>
+        <input
+          type="number"
+          min="0"
+          value={experienceYears}
+          onChange={(e) => setExperienceYears(Math.max(0, parseInt(e.target.value) || 0))}
+          className="w-32 px-4 py-3 bg-gray-900/50 border border-gray-600 text-white rounded-lg focus:ring-2 focus:ring-[#B8913D] focus:border-transparent outline-none"
+        />
+      </div>
+
+      {/* Website URL */}
+      <div>
+        <label className="block text-sm font-medium text-gray-300 mb-2">Site internet</label>
+        <input
+          type="url"
+          value={websiteUrl}
+          onChange={(e) => setWebsiteUrl(e.target.value)}
+          placeholder="https://monsiteprof.com"
+          className="w-full px-4 py-3 bg-gray-900/50 border border-gray-600 text-white rounded-lg focus:ring-2 focus:ring-[#B8913D] focus:border-transparent outline-none transition-all"
+        />
+        <p className="text-xs text-gray-500 mt-1">
+          Doit être une URL HTTP ou HTTPS valide. Le professeur n'apparaît dans Discovery que si ce champ est renseigné et la fiche active.
         </p>
       </div>
 
-      <div className="grid grid-cols-1 gap-4">
-        {professors.length === 0 && (
-          <div className="bg-gray-800/50 rounded-xl p-8 text-center">
-            <GraduationCap className="w-10 h-10 text-gray-600 mx-auto mb-3" />
-            <p className="text-gray-400">Aucun professeur trouvé.</p>
-          </div>
-        )}
-        {professors.map((prof) => (
-          <div
-            key={prof.id}
-            className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl p-6 border border-gray-700/50"
-          >
-            {editingId === prof.id ? (
-              <form onSubmit={handleSave} className="space-y-5">
-                <div className="flex items-center gap-3 mb-2">
-                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#B8913D] to-[#A07F35] flex items-center justify-center text-white font-bold text-sm">
-                    {prof.profiles?.full_name?.charAt(0)?.toUpperCase() || '?'}
-                  </div>
-                  <h3 className="text-lg font-medium text-white">{prof.profiles?.full_name || 'Professeur'}</h3>
-                </div>
+      {/* Cover image */}
+      <ImageUpload
+        currentImageUrl={coverImage}
+        onImageUrlChange={setCoverImage}
+        label="Image de couverture Academy"
+        aspectRatio="video"
+      />
 
-                {/* Bio */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">Biographie</label>
-                  <textarea
-                    value={bio}
-                    onChange={(e) => setBio(e.target.value)}
-                    rows={4}
-                    placeholder="Présentation du professeur..."
-                    className="w-full px-4 py-3 bg-gray-900/50 border border-gray-600 text-white rounded-lg focus:ring-2 focus:ring-[#B8913D] focus:border-transparent outline-none transition-all resize-y"
-                  />
-                </div>
-
-                {/* Specialties */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">Spécialités</label>
-                  <div className="flex flex-wrap gap-2 mb-2">
-                    {specialties.map((s) => (
-                      <span key={s} className="inline-flex items-center gap-1.5 px-3 py-1 bg-[#B8913D]/20 text-[#D4AC5B] text-xs font-medium rounded-full border border-[#B8913D]/30">
-                        {s}
-                        <button type="button" onClick={() => removeSpecialty(s)} className="hover:text-white transition-colors">
-                          <X className="w-3 h-3" />
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      value={newSpecialty}
-                      onChange={(e) => setNewSpecialty(e.target.value)}
-                      onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addSpecialty(); } }}
-                      placeholder="Ajouter une spécialité (ex: Kizomba)"
-                      className="flex-1 px-4 py-2.5 bg-gray-900/50 border border-gray-600 text-white rounded-lg focus:ring-2 focus:ring-[#B8913D] focus:border-transparent outline-none text-sm"
-                    />
-                    <button type="button" onClick={addSpecialty} className="px-4 py-2.5 bg-[#B8913D]/20 text-[#D4AC5B] rounded-lg hover:bg-[#B8913D]/30 transition-all text-sm font-medium">
-                      <Plus className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-
-                {/* Experience years */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">Années d'expérience</label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={experienceYears}
-                    onChange={(e) => setExperienceYears(Math.max(0, parseInt(e.target.value) || 0))}
-                    className="w-32 px-4 py-3 bg-gray-900/50 border border-gray-600 text-white rounded-lg focus:ring-2 focus:ring-[#B8913D] focus:border-transparent outline-none"
-                  />
-                </div>
-
-                {/* Website URL */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">Site internet</label>
+      {/* Presentation videos */}
+      <div>
+        <label className="block text-sm font-medium text-gray-300 mb-2">
+          Vidéos de présentation ({videoUrls.length}/3)
+        </label>
+        <p className="text-xs text-gray-500 mb-2">
+          YouTube (watch, youtu.be, shorts, embed, live) ou publication Instagram (reel, p, tv). Maximum 3.
+        </p>
+        <div className="space-y-2">
+          {videoUrls.map((url, i) => {
+            const urlError = getPresentationVideoUrlError(url);
+            return (
+              <div key={i}>
+                <div className="flex gap-2">
                   <input
                     type="url"
-                    value={websiteUrl}
-                    onChange={(e) => setWebsiteUrl(e.target.value)}
-                    placeholder="https://monsiteprof.com"
-                    className="w-full px-4 py-3 bg-gray-900/50 border border-gray-600 text-white rounded-lg focus:ring-2 focus:ring-[#B8913D] focus:border-transparent outline-none transition-all"
+                    value={url}
+                    onChange={(e) => updateVideoUrl(i, e.target.value)}
+                    placeholder="https://youtube.com/watch?v=... ou https://instagram.com/reel/..."
+                    className={`flex-1 px-4 py-2.5 bg-gray-900/50 border ${urlError ? 'border-red-500/60' : 'border-gray-600'} text-white rounded-lg focus:ring-2 focus:ring-[#B8913D] focus:border-transparent outline-none text-sm`}
                   />
-                  <p className="text-xs text-gray-500 mt-1">
-                    Facultatif. Doit être une URL HTTP ou HTTPS valide. Le professeur n'apparaîtra dans Discovery que si ce champ est renseigné.
-                  </p>
-                </div>
-
-                {/* Cover image */}
-                <ImageUpload
-                  currentImageUrl={coverImage}
-                  onImageUrlChange={setCoverImage}
-                  label="Image de couverture Academy"
-                  aspectRatio="video"
-                />
-
-                {/* Presentation videos */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
-                    Vidéos de présentation ({videoUrls.length}/3)
-                  </label>
-                  <p className="text-xs text-gray-500 mb-2">
-                    URLs YouTube (youtube.com/watch, youtu.be, youtube.com/shorts) ou Instagram. Maximum 3.
-                  </p>
-                  <div className="space-y-2">
-                    {videoUrls.map((url, i) => (
-                      <div key={i} className="flex gap-2">
-                        <input
-                          type="url"
-                          value={url}
-                          onChange={(e) => updateVideoUrl(i, e.target.value)}
-                          placeholder="https://youtube.com/watch?v=... ou https://instagram.com/reel/..."
-                          className="flex-1 px-4 py-2.5 bg-gray-900/50 border border-gray-600 text-white rounded-lg focus:ring-2 focus:ring-[#B8913D] focus:border-transparent outline-none text-sm"
-                        />
-                        <button type="button" onClick={() => removeVideoUrl(i)} className="p-2.5 text-red-400 hover:bg-red-500/10 rounded-lg transition-colors">
-                          <X className="w-4 h-4" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                  {videoUrls.length < 3 && (
-                    <button type="button" onClick={addVideoUrl} className="mt-2 inline-flex items-center gap-1.5 text-sm text-[#B8913D] hover:text-[#D4AC5B] transition-colors">
-                      <Plus className="w-4 h-4" />
-                      Ajouter une vidéo
-                    </button>
-                  )}
-                </div>
-
-                <div className="flex justify-end space-x-3">
-                  <button type="button" onClick={cancelEdit} className="px-6 py-3 border border-gray-600 text-gray-300 rounded-lg hover:bg-gray-700/50 transition-colors">
-                    Annuler
-                  </button>
-                  <button type="submit" disabled={saving} className="px-6 py-3 bg-gradient-to-r from-[#B8913D] to-[#A07F35] text-white rounded-lg hover:shadow-lg transition-all disabled:opacity-50">
-                    {saving ? 'Enregistrement...' : 'Enregistrer'}
+                  <button type="button" onClick={() => removeVideoUrl(i)} className="p-2.5 text-red-400 hover:bg-red-500/10 rounded-lg transition-colors">
+                    <X className="w-4 h-4" />
                   </button>
                 </div>
-              </form>
-            ) : (
-              <div className="flex items-start justify-between">
-                <div className="flex items-start space-x-4 flex-1">
-                  <div className="w-16 h-10 rounded-lg overflow-hidden bg-gray-700 flex-shrink-0">
-                    {prof.website_cover_image ? (
-                      <img src={prof.website_cover_image} alt={prof.profiles?.full_name || 'Professeur'} className="w-full h-full object-cover" />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center">
-                        <Globe className="w-5 h-5 text-gray-500" />
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex-1">
-                    <h3 className="text-lg font-medium text-white">{prof.profiles?.full_name || 'Professeur'}</h3>
-                    {(prof.specialties ?? []).length > 0 && (
-                      <div className="flex flex-wrap gap-1.5 mt-1">
-                        {(prof.specialties ?? []).slice(0, 4).map((s) => (
-                          <span key={s} className="px-2 py-0.5 bg-[#B8913D]/20 text-[#D4AC5B] text-[11px] font-medium rounded-full border border-[#B8913D]/30">{s}</span>
-                        ))}
-                      </div>
-                    )}
-                    <div className="flex items-center gap-3 mt-1.5 text-sm">
-                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                        prof.website_url
-                          ? 'bg-green-500/20 text-green-300 border border-green-500/30'
-                          : 'bg-gray-500/20 text-gray-400 border border-gray-500/30'
-                      }`}>
-                        {prof.website_url ? 'Visible Discovery' : 'Non visible'}
-                      </span>
-                      {(prof.profile_video_urls ?? []).length > 0 && (
-                        <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-blue-500/20 text-blue-300 border border-blue-500/30">
-                          {(prof.profile_video_urls ?? []).length} vidéo{(prof.profile_video_urls ?? []).length > 1 ? 's' : ''}
-                        </span>
+                {urlError && <p className="text-xs text-red-400 mt-1">{urlError}</p>}
+              </div>
+            );
+          })}
+        </div>
+        {videoUrls.length < 3 && (
+          <button type="button" onClick={addVideoUrl} className="mt-2 inline-flex items-center gap-1.5 text-sm text-[#B8913D] hover:text-[#D4AC5B] transition-colors">
+            <Plus className="w-4 h-4" />
+            Ajouter une vidéo
+          </button>
+        )}
+      </div>
+
+      {/* Featured */}
+      <label className="flex items-center gap-2 text-sm text-gray-300">
+        <input
+          type="checkbox"
+          checked={isFeatured}
+          onChange={(e) => setIsFeatured(e.target.checked)}
+          className="w-4 h-4 text-[#B8913D] border-gray-300 rounded focus:ring-[#B8913D]"
+        />
+        Mettre en avant (affiché en premier dans Discovery)
+      </label>
+
+      <div className="flex justify-end space-x-3">
+        <button type="button" onClick={cancelEdit} className="px-6 py-3 border border-gray-600 text-gray-300 rounded-lg hover:bg-gray-700/50 transition-colors">
+          Annuler
+        </button>
+        <button type="submit" disabled={saving} className="px-6 py-3 bg-gradient-to-r from-[#B8913D] to-[#A07F35] text-white rounded-lg hover:shadow-lg transition-all disabled:opacity-50">
+          {saving ? 'Enregistrement...' : 'Enregistrer'}
+        </button>
+      </div>
+    </form>
+  );
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+        <div>
+          <h2 className="text-2xl font-light text-white">Professeurs — Academy Discovery</h2>
+          <p className="text-gray-400 text-sm mt-1">
+            Fiches gérées par l'admin, sans compte utilisateur : nom, photo, bio, spécialités, site, couverture et vidéos.
+          </p>
+        </div>
+        {editingId !== 'new' && (
+          <button
+            onClick={startCreate}
+            className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-gradient-to-r from-[#B8913D] to-[#A07F35] text-white rounded-lg hover:shadow-lg transition-all whitespace-nowrap"
+          >
+            <Plus className="w-4 h-4" />
+            Ajouter un professeur
+          </button>
+        )}
+      </div>
+
+      {editingId === 'new' && (
+        <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl p-6 border border-[#B8913D]/40">
+          {renderForm('Nouveau professeur')}
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 gap-4">
+        {professors.length === 0 && editingId !== 'new' && (
+          <div className="bg-gray-800/50 rounded-xl p-8 text-center">
+            <GraduationCap className="w-10 h-10 text-gray-600 mx-auto mb-3" />
+            <p className="text-gray-400">Aucun professeur pour le moment.</p>
+          </div>
+        )}
+        {professors.map((prof) => {
+          const visible = prof.is_active && isValidHttpUrl(prof.website_url);
+          return (
+            <div
+              key={prof.id}
+              className={`bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl p-6 border border-gray-700/50 ${prof.is_active ? '' : 'opacity-70'}`}
+            >
+              {editingId === prof.id ? (
+                renderForm(displayName(prof))
+              ) : (
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-start space-x-4 flex-1 min-w-0">
+                    <div className="w-16 h-10 rounded-lg overflow-hidden bg-gray-700 flex-shrink-0">
+                      {prof.website_cover_image ? (
+                        <img src={prof.website_cover_image} alt={displayName(prof)} className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <Globe className="w-5 h-5 text-gray-500" />
+                        </div>
                       )}
                     </div>
-                    {prof.website_url && (
-                      <a href={prof.website_url} target="_blank" rel="noopener noreferrer" className="text-[#B8913D] hover:underline truncate block mt-1 text-sm">
-                        {prof.website_url}
-                      </a>
-                    )}
-                    <div className="flex items-center gap-4 mt-2 text-sm text-gray-300">
-                      <span>Clics profil : <span className="font-semibold text-white">{clickStatsError ? '-' : clickStats[prof.id]?.profile ?? 0}</span></span>
-                      <span>Clics site : <span className="font-semibold text-white">{clickStatsError ? '-' : clickStats[prof.id]?.website ?? 0}</span></span>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="text-lg font-medium text-white">{displayName(prof)}</h3>
+                      {(prof.specialties ?? []).length > 0 && (
+                        <div className="flex flex-wrap gap-1.5 mt-1">
+                          {(prof.specialties ?? []).slice(0, 4).map((s) => (
+                            <span key={s} className="px-2 py-0.5 bg-[#B8913D]/20 text-[#D4AC5B] text-[11px] font-medium rounded-full border border-[#B8913D]/30">{s}</span>
+                          ))}
+                        </div>
+                      )}
+                      <div className="flex flex-wrap items-center gap-2 mt-1.5 text-sm">
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                          visible
+                            ? 'bg-green-500/20 text-green-300 border border-green-500/30'
+                            : 'bg-gray-500/20 text-gray-400 border border-gray-500/30'
+                        }`}>
+                          {visible ? 'Visible Discovery' : 'Non visible'}
+                        </span>
+                        {!prof.is_active && (
+                          <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-red-500/20 text-red-300 border border-red-500/30">
+                            Désactivé
+                          </span>
+                        )}
+                        {prof.is_featured && (
+                          <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-[#B8913D]/20 text-[#D4AC5B] border border-[#B8913D]/30">
+                            Mis en avant
+                          </span>
+                        )}
+                        {(prof.profile_video_urls ?? []).length > 0 && (
+                          <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-blue-500/20 text-blue-300 border border-blue-500/30">
+                            {(prof.profile_video_urls ?? []).length} vidéo{(prof.profile_video_urls ?? []).length > 1 ? 's' : ''}
+                          </span>
+                        )}
+                      </div>
+                      {prof.website_url && (
+                        <a href={prof.website_url} target="_blank" rel="noopener noreferrer" className="text-[#B8913D] hover:underline truncate block mt-1 text-sm">
+                          {prof.website_url}
+                        </a>
+                      )}
+                      <div className="flex items-center gap-4 mt-2 text-sm text-gray-300">
+                        <span>Clics profil : <span className="font-semibold text-white">{clickStatsError ? '-' : clickStats[prof.id]?.profile ?? 0}</span></span>
+                        <span>Clics site : <span className="font-semibold text-white">{clickStatsError ? '-' : clickStats[prof.id]?.website ?? 0}</span></span>
+                      </div>
                     </div>
                   </div>
+                  <div className="flex flex-col sm:flex-row items-end sm:items-center gap-2 flex-shrink-0">
+                    <button
+                      onClick={() => toggleActive(prof)}
+                      disabled={togglingId === prof.id}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors disabled:opacity-50 ${
+                        prof.is_active
+                          ? 'border-red-500/40 text-red-300 hover:bg-red-500/10'
+                          : 'border-green-500/40 text-green-300 hover:bg-green-500/10'
+                      }`}
+                    >
+                      {prof.is_active ? 'Désactiver' : 'Réactiver'}
+                    </button>
+                    <button onClick={() => startEdit(prof)} className="p-2 text-[#B8913D] hover:bg-[#B8913D] hover:bg-opacity-10 rounded-lg transition-colors" title="Modifier">
+                      <Edit2 className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
-                <button onClick={() => startEdit(prof)} className="p-2 text-[#B8913D] hover:bg-[#B8913D] hover:bg-opacity-10 rounded-lg transition-colors flex-shrink-0" title="Modifier">
-                  <Edit2 className="w-4 h-4" />
-                </button>
-              </div>
-            )}
-          </div>
-        ))}
+              )}
+            </div>
+          );
+        })}
       </div>
     </div>
   );

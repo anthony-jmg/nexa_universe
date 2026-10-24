@@ -23,9 +23,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   const fetchProfile = async (userId: string) => {
+    // Ligne complète (e-mail, abonnement…) lisible uniquement par son
+    // propriétaire, via RPC : la table n'expose que les colonnes publiques.
     const { data, error } = await supabase
-      .from('profiles')
-      .select('*')
+      .rpc('get_my_profile')
       .eq('id', userId)
       .maybeSingle();
 

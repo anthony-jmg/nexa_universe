@@ -99,9 +99,8 @@ export function Account({ onNavigate }: AccountProps) {
   const loadProfessorRequestStatus = async () => {
     if (!profile?.id) return;
     const { data } = await supabase
-      .from('profiles')
+      .rpc('get_my_profile')
       .select('professor_request_status, professor_request_message')
-      .eq('id', profile.id)
       .maybeSingle();
     if (data) {
       setProfessorRequestStatus(data.professor_request_status);
@@ -292,7 +291,7 @@ export function Account({ onNavigate }: AccountProps) {
 
     const { data, error } = await supabase
       .from('professors')
-      .select('*')
+      .select('bio, specialties, experience_years, profile_video_url')
       .eq('id', profile.id)
       .maybeSingle();
 

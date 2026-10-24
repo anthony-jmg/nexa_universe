@@ -73,7 +73,7 @@ export function PriceLocksList({ eventId, onClose }: Props) {
 
       const [profilesRes, attendeesRes, ettRes] = await Promise.all([
         userIds.length
-          ? supabase.from('profiles').select('id, full_name, email').in('id', userIds)
+          ? supabase.rpc('admin_list_profiles').in('id', userIds).select('id, full_name, email')
           : Promise.resolve({ data: [] as any[], error: null }),
         supabase
           .from('event_attendees')

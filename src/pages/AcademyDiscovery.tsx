@@ -8,7 +8,12 @@ import {
 import { supabase } from '../lib/supabase';
 import { getAvatarUrl } from '../components/AvatarUpload';
 import { BackgroundDecor } from '../components/BackgroundDecor';
-import { Header } from '../components/Header';
+import {
+  DISCOVERY_PROFESSOR_COLUMNS,
+  DiscoveryProfessor,
+  isDiscoveryEligible,
+  trackAcademyClick,
+} from '../lib/academyDiscovery';
 
 interface ProfessorInfo {
   id: string;
@@ -17,15 +22,7 @@ interface ProfessorInfo {
   fullName: string;
   avatarUrl: string | null;
   specialties: string[];
-}
-
-function isValidHttpUrl(value: string): boolean {
-  try {
-    const url = new URL(value.trim());
-    return url.protocol === 'http:' || url.protocol === 'https:';
-  } catch {
-    return false;
-  }
+  isFeatured: boolean;
 }
 
 export default function AcademyDiscovery({
@@ -39,15 +36,14 @@ export default function AcademyDiscovery({
 
   useEffect(() => {
     loadEligibleProfessors();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function loadEligibleProfessors() {
+    // Fiches Discovery : lues directement sur professors (aucun compte requis).
     const { data, error } = await supabase
       .from('professors')
-      .select(
-        'id, website_url, website_cover_image, specialties, profiles!inner(full_name, avatar_url)'
-      );
+      .select(DISCOVERY_PROFESSOR_COLUMNS)
+      .eq('is_active', true);
 
     if (error) {
       console.error('Error loading professors:', error);
@@ -55,18 +51,19 @@ export default function AcademyDiscovery({
       return;
     }
 
-    const eligible = (data ?? [])
-      .filter((p: any) => p.website_url && isValidHttpUrl(p.website_url))
-      .map((p: any) => ({
+    const eligible = ((data ?? []) as unknown as DiscoveryProfessor[])
+      .filter(isDiscoveryEligible)
+      .map((p) => ({
         id: p.id,
-        website_url: p.website_url,
+        website_url: p.website_url as string,
         website_cover_image: p.website_cover_image || null,
-        fullName: p.profiles?.full_name ?? 'Professeur',
-        avatarUrl: p.profiles?.avatar_url ?? null,
-        specialties: p.specialties ?? [],
+        fullName: p.full_name || 'Professeur',
+        avatarUrl: p.avatar_url ?? null,
+        specialties: (p.specialties ?? []).filter(Boolean),
+        isFeatured: Boolean(p.is_featured),
       }))
       .sort((a: ProfessorInfo, b: ProfessorInfo) =>
-        a.fullName.localeCompare(b.fullName)
+        Number(b.isFeatured) - Number(a.isFeatured) || a.fullName.localeCompare(b.fullName)
       );
 
     setProfessors(eligible);
@@ -79,36 +76,19 @@ export default function AcademyDiscovery({
     listRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
-  function trackClick(
-    professorId: string,
-    type: 'academy_profile_click' | 'academy_website_click',
-    destinationUrl: string | null = null
-  ) {
-    supabase
-      .from('academy_click_tracking')
-      .insert({ professor_id: professorId, content_type: type, destination_url: destinationUrl })
-      .then(
-        ({ error }) => {
-          if (error) console.warn('Click tracking failed:', error.message);
-        },
-        () => {}
-      );
-  }
-
   function viewProfile(professor: ProfessorInfo) {
-    trackClick(professor.id, 'academy_profile_click');
+    trackAcademyClick(professor.id, 'academy_profile_click');
     onNavigate(`professor-discovery-${professor.id}`);
   }
 
   function visitWebsite(professor: ProfessorInfo) {
     window.open(professor.website_url, '_blank', 'noopener,noreferrer');
-    trackClick(professor.id, 'academy_website_click', professor.website_url);
+    trackAcademyClick(professor.id, 'academy_website_click', professor.website_url);
   }
 
   return (
     <div className="min-h-screen bg-gray-950 relative text-white">
       <BackgroundDecor />
-      <Header currentPage="academy-discovery" onNavigate={onNavigate} />
 
       <main className="relative">
         <section className="relative overflow-hidden">

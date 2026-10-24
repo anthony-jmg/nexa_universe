@@ -1,4 +1,4 @@
-import { Menu, X, User, Shield, ShoppingCart, LayoutDashboard, Heart, Package, ChevronDown, GraduationCap, Users, MapPin, Bell, LogOut, LogIn, UserPlus } from 'lucide-react';
+import { Menu, X, User, Shield, ShoppingCart, LayoutDashboard, Heart, Package, ChevronDown, GraduationCap, MapPin, Bell, LogOut, LogIn, UserPlus } from 'lucide-react';
 import { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useCart } from '../contexts/CartContext';
@@ -49,22 +49,12 @@ export function Header({ onNavigate, currentPage }: HeaderProps) {
                 <button
                   onClick={() => onNavigate('academy')}
                   className={`px-3 py-1.5 lg:px-3 lg:py-1.5 text-xs lg:text-sm font-medium rounded-lg transition-all ${
-                    currentPage === 'academy' || currentPage === 'academy-classic'
+                    currentPage === 'academy' || currentPage === 'academy-classic' || currentPage === 'professor-discovery'
                       ? 'bg-gold-500/20 text-gold-400'
                       : 'text-gray-300 hover:text-white hover:bg-white/5'
                   }`}
                 >
                   {t('nav.academy')}
-                </button>
-                <button
-                  onClick={() => onNavigate('professors')}
-                  className={`px-3 py-1.5 lg:px-3 lg:py-1.5 text-xs lg:text-sm font-medium rounded-lg transition-all ${
-                    currentPage === 'professors'
-                      ? 'bg-gold-500/20 text-gold-400'
-                      : 'text-gray-300 hover:text-white hover:bg-white/5'
-                  }`}
-                >
-                  {t('nav.professors')}
                 </button>
                 <button
                   onClick={() => onNavigate('shop')}
@@ -199,18 +189,12 @@ export function Header({ onNavigate, currentPage }: HeaderProps) {
                 <button
                   onClick={() => onNavigate('academy')}
                   className={`px-3 py-1.5 lg:px-3 lg:py-1.5 text-xs lg:text-sm font-medium rounded-lg transition-all ${
-                    currentPage === 'academy' || currentPage === 'academy-classic'
+                    currentPage === 'academy' || currentPage === 'academy-classic' || currentPage === 'professor-discovery'
                       ? 'bg-gold-500/20 text-gold-400'
                       : 'text-gray-300 hover:text-white hover:bg-white/5'
                   }`}
                 >
                   {t('nav.academy')}
-                </button>
-                <button
-                  onClick={() => onNavigate('professors')}
-                  className="px-3 py-1.5 lg:px-3 lg:py-1.5 text-xs lg:text-sm font-medium text-gray-300 hover:text-white hover:bg-white/5 rounded-lg transition-all"
-                >
-                  {t('nav.professors')}
                 </button>
                 <button
                   onClick={() => onNavigate('shop')}
@@ -264,18 +248,6 @@ export function Header({ onNavigate, currentPage }: HeaderProps) {
                   <span className="flex items-center space-x-3">
                     <GraduationCap className="w-5 h-5 text-gold-400" />
                     <span>Academy</span>
-                  </span>
-                </button>
-                <button
-                  onClick={() => {
-                    onNavigate('professors');
-                    setMobileMenuOpen(false);
-                  }}
-                  className="block w-full text-left px-4 py-3 text-sm font-medium text-gray-300 hover:text-white hover:bg-white/5 rounded-xl transition-all"
-                >
-                  <span className="flex items-center space-x-3">
-                    <Users className="w-5 h-5 text-gold-400" />
-                    <span>Professors</span>
                   </span>
                 </button>
                 <button
@@ -422,18 +394,6 @@ export function Header({ onNavigate, currentPage }: HeaderProps) {
                   <span className="flex items-center space-x-3">
                     <GraduationCap className="w-5 h-5 text-gold-400" />
                     <span>Academy</span>
-                  </span>
-                </button>
-                <button
-                  onClick={() => {
-                    onNavigate('professors');
-                    setMobileMenuOpen(false);
-                  }}
-                  className="block w-full text-left px-4 py-3 text-sm font-medium text-gray-300 hover:text-white hover:bg-white/5 rounded-xl transition-all"
-                >
-                  <span className="flex items-center space-x-3">
-                    <Users className="w-5 h-5 text-gold-400" />
-                    <span>Professors</span>
                   </span>
                 </button>
                 <button

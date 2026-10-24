@@ -52,7 +52,7 @@ export function Favorites({ onNavigate }: FavoritesProps) {
     if (professorIds.length > 0) {
       const { data: profData } = await supabase
         .from('professors')
-        .select('*, profiles!inner(full_name, avatar_url)')
+        .select('id, profile_id, bio, specialties, experience_years, profile_video_url, is_featured, subscription_price, subscriber_discount_percentage, is_founder, badge_type, created_at, profiles!inner(full_name, avatar_url)')
         .in('id', professorIds);
       if (profData) setProfessors(profData);
     } else {

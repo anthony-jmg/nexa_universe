@@ -9,6 +9,7 @@ import { ToastProvider } from './contexts/ToastContext';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { OfflineBanner } from './components/OfflineBanner';
 import { Header } from './components/Header';
+import { buildAppPath, parseAppPath, Page, NavigationState } from './lib/appRoutes';
 
 const Landing = lazy(() => import('./pages/Landing').then(m => ({ default: m.Landing })));
 const SignIn = lazy(() => import('./pages/SignIn').then(m => ({ default: m.SignIn })));
@@ -36,16 +37,6 @@ const EventTicketPurchasePage = lazy(() => import('./pages/EventTicketPurchasePa
 const NotificationsPage = lazy(() => import('./pages/Notifications'));
 const NotFound = lazy(() => import('./pages/NotFound').then(m => ({ default: m.NotFound })));
 
-type Page = 'landing' | 'signin' | 'signup' | 'forgot-password' | 'reset-password' | 'academy' | 'video' | 'professors' | 'account' | 'admin' | 'shop' | 'cart' | 'favorites' | 'my-purchases' | 'professor-dashboard' | 'events' | 'event-detail' | 'my-tickets' | 'event-ticket-purchase' | 'notifications' | string;
-
-type NavigationState = {
-  page: Page;
-  videoId?: string;
-  professorId?: string;
-  programId?: string;
-  eventId?: string;
-};
-
 function AppContent() {
   const getInitialState = (): NavigationState => {
     const url = window.location.href;
@@ -61,17 +52,7 @@ function AppContent() {
       return { page: 'reset-password' };
     }
 
-    const path = window.location.pathname;
-    const parts = path.split('/').filter(Boolean);
-    if (parts.length === 0) return { page: 'landing' };
-
-    const [first, second] = parts;
-    if (first === 'video' && second) return { page: 'video', videoId: second };
-    if (first === 'professor' && second) return { page: 'professor-detail', professorId: second };
-    if (first === 'program' && second) return { page: 'program-detail', programId: second };
-    if (first === 'event' && second) return { page: 'event-detail', eventId: second };
-
-    return { page: first as Page };
+    return parseAppPath(window.location.pathname);
   };
 
   const _initialState = getInitialState();
@@ -82,33 +63,6 @@ function AppContent() {
   const [currentEventId, setCurrentEventId] = useState<string>(_initialState.eventId || '');
   const [currentProductId, setCurrentProductId] = useState<string>('');
   const { user, loading } = useAuth();
-
-  // Build URL path from current state
-  const buildPath = (page: Page, videoId?: string, professorId?: string, programId?: string, eventId?: string): string => {
-    if (page === 'video' && videoId) return `/video/${videoId}`;
-    if (page === 'professor-detail' && professorId) return `/professor/${professorId}`;
-    if (page === 'program-detail' && programId) return `/program/${programId}`;
-    if (page === 'event-detail' && eventId) return `/event/${eventId}`;
-    if (page === 'landing') return '/';
-    return `/${page}`;
-  };
-
-  // Parse URL path to state
-  const parsePathToState = (path: string): NavigationState | null => {
-    if (path === '/' || path === '') return { page: 'landing' };
-
-    const parts = path.split('/').filter(Boolean);
-    if (parts.length === 0) return { page: 'landing' };
-
-    const [first, second] = parts;
-
-    if (first === 'video' && second) return { page: 'video', videoId: second };
-    if (first === 'professor' && second) return { page: 'professor-detail', professorId: second };
-    if (first === 'program' && second) return { page: 'program-detail', programId: second };
-    if (first === 'event' && second) return { page: 'event-detail', eventId: second };
-
-    return { page: first as Page };
-  };
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
@@ -171,7 +125,7 @@ function AppContent() {
         restoreScroll(event.state.scrollY || 0);
       } else {
         // Fallback: parse from URL
-        const stateFromPath = parsePathToState(window.location.pathname);
+        const stateFromPath = parseAppPath(window.location.pathname);
         if (stateFromPath) {
           setCurrentPage(stateFromPath.page);
           setCurrentVideoId(stateFromPath.videoId || '');
@@ -241,7 +195,7 @@ function AppContent() {
       ''
     );
 
-    const newPath = buildPath(newPage, newVideoId, newProfessorId, newProgramId, newEventId);
+    const newPath = buildAppPath(newPage, newVideoId, newProfessorId, newProgramId, newEventId);
     window.history.pushState(
       {
         page: newPage,

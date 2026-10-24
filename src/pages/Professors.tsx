@@ -33,8 +33,8 @@ export function Professors({ onNavigate }: ProfessorsProps) {
     const { data, error } = await supabase
       .from('professors')
       .select(`
-        *,
-        profiles (*)
+        id, profile_id, bio, specialties, experience_years, profile_video_url, is_featured, subscription_price, subscriber_discount_percentage, is_founder, badge_type, created_at,
+        profiles!inner (id, full_name, avatar_url)
       `)
       .order('is_founder', { ascending: false })
       .order('is_featured', { ascending: false });

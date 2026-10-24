@@ -684,8 +684,6 @@ export function Landing({ onNavigate }: LandingProps) {
             <nav className="flex flex-wrap items-center justify-center gap-x-5 sm:gap-x-7 gap-y-2.5 mb-6 sm:mb-6">
               <button onClick={() => onNavigate('academy')} className="text-xs sm:text-sm text-gray-400 hover:text-gold-400 transition-colors">Academy</button>
               <span className="text-gray-700 hidden sm:inline">•</span>
-              <button onClick={() => onNavigate('professors')} className="text-xs sm:text-sm text-gray-400 hover:text-gold-400 transition-colors">Professeurs</button>
-              <span className="text-gray-700 hidden sm:inline">•</span>
               <button onClick={() => onNavigate('shop')} className="text-xs sm:text-sm text-gray-400 hover:text-gold-400 transition-colors">Nexa Pass</button>
               <span className="text-gray-700 hidden sm:inline">•</span>
               <span className="text-xs sm:text-sm text-gray-500 cursor-default">Contact</span>

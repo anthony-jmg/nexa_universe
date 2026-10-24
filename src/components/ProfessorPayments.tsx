@@ -86,14 +86,20 @@ export default function ProfessorPayments() {
   };
 
   const loadRevenues = async () => {
-    const { data: professors, error: profError } = await supabase
-      .from('professors')
-      .select(`
-        id,
-        profiles!inner(full_name, email)
-      `);
+    // E-mail : non lisible via la jointure profiles, fourni par la liste admin.
+    const [{ data: professors, error: profError }, { data: people }] = await Promise.all([
+      supabase
+        .from('professors')
+        .select(`
+          id,
+          profile_id,
+          profiles!inner(full_name)
+        `),
+      supabase.rpc('admin_list_profiles').select('id, email'),
+    ]);
 
     if (profError) throw profError;
+    const emails = new Map((people ?? []).map((p: { id: string; email: string }) => [p.id, p.email]));
 
     const revenueData: ProfessorRevenue[] = [];
 
@@ -154,7 +160,7 @@ export default function ProfessorPayments() {
         revenueData.push({
           professor_id: prof.id,
           professor_name: prof.profiles.full_name,
-          professor_email: prof.profiles.email,
+          professor_email: emails.get(prof.profile_id) ?? '',
           video_sales: videoTotal,
           program_sales: programTotal,
           subscription_sales: subscriptionTotal,
