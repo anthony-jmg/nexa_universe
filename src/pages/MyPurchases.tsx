@@ -86,8 +86,7 @@ const isLockExpired = (lock: PriceLockWithEvent) =>
 const REPURCHASE_MESSAGES: Partial<Record<PriceLockRepurchaseQuote['status'], string>> = {
   contact_us: 'Contacte-nous pour finaliser ton pass.',
   sold_out: 'Ce pass est complet pour le moment.',
-  sales_closed: 'Les ventes de ce pass sont terminées.',
-  unavailable: 'Ce pass n’est plus disponible à la vente.',
+  unavailable: 'Ce pass n’est pas disponible à la vente pour le moment.',
 };
 
 interface MyPurchasesProps {
@@ -399,7 +398,7 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
                         {isExpired ? 'Expiré' : 'Actif'}
                       </span>
                     </div>
-                    <p className="text-sm text-gray-300 mb-1">{lock.events?.title}</p>
+                    <p className="text-sm text-gray-300 mb-1">{lock.events?.title ?? quote?.event_title}</p>
                     {lock.event_ticket_types?.ticket_types?.name && (
                       <p className="text-xs sm:text-sm font-medium text-[#B8913D] mb-1">{lock.event_ticket_types.ticket_types.name}</p>
                     )}
@@ -410,7 +409,18 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
                           : `Prix garanti jusqu'au ${new Date(lock.expires_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}`}
                       </p>
                     )}
-                    {isExpired ? (
+                    {isExpired && quote?.status === 'credit_lapsed' ? (
+                      // Fin de validité atteinte : montant définitivement inutilisable.
+                      <p className="mt-3 rounded-lg border border-gray-600/50 bg-gray-800/60 px-3 py-2 text-xs sm:text-sm text-gray-300">
+                        Le montant de {formatEuro(lock.total_paid)} que tu avais versé n’est plus utilisable car{' '}
+                        {quote.lapsed_reason === 'sales_closed' ? 'les ventes de ce pass sont terminées' : 'l’événement a commencé'}.
+                      </p>
+                    ) : isExpired && quote?.status === 'event_cancelled' ? (
+                      // Cas séparé : montant non déclaré perdu, traitement hors de ce parcours.
+                      <p className="mt-3 rounded-lg border border-gray-600/50 bg-gray-800/60 px-3 py-2 text-xs sm:text-sm text-gray-300">
+                        Cet événement a été annulé. Ton versement est en cours de traitement selon les conditions applicables.
+                      </p>
+                    ) : isExpired ? (
                       <>
                         <p className="text-sm text-gray-300 mt-2">Ton ancien tarif n’est plus garanti.</p>
                         <p className="text-sm text-gray-300">

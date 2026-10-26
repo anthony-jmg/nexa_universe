@@ -27,7 +27,10 @@ export default function RefundPolicy({ onNavigate }: RefundPolicyProps) {
           items={[
             <><strong className="text-white">Le premier versement n’est pas remboursable.</strong></>,
             'Si le solde n’est pas payé intégralement avant la date limite, le Price Lock expire : le prix bloqué est perdu, mais le premier versement n’est pas perdu.',
-            <>Il n’est jamais rendu en argent, mais il reste <strong className="text-white">déductible une seule fois</strong> du prix public en vigueur si l’utilisateur achète ensuite le même pass du même festival, depuis « Mes Pass », sous réserve de places disponibles et de période de vente (article 7.5 des {link('terms', 'conditions générales de vente')}).</>,
+            <>Il n’est jamais rendu en argent, mais il reste <strong className="text-white">déductible une seule fois</strong> du prix public en vigueur si l’utilisateur achète ensuite le même pass du même festival, depuis « Mes Pass », sous réserve de places disponibles (article 7.5 des {link('terms', 'conditions générales de vente')}).</>,
+            'Cette possibilité dure jusqu’à la date la plus proche entre la fin des ventes du pass et le début de l’événement. Après cette date, le montant devient définitivement inutilisable et n’est pas remboursable ; il ne devient jamais un portefeuille, un avoir global ni un montant transférable.',
+            'Un pass temporairement complet ne fait pas perdre le montant tant que cette période n’est pas terminée.',
+            'L’annulation de l’événement est traitée séparément (section 4) et n’entraîne pas, à elle seule, la perte du montant.',
             'Non remboursable ne signifie donc pas perdu : le versement est imputé sur l’achat du même pass au tarif public actuel.',
             'Un Price Lock ne peut pas être annulé par l’utilisateur ; aucun remboursement volontaire n’est prévu. Toute situation exceptionnelle est examinée au cas par cas par Nexa.',
             'Ce principe s’applique sauf disposition légale impérative contraire ou décision commerciale spécifique prise par Nexa au cas par cas.',

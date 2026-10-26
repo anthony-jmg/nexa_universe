@@ -289,8 +289,9 @@ export type PriceLockRepurchaseStatus =
   | 'available'
   | 'contact_us'
   | 'sold_out'
-  | 'sales_closed'
   | 'unavailable'
+  | 'credit_lapsed'
+  | 'event_cancelled'
   | 'consumed'
   | 'refunded'
   | 'not_expired';
@@ -298,8 +299,12 @@ export type PriceLockRepurchaseStatus =
 export interface PriceLockRepurchaseQuote {
   status: PriceLockRepurchaseStatus;
   lock_id: string;
+  event_title: string | null;
   current_price: number | null;
   credit: number;
+  // Fin de validité du montant versé : MIN(fin des ventes du pass, début de l'événement).
+  credit_valid_until: string | null;
+  lapsed_reason: 'sales_closed' | 'event_started' | null;
   amount_due: number | null;
 }
 

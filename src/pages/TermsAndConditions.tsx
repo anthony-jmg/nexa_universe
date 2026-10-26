@@ -141,7 +141,7 @@ export default function TermsAndConditions({ onNavigate }: TermsAndConditionsPro
             'uniquement pour le même festival et le même type de pass que le Price Lock expiré ;',
             'une seule fois, pour un seul achat ;',
             'par l’utilisateur titulaire du Price Lock, depuis son espace « Mes Pass » ; le montant n’est ni transférable ni cumulable avec un autre Price Lock ;',
-            'sous réserve de places disponibles et tant que les ventes du pass sont ouvertes ;',
+            'sous réserve de places disponibles et pendant la période de validité définie ci-dessous ;',
             'le montant à payer est égal au prix public en vigueur diminué du montant déjà versé.',
           ]}
         />
@@ -154,6 +154,22 @@ export default function TermsAndConditions({ onNavigate }: TermsAndConditionsPro
           ligne : l’utilisateur contacte Nexa pour finaliser son pass. Le montant déjà versé ne donne lieu à aucun
           remboursement et ne peut pas être utilisé pour un autre pass ou un autre festival.
         </p>
+        {/* À VALIDER (juriste) : fin de validité du montant versé et caractère définitif de sa perte. */}
+        <p>
+          <strong className="text-white">Période de validité.</strong> Le montant déjà versé reste déductible jusqu’à la
+          date la plus proche entre la fin des ventes du pass concerné et le début de l’événement. Si aucune date de fin
+          des ventes n’est fixée, c’est le début de l’événement qui fait foi. Le contrôle est effectué au moment où le
+          paiement du nouvel achat est confirmé : un paiement confirmé après cette date est refusé et intégralement
+          remboursé.
+        </p>
+        <LegalList
+          items={[
+            'Après cette date, le montant déjà versé devient définitivement inutilisable et n’est pas remboursable.',
+            'Il ne constitue en aucun cas un portefeuille Nexa, un avoir utilisable sur un autre pass ou un autre festival, ni un montant transférable ou récupérable en argent.',
+            'Si le pass est temporairement complet ou indisponible à la vente, le montant n’est pas perdu tant que la période de validité n’est pas terminée.',
+            'L’annulation de l’événement par l’organisateur est traitée séparément (article 11) et n’entraîne pas, à elle seule, l’application de cette règle.',
+          ]}
+        />
       </LegalSection>
 
       <LegalSection title="8. Disponibilité">

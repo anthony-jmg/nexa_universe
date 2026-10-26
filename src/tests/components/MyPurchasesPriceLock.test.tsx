@@ -314,15 +314,49 @@ describe('Mes Pass', () => {
     it.each([
       ['contact_us', 'Contacte-nous pour finaliser ton pass.', 10],
       ['sold_out', 'Ce pass est complet pour le moment.', 95],
-      ['sales_closed', 'Les ventes de ce pass sont terminées.', 95],
-    ])('%s : message clair et aucun bouton d’achat', async (status, message, price) => {
+      ['unavailable', 'Ce pass n’est pas disponible à la vente pour le moment.', 95],
+    ])('%s : montant conservé, message clair et aucun bouton d’achat', async (status, message, price) => {
       data.price_locks = [expiredLock('x2')];
       quotes.x2 = quote('x2', status, price, null);
       await renderPage();
 
       expect(await screen.findByText(message)).toBeInTheDocument();
+      // Indisponibilité temporaire : le montant reste déductible
+      expect(screen.getByText(/déjà versés restent déductibles du prix actuel/)).toBeInTheDocument();
       expect(screen.queryByRole('button', { name: /Acheter au prix actuel/ })).not.toBeInTheDocument();
       expect(screen.queryByText(/Payer le/)).not.toBeInTheDocument();
+    });
+
+    it.each([
+      ['sales_closed', 'les ventes de ce pass sont terminées'],
+      ['event_started', 'l’événement a commencé'],
+    ])('credit_lapsed (%s) : montant définitivement inutilisable, aucun bouton', async (reason, cause) => {
+      data.price_locks = [expiredLock('x4')];
+      quotes.x4 = { ...quote('x4', 'credit_lapsed', 95, null), lapsed_reason: reason };
+      await renderPage();
+
+      expect(await screen.findByText('Price Lock expiré')).toBeInTheDocument();
+      expect(
+        screen.getByText(new RegExp(`Le montant de 20,00\\s€ que tu avais versé n’est plus utilisable car ${cause}\\.`))
+      ).toBeInTheDocument();
+      expect(screen.queryByText(/restent déductibles|reste déductible/)).not.toBeInTheDocument();
+      expect(screen.queryByText(/Reste à payer/)).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /Acheter au prix actuel|Payer le/ })).not.toBeInTheDocument();
+    });
+
+    it('event_cancelled : traitement séparé, montant non déclaré perdu, aucun bouton', async () => {
+      // Événement annulé : masqué au client par RLS, le titre vient du devis serveur
+      data.price_locks = [{ ...expiredLock('x5'), events: null }];
+      quotes.x5 = { ...quote('x5', 'event_cancelled', 95, null), event_title: 'Festival annulé' };
+      await renderPage();
+
+      expect(await screen.findByText('Festival annulé')).toBeInTheDocument();
+      expect(
+        screen.getByText('Cet événement a été annulé. Ton versement est en cours de traitement selon les conditions applicables.')
+      ).toBeInTheDocument();
+      expect(screen.queryByText(/n’est plus utilisable/)).not.toBeInTheDocument();
+      expect(screen.queryByText(/restent déductibles/)).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /Acheter au prix actuel|Payer le/ })).not.toBeInTheDocument();
     });
 
     it('un lock actif dont la date limite est passée n’est plus soldable à l’ancien prix', async () => {

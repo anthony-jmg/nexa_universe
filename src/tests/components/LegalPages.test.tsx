@@ -47,6 +47,12 @@ describe('Pages juridiques', () => {
     expect(text).toContain('Contacte Nexa pour finaliser son pass'.replace('Contacte', 'contacte'));
     expect(text).toContain('Un Price Lock ne peut pas être annulé par l’utilisateur');
     expect(text).toContain('le solde ne peut plus être payé à l’ancien prix');
+    // Fin de validité du montant versé
+    expect(text).toContain('date la plus proche entre la fin des ventes du pass concerné et le début de l’événement');
+    expect(text).toContain('définitivement inutilisable et n’est pas remboursable');
+    expect(text).toContain('ne constitue en aucun cas un portefeuille Nexa');
+    expect(text).toContain('temporairement complet ou indisponible à la vente, le montant n’est pas perdu');
+    expect(text).toContain('L’annulation de l’événement par l’organisateur est traitée séparément');
     expect(text).toContain('Weezevent');
     expect(text).toContain('ni salariés ni prestataires de Nexa');
   });
@@ -56,6 +62,8 @@ describe('Pages juridiques', () => {
     expect(container.textContent).toContain('ne constitue pas une annulation du pass');
     expect(container.textContent).toContain('Non remboursable ne signifie donc pas perdu');
     expect(container.textContent).toContain('déductible une seule fois');
+    expect(container.textContent).toContain('date la plus proche entre la fin des ventes du pass et le début de l’événement');
+    expect(container.textContent).toContain('n’entraîne pas, à elle seule, la perte du montant');
   });
 
   it('les informations administratives manquantes sont signalées, pas inventées', () => {
