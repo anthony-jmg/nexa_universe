@@ -285,6 +285,76 @@ export async function startPriceLockBalanceCheckout(lock: PriceLockRecord): Prom
   return data.url;
 }
 
+export type PriceLockRepurchaseStatus =
+  | 'available'
+  | 'contact_us'
+  | 'sold_out'
+  | 'sales_closed'
+  | 'unavailable'
+  | 'consumed'
+  | 'refunded'
+  | 'not_expired';
+
+export interface PriceLockRepurchaseQuote {
+  status: PriceLockRepurchaseStatus;
+  lock_id: string;
+  current_price: number | null;
+  credit: number;
+  amount_due: number | null;
+}
+
+/**
+ * Offre de rachat d'un Price Lock EXPIRÉ : prix public actuel moins le
+ * versement déjà payé. Calculée côté base (propriétaire uniquement) ; un lock
+ * dont la date limite est dépassée est expiré au passage.
+ */
+export async function getPriceLockRepurchaseQuote(lockId: string): Promise<PriceLockRepurchaseQuote | null> {
+  const { data, error } = await supabase.rpc('get_price_lock_repurchase_quote', { p_lock_id: lockId });
+  if (error || !data) return null;
+  return data as unknown as PriceLockRepurchaseQuote;
+}
+
+/**
+ * Démarre l'achat au prix public actuel d'un Price Lock expiré (versement
+ * déduit). Le montant est recalculé par le serveur ; le crédit n'est consommé
+ * qu'une fois le paiement confirmé.
+ */
+export async function startPriceLockRepurchaseCheckout(lockId: string, amountDue: number): Promise<string> {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) throw new Error('Vous devez être connecté.');
+
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+  const response = await fetch(`${supabaseUrl}/functions/v1/create-stripe-checkout`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${session.access_token}`,
+      'Content-Type': 'application/json',
+      'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
+    },
+    body: JSON.stringify({
+      payment_type: 'price_lock_repurchase',
+      items: [{
+        id: lockId,
+        name: 'Achat au prix actuel',
+        price: amountDue,
+        quantity: 1,
+      }],
+      metadata: {
+        price_lock_id: lockId,
+        payment_type: 'price_lock_repurchase',
+      },
+      success_url: `${window.location.origin}/my-purchases?payment=success&session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${window.location.origin}/my-purchases?payment=cancelled`,
+    }),
+  });
+
+  const data = await response.json();
+  if (!response.ok || !data?.url) {
+    throw new Error(data?.error || 'Impossible de démarrer le paiement.');
+  }
+  return data.url;
+}
+
 /**
  * Vérifie auprès de Stripe (fonction verify-payment existante) que le paiement
  * du versement Price Lock est réellement confirmé, puis recharge le lock créé.

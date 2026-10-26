@@ -174,6 +174,81 @@ export async function applyBalancePayment(
   return { ok: true, lock };
 }
 
+export interface RepurchasePaymentInput {
+  lockId: string;
+  paymentIntentId: string;
+  amount: number;
+  userId: string;
+  customerId: string | null;
+  currency: string;
+  metadata: Record<string, unknown> | null;
+}
+
+export type RepurchasePaymentResult =
+  | { ok: true; attendeeId: string | null; already: boolean }
+  | { ok: false; error: string; refunded: boolean; retryable?: boolean };
+
+/**
+ * Rachat au prix public d'un Price Lock EXPIRÉ, versement déjà payé déduit.
+ *
+ * consume_price_lock_credit (SQL, verrouillé) revérifie crédit, stock et
+ * période de vente, consomme le crédit UNE seule fois et crée le billet.
+ * Idempotent par payment intent (webhook + verify-payment, retry Stripe).
+ * Si le crédit ne peut plus être utilisé (déjà consommé, pass complet,
+ * ventes closes...), le paiement est intégralement remboursé.
+ */
+export async function applyRepurchasePayment(
+  supabase: any,
+  stripe: any,
+  input: RepurchasePaymentInput
+): Promise<RepurchasePaymentResult> {
+  await supabase.from("stripe_payments").upsert(
+    {
+      user_id: input.userId,
+      stripe_payment_intent_id: input.paymentIntentId,
+      stripe_customer_id: input.customerId,
+      amount: input.amount,
+      currency: input.currency || "eur",
+      status: "succeeded",
+      payment_type: "price_lock_repurchase",
+      metadata: input.metadata,
+    },
+    { onConflict: "stripe_payment_intent_id", ignoreDuplicates: true }
+  );
+
+  const { data, error } = await supabase.rpc("consume_price_lock_credit", {
+    p_lock_id: input.lockId,
+    p_user_id: input.userId,
+    p_payment_intent_id: input.paymentIntentId,
+    p_amount: input.amount,
+  });
+
+  if (error) {
+    console.error(`Repurchase ${input.paymentIntentId} not applied to lock ${input.lockId}:`, error.message);
+    // Erreur technique (réseau, base indisponible) : pas de remboursement, le
+    // webhook Stripe sera rejoué. Seul un refus métier (RAISE → P0001) rembourse.
+    if (error.code !== "P0001") {
+      return { ok: false, error: error.message, refunded: false, retryable: true };
+    }
+    const refund = await refundPayment(
+      stripe,
+      input.paymentIntentId,
+      `price-lock-repurchase-refund-${input.paymentIntentId}`
+    );
+    if (refund.error) {
+      console.error(`Refund failed for repurchase ${input.paymentIntentId}:`, refund.error);
+    } else {
+      await supabase
+        .from("stripe_payments")
+        .update({ status: "refunded" })
+        .eq("stripe_payment_intent_id", input.paymentIntentId);
+    }
+    return { ok: false, error: error.message, refunded: !refund.error };
+  }
+
+  return { ok: true, attendeeId: data?.attendee_id ?? null, already: data?.already === true };
+}
+
 const DAY_MS = 24 * 60 * 60 * 1000;
 const AUTO_DEBIT_LEAD_DAYS = 3;
 

@@ -1,7 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import Stripe from "npm:stripe@17.6.0";
 import { createClient } from "npm:@supabase/supabase-js@2.57.4";
-import { applyBalancePayment, createPriceLockAfterPayment, refundPayment } from "../_shared/price-lock.ts";
+import { applyBalancePayment, applyRepurchasePayment, createPriceLockAfterPayment, refundPayment } from "../_shared/price-lock.ts";
 import { fulfillPaidOrder } from "../_shared/order-fulfillment.ts";
 
 const corsHeaders = {
@@ -235,6 +235,32 @@ async function handleCheckoutCompleted(
         result.ok
           ? `Price lock ${lockId} balance paid (${balanceAmount} €), status: ${result.lock?.status}`
           : `Price lock ${lockId} balance not applied (${result.error}), refunded: ${result.refunded}`
+      );
+      return;
+    }
+  }
+
+  if (paymentType === "price_lock_repurchase") {
+    const lockId = session.metadata?.price_lock_id;
+    if (lockId && paymentIntentId) {
+      // Idempotent (webhook + verify-payment) ; remboursé si le crédit ne peut
+      // plus être utilisé. Erreur technique : levée pour que Stripe rejoue.
+      const result = await applyRepurchasePayment(supabase, stripe, {
+        lockId,
+        paymentIntentId,
+        amount: (session.amount_total || 0) / 100,
+        userId,
+        customerId: session.customer as string,
+        currency: session.currency || "eur",
+        metadata: session.metadata,
+      });
+      if (!result.ok && result.retryable) {
+        throw new Error(`Price lock ${lockId} repurchase not applied yet: ${result.error}`);
+      }
+      console.log(
+        result.ok
+          ? `Price lock ${lockId} repurchased (${(session.amount_total || 0) / 100} €)${result.already ? " [already applied]" : ""}`
+          : `Price lock ${lockId} repurchase refused (${result.error}), refunded: ${result.refunded}`
       );
       return;
     }

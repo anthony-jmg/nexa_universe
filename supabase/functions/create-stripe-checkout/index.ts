@@ -18,7 +18,7 @@ function validateCheckoutRequest(data: any): string[] {
 
   if (!data.payment_type) {
     errors.push('payment_type is required');
-  } else if (!'order,video,program,professor_subscription,price_lock_deposit,price_lock_balance'.split(',').includes(data.payment_type)) {
+  } else if (!'order,video,program,professor_subscription,price_lock_deposit,price_lock_balance,price_lock_repurchase'.split(',').includes(data.payment_type)) {
     errors.push('Invalid payment_type');
   }
 
@@ -100,13 +100,18 @@ async function resolvePriceLockBalance(
 
   const { data: lock } = await supabase
     .from('price_locks')
-    .select('id, user_id, status, remaining_amount, locked_price, deposit_amount, event_ticket_type_id, auto_balance_payment_status, auto_balance_debit_attempted_at, ticket_type:event_ticket_types(ticket_type:ticket_types(name))')
+    .select('id, user_id, status, expires_at, remaining_amount, locked_price, deposit_amount, event_ticket_type_id, auto_balance_payment_status, auto_balance_debit_attempted_at, ticket_type:event_ticket_types(ticket_type:ticket_types(name))')
     .eq('id', lockId)
     .maybeSingle();
 
   if (!lock) return { error: 'Price Lock introuvable.' };
   if (lock.user_id !== userId) return { error: 'Ce Price Lock ne vous appartient pas.' };
   if (lock.status !== 'active') return { error: 'Ce Price Lock n\u2019est plus actif.' };
+  // Date limite dépassée : l'ancien tarif n'est plus garanti, même avant le
+  // passage du cron d'expiration (record_price_lock_payment refuse aussi).
+  if (lock.expires_at && new Date(lock.expires_at).getTime() <= Date.now()) {
+    return { error: 'Ce Price Lock a expiré : ton ancien tarif n\u2019est plus garanti.' };
+  }
   // Débit automatique en cours : pas de second paiement en parallèle.
   if (
     lock.auto_balance_payment_status === 'processing' &&
@@ -125,6 +130,54 @@ async function resolvePriceLockBalance(
   return {
     name: `Solde Price Lock — ${ticketName}`,
     amount: remaining,
+  };
+}
+
+const REPURCHASE_REFUSALS: Record<string, string> = {
+  not_expired: 'Ce Price Lock n\u2019est pas expiré.',
+  consumed: 'Le versement de ce Price Lock a déjà été utilisé.',
+  refunded: 'Le versement de ce Price Lock a été remboursé.',
+  unavailable: 'Ce pass n\u2019est plus disponible à la vente.',
+  sales_closed: 'Les ventes de ce pass sont terminées.',
+  sold_out: 'Ce pass est complet pour le moment.',
+  contact_us: 'Contacte-nous pour finaliser ton pass.',
+};
+
+// Price Lock expiré : rachat au prix public actuel, versement déjà payé déduit.
+// Montant et éligibilité TOUJOURS calculés côté base (get_price_lock_repurchase_quote) ;
+// le crédit n'est consommé qu'au paiement confirmé (consume_price_lock_credit).
+async function resolvePriceLockRepurchase(
+  supabase: any,
+  userId: string,
+  lockId: string | undefined
+): Promise<{ error?: string; name?: string; amount?: number }> {
+  if (!lockId || !UUID_REGEX.test(lockId)) return { error: 'Price Lock introuvable.' };
+
+  const { data: quote, error } = await supabase.rpc('get_price_lock_repurchase_quote', {
+    p_lock_id: lockId,
+    p_user_id: userId,
+  });
+  if (error || !quote) return { error: 'Price Lock introuvable.' };
+  if (quote.status !== 'available') {
+    return { error: REPURCHASE_REFUSALS[quote.status] ?? 'Achat impossible pour ce Price Lock.' };
+  }
+
+  const amount = Number(quote.amount_due);
+  // Stripe : 0,50 € minimum.
+  if (!Number.isFinite(amount) || amount < 0.5) {
+    return { error: REPURCHASE_REFUSALS.contact_us };
+  }
+
+  const { data: ett } = await supabase
+    .from('event_ticket_types')
+    .select('ticket_types(name), events(title)')
+    .eq('id', quote.event_ticket_type_id)
+    .maybeSingle();
+  const ticketName = (ett as any)?.ticket_types?.name || 'Billet';
+  const eventTitle = (ett as any)?.events?.title;
+  return {
+    name: `${eventTitle ? `${eventTitle} — ` : ''}${ticketName} (versement Price Lock déduit)`,
+    amount,
   };
 }
 
@@ -489,7 +542,29 @@ Deno.serve(async (req: Request) => {
     // price_id envoyés par le client sont ignorés.
     let resolvedItems: CheckoutItem[] = [];
     let hasPriceLockAutoBalance = false;
-    if (payment_type === 'price_lock_deposit') {
+    // Metadata posée par le serveur (jamais écrasable par la requête client).
+    const serverMetadata: Record<string, string> = {};
+    if (payment_type === 'price_lock_repurchase') {
+      const lockId = metadata.price_lock_id || metadata.target_id;
+      const resolved = await resolvePriceLockRepurchase(supabase, user.id, lockId);
+      if (resolved.error) {
+        return new Response(
+          JSON.stringify({ error: resolved.error }),
+          {
+            status: 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          }
+        );
+      }
+      serverMetadata.price_lock_id = lockId!;
+      serverMetadata.repurchase_amount = resolved.amount!.toFixed(2);
+      resolvedItems = [{
+        id: lockId!,
+        name: resolved.name!,
+        price: resolved.amount!,
+        quantity: 1,
+      }];
+    } else if (payment_type === 'price_lock_deposit') {
       const ticketTypeId = metadata.event_ticket_type_id || metadata.target_id;
       // Montant choisi par l'utilisateur : jamais lu depuis le panier, uniquement
       // depuis la metadata dédiée puis revalidé côté base (minimum, plafond).
@@ -639,6 +714,7 @@ Deno.serve(async (req: Request) => {
     // user_id / payment_type posés APRÈS la metadata client : jamais écrasables.
     const sessionMetadata = {
       ...metadata,
+      ...serverMetadata,
       user_id: user.id,
       payment_type,
     };
@@ -721,7 +797,8 @@ Deno.serve(async (req: Request) => {
         // Commande panier : la session expire avant la commande (orders.expires_at
         // = création + 1 h), pour qu'aucun paiement n'arrive sur une commande
         // annulée par cancel_expired_orders. Stripe impose au moins 30 min.
-        ...(payment_type === "order"
+        // Rachat Price Lock : prix public figé au plus 32 min (minimum Stripe 30).
+        ...(payment_type === "order" || payment_type === "price_lock_repurchase"
           ? { expires_at: Math.floor(Date.now() / 1000) + ORDER_CHECKOUT_TTL_SECONDS }
           : {}),
         // Price Lock en prélèvement automatique : le moyen de paiement est

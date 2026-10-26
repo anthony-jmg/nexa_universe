@@ -52,8 +52,7 @@ export function PriceLockExplainer() {
 
       <div className="mt-4 sm:mt-5 flex flex-col sm:flex-row items-start sm:items-center justify-center gap-2 sm:gap-4">
         <p className="text-[11px] text-gray-500 leading-relaxed sm:max-w-md">
-          Si ton Price Lock expire, les sommes déjà versées restent prises en compte,
-          mais le tarif public en vigueur s'applique.
+          Si ton Price Lock expire, le tarif bloqué est perdu et ta place n’est plus réservée. Ton versement n’est pas remboursé, mais il reste déductible du prix public en vigueur si tu achètes ensuite ce même pass, selon les places disponibles.
         </p>
         <span className="hidden sm:block w-px h-8 bg-[#D4AC5B]/20 flex-shrink-0"></span>
         <p className="text-[11px] text-gray-400 sm:text-right">

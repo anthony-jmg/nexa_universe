@@ -198,7 +198,7 @@ export function PriceLockModal({ summary, existingLock, onClose, onViewEvents, o
                 </p>
               )}
               <p className="text-[11px] text-gray-500 leading-relaxed pt-1">
-                Si ton Price Lock expire, les sommes déjà versées restent déduites, mais le tarif public en vigueur s’applique.
+                Si ton Price Lock expire, le tarif bloqué est perdu et ta place n’est plus réservée. Ton versement n’est pas remboursé, mais il reste déductible du prix public en vigueur si tu achètes ensuite ce même pass, selon les places disponibles.
               </p>
             </div>
 

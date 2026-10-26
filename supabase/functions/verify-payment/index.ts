@@ -1,7 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import Stripe from "npm:stripe@17.6.0";
 import { createClient } from "npm:@supabase/supabase-js@2.57.4";
-import { applyBalancePayment, createPriceLockAfterPayment, refundPayment } from "../_shared/price-lock.ts";
+import { applyBalancePayment, applyRepurchasePayment, createPriceLockAfterPayment, refundPayment } from "../_shared/price-lock.ts";
 import { fulfillPaidOrder } from "../_shared/order-fulfillment.ts";
 
 const corsHeaders = {
@@ -178,6 +178,39 @@ Deno.serve(async (req: Request) => {
             payment_type: "price_lock_balance",
             price_lock_id: lockId,
             status: result.lock?.status,
+          }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+    }
+
+    if (paymentType === "price_lock_repurchase") {
+      const lockId = session.metadata?.price_lock_id;
+      if (lockId && paymentIntentId) {
+        // Idempotent (webhook + verify-payment) ; remboursé si le crédit ne peut
+        // plus être utilisé (déjà consommé, pass complet, ventes closes...).
+        const result = await applyRepurchasePayment(supabase, stripe, {
+          lockId,
+          paymentIntentId,
+          amount: (session.amount_total || 0) / 100,
+          userId: user.id,
+          customerId: session.customer as string,
+          currency: session.currency || "eur",
+          metadata: session.metadata,
+        });
+        if (!result.ok) {
+          return new Response(
+            JSON.stringify({ success: false, error: result.error, refunded: result.refunded }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
+        return new Response(
+          JSON.stringify({
+            success: true,
+            payment_type: "price_lock_repurchase",
+            price_lock_id: lockId,
+            attendee_id: result.attendeeId,
           }),
           { headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );

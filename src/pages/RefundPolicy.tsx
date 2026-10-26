@@ -26,7 +26,10 @@ export default function RefundPolicy({ onNavigate }: RefundPolicyProps) {
         <LegalList
           items={[
             <><strong className="text-white">Le premier versement n’est pas remboursable.</strong></>,
-            'Si le solde n’est pas payé intégralement avant la date limite, le Price Lock expire : le premier versement est perdu et le prix bloqué n’est plus garanti.',
+            'Si le solde n’est pas payé intégralement avant la date limite, le Price Lock expire : le prix bloqué est perdu, mais le premier versement n’est pas perdu.',
+            <>Il n’est jamais rendu en argent, mais il reste <strong className="text-white">déductible une seule fois</strong> du prix public en vigueur si l’utilisateur achète ensuite le même pass du même festival, depuis « Mes Pass », sous réserve de places disponibles et de période de vente (article 7.5 des {link('terms', 'conditions générales de vente')}).</>,
+            'Non remboursable ne signifie donc pas perdu : le versement est imputé sur l’achat du même pass au tarif public actuel.',
+            'Un Price Lock ne peut pas être annulé par l’utilisateur ; aucun remboursement volontaire n’est prévu. Toute situation exceptionnelle est examinée au cas par cas par Nexa.',
             'Ce principe s’applique sauf disposition légale impérative contraire ou décision commerciale spécifique prise par Nexa au cas par cas.',
           ]}
         />

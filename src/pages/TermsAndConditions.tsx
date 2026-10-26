@@ -91,7 +91,8 @@ export default function TermsAndConditions({ onNavigate }: TermsAndConditionsPro
           items={[
             'Le montant minimum du premier versement est fixé par Nexa pour chaque pass et affiché avant le paiement.',
             'L’utilisateur peut choisir de verser davantage que ce minimum, dans la limite affichée (le versement doit rester inférieur au prix bloqué).',
-            <><strong className="text-white">Le premier versement n’est pas remboursable</strong>, sauf disposition légale impérative contraire ou geste commercial décidé par Nexa au cas par cas.</>,
+            <><strong className="text-white">Le premier versement n’est pas remboursable</strong>, sauf disposition légale impérative contraire ou geste commercial décidé par Nexa au cas par cas. Non remboursable ne signifie pas perdu : en cas d’expiration, il reste déductible dans les conditions de l’article 7.5.</>,
+            'Un Price Lock ne peut pas être annulé par l’utilisateur. Toute situation exceptionnelle est examinée au cas par cas par Nexa.',
           ]}
         />
         <h3 className="text-lg font-semibold text-white">7.2 Effets du Price Lock</h3>
@@ -121,11 +122,38 @@ export default function TermsAndConditions({ onNavigate }: TermsAndConditionsPro
         </p>
         <LegalList
           items={[
-            'le premier versement n’est pas remboursé ;',
-            'le prix bloqué est perdu et la place réservée est libérée ;',
-            'pour participer au festival, l’utilisateur doit acheter un nouveau pass au tarif public en vigueur, sous réserve de places disponibles.',
+            'le prix bloqué est définitivement perdu : il n’est plus possible d’acheter le pass à ce prix ;',
+            'la place réservée par le Price Lock est libérée ;',
+            'le premier versement n’est pas remboursé, mais il n’est pas perdu : il reste déductible dans les conditions de l’article 7.5.',
           ]}
         />
+        <p>
+          Dès la date limite dépassée, le solde ne peut plus être payé à l’ancien prix, y compris par prélèvement automatique.
+        </p>
+        <h3 className="text-lg font-semibold text-white">7.5 Achat du pass après expiration</h3>
+        {/* À VALIDER (juriste) : formulation de l’imputation du versement (aucune qualification « avoir », « arrhes » ou « acompte » retenue). */}
+        <p>
+          Après l’expiration d’un Price Lock, l’utilisateur peut acheter le même pass au prix public en vigueur au moment
+          de ce nouvel achat. Le montant déjà versé est alors déduit de ce prix :
+        </p>
+        <LegalList
+          items={[
+            'uniquement pour le même festival et le même type de pass que le Price Lock expiré ;',
+            'une seule fois, pour un seul achat ;',
+            'par l’utilisateur titulaire du Price Lock, depuis son espace « Mes Pass » ; le montant n’est ni transférable ni cumulable avec un autre Price Lock ;',
+            'sous réserve de places disponibles et tant que les ventes du pass sont ouvertes ;',
+            'le montant à payer est égal au prix public en vigueur diminué du montant déjà versé.',
+          ]}
+        />
+        <p>
+          Exemple : prix bloqué 80 €, premier versement 20 €. Après expiration, si le prix public est de 95 €, l’utilisateur
+          paie 75 € ; s’il est de 110 €, il paie 90 €. Il ne peut plus acheter le pass à 80 €.
+        </p>
+        <p>
+          Si le prix public en vigueur est inférieur ou égal au montant déjà versé, l’achat ne peut pas être finalisé en
+          ligne : l’utilisateur contacte Nexa pour finaliser son pass. Le montant déjà versé ne donne lieu à aucun
+          remboursement et ne peut pas être utilisé pour un autre pass ou un autre festival.
+        </p>
       </LegalSection>
 
       <LegalSection title="8. Disponibilité">

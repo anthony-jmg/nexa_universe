@@ -59,6 +59,9 @@ const ticket = (
 });
 
 const data: { price_locks: unknown[]; event_attendees: unknown[] } = { price_locks: [], event_attendees: [] };
+// Offres de rachat renvoyées par get_price_lock_repurchase_quote, par lock.
+const quotes: Record<string, unknown> = {};
+const rpcCalls: { fn: string; args: unknown }[] = [];
 const queries: { table: string; method: string; args: unknown[] }[] = [];
 
 // Objets stables : MyPurchases recharge ses données à chaque changement de `user`.
@@ -104,8 +107,11 @@ vi.mock('../../lib/supabase', () => {
         queries.push({ table, method: 'from', args: [] });
         return builder(table);
       },
-      rpc: () => Promise.resolve({ data: null, error: null }),
-      auth: { getSession: () => Promise.resolve({ data: { session: null } }) },
+      rpc: (fn: string, args: { p_lock_id?: string }) => {
+        rpcCalls.push({ fn, args });
+        return Promise.resolve({ data: (args?.p_lock_id && quotes[args.p_lock_id]) ?? null, error: null });
+      },
+      auth: { getSession: () => Promise.resolve({ data: { session: { access_token: 'token' } } }) },
     },
   };
 });
@@ -124,6 +130,8 @@ describe('Mes Pass', () => {
     data.price_locks = [];
     data.event_attendees = [];
     queries.length = 0;
+    rpcCalls.length = 0;
+    for (const key of Object.keys(quotes)) delete quotes[key];
   });
 
   it('affiche le titre, les deux sections et plus aucune navigation Academy', async () => {
@@ -244,5 +252,86 @@ describe('Mes Pass', () => {
     await renderPage();
 
     expect(screen.getByText('Vous n’avez pas encore de billet de festival.')).toBeInTheDocument();
+  });
+
+  describe('Price Lock expiré : achat au prix actuel, versement déduit', () => {
+    const expiredLock = (id: string) => ({
+      ...baseLock,
+      id,
+      locked_price: 80,
+      deposit_amount: 20,
+      total_paid: 20,
+      remaining_amount: 75,
+      status: 'expired',
+      expires_at: future(-2),
+      events: { id: `evt-${id}`, title: `Festival ${id}`, start_date: future(30) },
+    });
+    const quote = (id: string, status: string, current: number | null, due: number | null) => ({
+      status, lock_id: id, current_price: current, credit: 20, amount_due: due,
+    });
+
+    it('affiche le crédit et propose « Acheter au prix actuel » (95 € − 20 € = 75 €)', async () => {
+      data.price_locks = [expiredLock('x1')];
+      quotes.x1 = quote('x1', 'available', 95, 75);
+      await renderPage();
+
+      expect(await screen.findByText('Price Lock expiré')).toBeInTheDocument();
+      expect(screen.getByText('Ton ancien tarif n’est plus garanti.')).toBeInTheDocument();
+      expect(screen.getByText(/Les 20,00\s€ déjà versés restent déductibles du prix actuel\./)).toBeInTheDocument();
+      expect(screen.getByText(/95,00\s€/)).toBeInTheDocument();
+      expect(screen.getByText('Reste à payer :')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /^Acheter au prix actuel — 75,00\s€$/ })).toBeInTheDocument();
+      // Ce n'est plus le solde du lock d'origine
+      expect(screen.queryByText(/Payer le solde|Payer le nouveau solde/)).not.toBeInTheDocument();
+      expect(screen.queryByText(/Prix bloqué/)).not.toBeInTheDocument();
+      expect(rpcCalls).toContainEqual({ fn: 'get_price_lock_repurchase_quote', args: { p_lock_id: 'x1' } });
+    });
+
+    it('lance un checkout price_lock_repurchase pour ce lock uniquement', async () => {
+      data.price_locks = [expiredLock('x1')];
+      quotes.x1 = quote('x1', 'available', 95, 75);
+      const fetchMock = vi.fn().mockResolvedValue({ ok: false, json: () => Promise.resolve({ error: 'Ce pass est complet pour le moment.' }) });
+      vi.stubGlobal('fetch', fetchMock);
+      await renderPage();
+
+      fireEvent.click(await screen.findByRole('button', { name: /^Acheter au prix actuel/ }));
+
+      expect(await screen.findByText('Ce pass est complet pour le moment.')).toBeInTheDocument();
+      const [url, init] = fetchMock.mock.calls[0];
+      expect(url).toMatch(/\/functions\/v1\/create-stripe-checkout$/);
+      const body = JSON.parse(init.body);
+      expect(body.payment_type).toBe('price_lock_repurchase');
+      expect(body.metadata.price_lock_id).toBe('x1');
+      vi.unstubAllGlobals();
+    });
+
+    it.each([
+      ['contact_us', 'Contacte-nous pour finaliser ton pass.', 10],
+      ['sold_out', 'Ce pass est complet pour le moment.', 95],
+      ['sales_closed', 'Les ventes de ce pass sont terminées.', 95],
+    ])('%s : message clair et aucun bouton d’achat', async (status, message, price) => {
+      data.price_locks = [expiredLock('x2')];
+      quotes.x2 = quote('x2', status, price, null);
+      await renderPage();
+
+      expect(await screen.findByText(message)).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /Acheter au prix actuel/ })).not.toBeInTheDocument();
+      expect(screen.queryByText(/Payer le/)).not.toBeInTheDocument();
+    });
+
+    it('un lock actif dont la date limite est passée n’est plus soldable à l’ancien prix', async () => {
+      data.price_locks = [{ ...expiredLock('x3'), status: 'active' }];
+      quotes.x3 = quote('x3', 'available', 95, 75);
+      await renderPage();
+
+      expect(await screen.findByText('Price Lock expiré')).toBeInTheDocument();
+      expect(screen.queryByText(/Payer le solde/)).not.toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /^Acheter au prix actuel/ })).toBeInTheDocument();
+    });
+
+    it('n’affiche plus un lock dont le crédit a déjà été utilisé', async () => {
+      await renderPage();
+      expect(queries).toContainEqual({ table: 'price_locks', method: 'is', args: ['credit_consumed_at', null] });
+    });
   });
 });

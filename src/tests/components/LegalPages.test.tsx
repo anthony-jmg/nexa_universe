@@ -13,7 +13,7 @@ const PAGES = [
 ] as const;
 
 // Termes de l'ancien modèle qui ne doivent plus apparaître.
-const OBSOLETE = [/merch/i, /marchandis/i, /10\s?%/, /7 jours/, /7 days/i, /abonné/i, /subscri/i, /grâce/i, /accès à vie/i, /Google Analytics/i, /Meta Pixel/i];
+const OBSOLETE = [/merch/i, /marchandis/i, /10\s?%/, /7 jours/, /7 days/i, /abonné/i, /subscri/i, /grâce/i, /accès à vie/i, /Google Analytics/i, /Meta Pixel/i, /versement est perdu/i, /annuler mon Price Lock/i];
 
 describe('Pages juridiques', () => {
   it.each(PAGES)('%s : titre, français, aucune mention obsolète, liens croisés', (_label, Page, title) => {
@@ -38,7 +38,15 @@ describe('Pages juridiques', () => {
     expect(text).toContain('Le premier versement n’est pas remboursable');
     expect(text).toContain('payé en une seule fois');
     expect(text).toContain('consentement exprès');
-    expect(text).toContain('le prix bloqué est perdu');
+    expect(text).toContain('le prix bloqué est définitivement perdu');
+    // Non remboursable ≠ perdu : déductible une seule fois du même pass, au prix public actuel
+    expect(text).toContain('il n’est pas perdu : il reste déductible');
+    expect(text).toContain('uniquement pour le même festival et le même type de pass');
+    expect(text).toContain('une seule fois, pour un seul achat');
+    expect(text).toContain('s’il est de 110 €, il paie 90 €');
+    expect(text).toContain('Contacte Nexa pour finaliser son pass'.replace('Contacte', 'contacte'));
+    expect(text).toContain('Un Price Lock ne peut pas être annulé par l’utilisateur');
+    expect(text).toContain('le solde ne peut plus être payé à l’ancien prix');
     expect(text).toContain('Weezevent');
     expect(text).toContain('ni salariés ni prestataires de Nexa');
   });
@@ -46,6 +54,8 @@ describe('Pages juridiques', () => {
   it('Remboursement : distingue le remboursement technique d’un double paiement', () => {
     const { container } = render(<RefundPolicy onNavigate={vi.fn()} />);
     expect(container.textContent).toContain('ne constitue pas une annulation du pass');
+    expect(container.textContent).toContain('Non remboursable ne signifie donc pas perdu');
+    expect(container.textContent).toContain('déductible une seule fois');
   });
 
   it('les informations administratives manquantes sont signalées, pas inventées', () => {

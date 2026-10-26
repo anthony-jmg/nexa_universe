@@ -295,7 +295,7 @@ export function EventDetail({ eventId, onNavigate }: EventDetailProps) {
                   )}
                 </div>
                 {lockOk && (
-                  <p className="mt-4 text-[11px] leading-relaxed text-gray-500">Les {lockDeposit.toFixed(0)} € sont déduits du prix final. Si le Price Lock expire, la somme déjà versée reste déduite mais le tarif en vigueur s’applique.</p>
+                  <p className="mt-4 text-[11px] leading-relaxed text-gray-500">Les {lockDeposit.toFixed(0)} € sont déduits du prix final. Si le Price Lock expire, le tarif bloqué est perdu et ta place n’est plus réservée. Ton versement n’est pas remboursé, mais il reste déductible du prix public en vigueur si tu achètes ensuite ce même pass, selon les places disponibles.</p>
                 )}
               </div>
               );

@@ -997,6 +997,9 @@ export type Database = {
           balance_payment_mode: string
           cancelled_at: string | null
           created_at: string
+          credit_attendee_id: string | null
+          credit_consumed_at: string | null
+          credit_consumed_payment_intent_id: string | null
           deposit_amount: number
           event_id: string
           event_ticket_type_id: string
@@ -1028,6 +1031,9 @@ export type Database = {
           balance_payment_mode?: string
           cancelled_at?: string | null
           created_at?: string
+          credit_attendee_id?: string | null
+          credit_consumed_at?: string | null
+          credit_consumed_payment_intent_id?: string | null
           deposit_amount?: number
           event_id: string
           event_ticket_type_id: string
@@ -1059,6 +1065,9 @@ export type Database = {
           balance_payment_mode?: string
           cancelled_at?: string | null
           created_at?: string
+          credit_attendee_id?: string | null
+          credit_consumed_at?: string | null
+          credit_consumed_payment_intent_id?: string | null
           deposit_amount?: number
           event_id?: string
           event_ticket_type_id?: string
@@ -1080,6 +1089,13 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "price_locks_credit_attendee_id_fkey"
+            columns: ["credit_attendee_id"]
+            isOneToOne: false
+            referencedRelation: "event_attendees"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "price_locks_event_id_fkey"
             columns: ["event_id"]
@@ -2442,6 +2458,9 @@ export type Database = {
           balance_payment_mode: string
           cancelled_at: string | null
           created_at: string
+          credit_attendee_id: string | null
+          credit_consumed_at: string | null
+          credit_consumed_payment_intent_id: string | null
           deposit_amount: number
           event_id: string
           event_ticket_type_id: string
@@ -2488,6 +2507,15 @@ export type Database = {
         Args: { p_lock_id: string }
         Returns: number
       }
+      consume_price_lock_credit: {
+        Args: {
+          p_amount: number
+          p_lock_id: string
+          p_payment_intent_id: string
+          p_user_id: string
+        }
+        Returns: Json
+      }
       convert_pending_to_actual_attendees: {
         Args: { p_order_id: string }
         Returns: number
@@ -2500,6 +2528,10 @@ export type Database = {
       ensure_price_lock_attendee: {
         Args: { p_lock_id: string }
         Returns: string
+      }
+      expire_price_lock_if_due: {
+        Args: { p_lock_id: string }
+        Returns: boolean
       }
       expire_stale_price_locks: { Args: never; Returns: number }
       finalize_price_lock_auto_debit: {
@@ -2585,8 +2617,16 @@ export type Database = {
         Returns: number
       }
       get_price_lock_refund_window_hours: { Args: never; Returns: number }
+      get_price_lock_repurchase_quote: {
+        Args: { p_lock_id: string; p_user_id?: string }
+        Returns: Json
+      }
       nexa_caller_is_admin: { Args: never; Returns: boolean }
       nexa_is_client_role: { Args: never; Returns: boolean }
+      price_lock_public_price: {
+        Args: { p_event_ticket_type_id: string }
+        Returns: number
+      }
       price_lock_refund_eligible: {
         Args: { p_lock_id: string }
         Returns: boolean
@@ -2609,6 +2649,9 @@ export type Database = {
           balance_payment_mode: string
           cancelled_at: string | null
           created_at: string
+          credit_attendee_id: string | null
+          credit_consumed_at: string | null
+          credit_consumed_payment_intent_id: string | null
           deposit_amount: number
           event_id: string
           event_ticket_type_id: string

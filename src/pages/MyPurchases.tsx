@@ -15,7 +15,12 @@ import {
   X,
   XCircle
 } from 'lucide-react';
-import { startPriceLockBalanceCheckout } from '../lib/priceLock';
+import {
+  getPriceLockRepurchaseQuote,
+  startPriceLockBalanceCheckout,
+  startPriceLockRepurchaseCheckout,
+  type PriceLockRepurchaseQuote,
+} from '../lib/priceLock';
 import { formatEuro } from '../lib/formatEuro';
 
 interface AttendeeWithDetails {
@@ -52,12 +57,6 @@ interface AttendeeWithDetails {
   };
 }
 
-interface PriceLockTier {
-  price: number | string;
-  starts_at: string;
-  ends_at: string | null;
-}
-
 interface PriceLockWithEvent {
   id: string;
   locked_price: number;
@@ -72,7 +71,6 @@ interface PriceLockWithEvent {
   event_ticket_types: {
     id: string;
     ticket_types: { name: string } | null;
-    price_tiers: PriceLockTier[];
   } | null;
   events: {
     id: string;
@@ -80,6 +78,17 @@ interface PriceLockWithEvent {
     start_date: string;
   };
 }
+
+// Expiré dès la date limite dépassée, même avant le passage du cron serveur.
+const isLockExpired = (lock: PriceLockWithEvent) =>
+  lock.status === 'expired' || (lock.expires_at != null && new Date(lock.expires_at).getTime() <= Date.now());
+
+const REPURCHASE_MESSAGES: Partial<Record<PriceLockRepurchaseQuote['status'], string>> = {
+  contact_us: 'Contacte-nous pour finaliser ton pass.',
+  sold_out: 'Ce pass est complet pour le moment.',
+  sales_closed: 'Les ventes de ce pass sont terminées.',
+  unavailable: 'Ce pass n’est plus disponible à la vente.',
+};
 
 interface MyPurchasesProps {
   onNavigate: (page: string, params?: any) => void;
@@ -95,7 +104,9 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
   const [selectedTicket, setSelectedTicket] = useState<AttendeeWithDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const [verifyingPayment, setVerifyingPayment] = useState(false);
-  const [errorPay, setErrorPay] = useState('');
+  const [errorPay, setErrorPay] = useState<{ lockId: string; message: string } | null>(null);
+  // Price Locks expirés : offre de rachat calculée côté serveur (prix actuel − versement).
+  const [repurchaseQuotes, setRepurchaseQuotes] = useState<Record<string, PriceLockRepurchaseQuote | null>>({});
 
   useEffect(() => {
     if (!user) {
@@ -226,27 +237,45 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
         event_ticket_types (
           id,
           ticket_types (name),
-          price_tiers:event_ticket_price_tiers (price, starts_at, ends_at)
         ),
         events (id, title, start_date)
       `)
       .eq('user_id', user.id)
       .in('status', ['active', 'expired'])
+      // Crédit déjà utilisé : le pass apparaît dans « Mes billets ».
+      .is('credit_consumed_at', null)
       .order('created_at', { ascending: false });
 
     if (!error && data) {
-      setPriceLocks(data as unknown as PriceLockWithEvent[]);
+      const locks = data as unknown as PriceLockWithEvent[];
+      setPriceLocks(locks);
+      const expired = locks.filter(isLockExpired);
+      const quotes = await Promise.all(expired.map((lock) => getPriceLockRepurchaseQuote(lock.id)));
+      setRepurchaseQuotes(Object.fromEntries(expired.map((lock, i) => [lock.id, quotes[i]])));
     }
   };
 
   const handlePayBalance = async (lock: PriceLockWithEvent) => {
     setPayingLockId(lock.id);
-    setErrorPay('');
+    setErrorPay(null);
     try {
       const checkoutUrl = await startPriceLockBalanceCheckout(lock);
       window.location.href = checkoutUrl;
     } catch (err: any) {
-      setErrorPay(err.message || 'Erreur lors du démarrage du paiement.');
+      setErrorPay({ lockId: lock.id, message: err.message || 'Erreur lors du démarrage du paiement.' });
+      setPayingLockId(null);
+    }
+  };
+
+  // Nouvel achat au prix public actuel, versement du Price Lock expiré déduit.
+  const handleRepurchase = async (lock: PriceLockWithEvent, amountDue: number) => {
+    setPayingLockId(lock.id);
+    setErrorPay(null);
+    try {
+      const checkoutUrl = await startPriceLockRepurchaseCheckout(lock.id, amountDue);
+      window.location.href = checkoutUrl;
+    } catch (err) {
+      setErrorPay({ lockId: lock.id, message: err instanceof Error && err.message ? err.message : 'Erreur lors du démarrage du paiement.' });
       setPayingLockId(null);
     }
   };
@@ -340,17 +369,8 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
               </div>
             )}
             {priceLocks.map((lock) => {
-              const now = Date.now();
-              const tiers = ((lock.event_ticket_types?.price_tiers || []) as PriceLockTier[]);
-              const currentTier = tiers
-                .filter(t => new Date(t.starts_at).getTime() <= now && (!t.ends_at || new Date(t.ends_at).getTime() > now))
-                .sort((a, b) => new Date(b.starts_at).getTime() - new Date(a.starts_at).getTime())[0];
-              const currentPrice = currentTier ? Number(currentTier.price) : null;
-              const isExpired = lock.status === 'expired' ||
-                (lock.expires_at && new Date(lock.expires_at).getTime() < now);
-              const newBalance = currentPrice != null
-                ? Math.max(0, currentPrice - Number(lock.total_paid))
-                : null;
+              const isExpired = isLockExpired(lock);
+              const quote = isExpired ? repurchaseQuotes[lock.id] : undefined;
 
               return (
               <div
@@ -361,7 +381,7 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
                   <div className="flex-1 w-full min-w-0">
                     <div className="flex flex-wrap items-center gap-2 mb-2">
                       <Lock className="w-4 h-4 text-[#F0D38A] flex-shrink-0" />
-                      <h3 className="text-base sm:text-lg font-medium text-white">Price Lock</h3>
+                      <h3 className="text-base sm:text-lg font-medium text-white">{isExpired ? 'Price Lock expiré' : 'Price Lock'}</h3>
                       <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${
                         isExpired
                           ? 'border-gray-500/50 bg-gray-500/10 text-gray-300'
@@ -381,18 +401,32 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
                           : `Prix garanti jusqu'au ${new Date(lock.expires_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}`}
                       </p>
                     )}
-                    <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs sm:text-sm text-gray-400 mt-2">
-                      <span>Prix bloqué : <span className="text-white font-medium">{formatEuro(lock.locked_price)}</span></span>
-                      <span>Déjà payé : <span className="text-white font-medium">{formatEuro(lock.total_paid)}</span></span>
-                      {isExpired ? (
-                        <>
-                          <span>Tarif actuel : <span className="text-white font-medium">{currentPrice != null ? `${currentPrice.toFixed(0)} €` : '—'}</span></span>
-                          <span>Nouveau solde : <span className="text-[#F0D38A] font-semibold">{newBalance != null ? `${newBalance.toFixed(0)} €` : '—'}</span></span>
-                        </>
-                      ) : (
+                    {isExpired ? (
+                      <>
+                        <p className="text-sm text-gray-300 mt-2">Ton ancien tarif n’est plus garanti.</p>
+                        <p className="text-sm text-gray-300">
+                          Les {formatEuro(lock.total_paid)} déjà versés restent déductibles du prix actuel.
+                        </p>
+                        <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs sm:text-sm text-gray-400 mt-2">
+                          <span>Prix actuel : <span className="text-white font-medium">{quote?.current_price != null ? formatEuro(quote.current_price) : '—'}</span></span>
+                          <span>Déjà versé : <span className="text-white font-medium">{formatEuro(lock.total_paid)}</span></span>
+                          {quote?.status === 'available' && quote.amount_due != null && (
+                            <span>Reste à payer : <span className="text-[#F0D38A] font-semibold">{formatEuro(quote.amount_due)}</span></span>
+                          )}
+                        </div>
+                        {quote && quote.status !== 'available' && REPURCHASE_MESSAGES[quote.status] && (
+                          <p className="mt-3 rounded-lg border border-gray-600/50 bg-gray-800/60 px-3 py-2 text-xs sm:text-sm text-gray-300">
+                            {REPURCHASE_MESSAGES[quote.status]}
+                          </p>
+                        )}
+                      </>
+                    ) : (
+                      <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs sm:text-sm text-gray-400 mt-2">
+                        <span>Prix bloqué : <span className="text-white font-medium">{formatEuro(lock.locked_price)}</span></span>
+                        <span>Déjà payé : <span className="text-white font-medium">{formatEuro(lock.total_paid)}</span></span>
                         <span>Solde : <span className="text-[#F0D38A] font-semibold">{formatEuro(lock.remaining_amount)}</span></span>
-                      )}
-                    </div>
+                      </div>
+                    )}
                     {!isExpired && lock.balance_payment_mode === 'automatic' && !lock.auto_balance_payment_status && lock.auto_balance_payment_at && (
                       <p className="text-xs text-gray-400 mt-2">
                         Prélèvement automatique du solde prévu le {new Date(lock.auto_balance_payment_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
@@ -406,13 +440,15 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
                     )}
                   </div>
                   {isExpired ? (
-                    <button
-                      onClick={() => handlePayBalance(lock)}
-                      disabled={payingLockId === lock.id || newBalance == null || newBalance <= 0}
-                      className="w-full sm:w-auto px-5 py-2.5 bg-gradient-to-r from-[#D4AC5B] to-[#B8913D] text-gray-950 text-sm font-semibold rounded-lg hover:shadow-lg hover:shadow-[#D4AC5B]/30 transition-all disabled:opacity-50 whitespace-nowrap"
-                    >
-                      {payingLockId === lock.id ? 'Redirection...' : `Payer le nouveau solde — ${newBalance != null ? newBalance.toFixed(0) : '—'} €`}
-                    </button>
+                    quote?.status === 'available' && quote.amount_due != null && (
+                      <button
+                        onClick={() => handleRepurchase(lock, Number(quote.amount_due))}
+                        disabled={payingLockId === lock.id}
+                        className="w-full sm:w-auto px-5 py-2.5 bg-gradient-to-r from-[#D4AC5B] to-[#B8913D] text-gray-950 text-sm font-semibold rounded-lg hover:shadow-lg hover:shadow-[#D4AC5B]/30 transition-all disabled:opacity-50 whitespace-nowrap"
+                      >
+                        {payingLockId === lock.id ? 'Redirection...' : `Acheter au prix actuel — ${formatEuro(quote.amount_due)}`}
+                      </button>
+                    )
                   ) : (
                     <button
                       onClick={() => handlePayBalance(lock)}
@@ -423,6 +459,9 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
                     </button>
                   )}
                 </div>
+                {errorPay?.lockId === lock.id && (
+                  <p className="mt-3 text-xs sm:text-sm text-red-400">{errorPay.message}</p>
+                )}
               </div>
               );
             })}
