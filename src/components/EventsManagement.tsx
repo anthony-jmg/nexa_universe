@@ -5,6 +5,7 @@ import { ImageUpload } from './ImageUpload';
 import { Calendar, Plus, CreditCard as Edit2, Trash2, X, Check, AlertCircle, Ticket, BarChart3, Lock } from 'lucide-react';
 import { EventSalesStats } from './EventSalesStats';
 import { PriceLocksList } from './PriceLocksList';
+import { checkEventForPublication } from '../lib/eventPublishChecks';
 
 type Event = Database['public']['Tables']['events']['Row'];
 type TicketType = Database['public']['Tables']['ticket_types']['Row'];
@@ -120,6 +121,8 @@ export function EventsManagement() {
   const [locksEvent, setLocksEvent] = useState<EventWithTickets | null>(null);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  // Points à corriger avant publication (non bloquants en brouillon).
+  const [warnings, setWarnings] = useState<string[]>([]);
 
   const [eventForm, setEventForm] = useState<EventFormData>({
     title: '',
@@ -207,6 +210,7 @@ export function EventsManagement() {
   };
 
   const handleAddEvent = () => {
+    setWarnings([]);
     localStorage.removeItem('eventFormDraft');
     setEditingEvent(null);
     setEventForm({
@@ -233,6 +237,7 @@ export function EventsManagement() {
   };
 
   const handleEditEvent = (event: EventWithTickets) => {
+    setWarnings([]);
     localStorage.removeItem('eventFormDraft');
     setEditingEvent(event);
     setEventForm({
@@ -278,7 +283,9 @@ export function EventsManagement() {
   };
 
   const handleDeleteEvent = async (eventId: string) => {
-    if (!confirm('Êtes-vous sûr de vouloir supprimer cet événement ?')) return;
+    // La base refuse la suppression d'un événement ayant déjà des ventes,
+    // Price Locks ou réservations : il faut alors le dépublier.
+    if (!confirm('Supprimer définitivement cet événement ? Un événement qui a déjà des ventes, Price Locks ou réservations ne peut pas être supprimé : dépubliez-le à la place.')) return;
 
     try {
       const { error } = await supabase
@@ -388,15 +395,33 @@ export function EventsManagement() {
       return;
     }
 
+    // Cohérence du festival : bloquant à la publication, avertissements sinon.
+    const publishCheck = checkEventForPublication(
+      eventForm,
+      eventTicketTypes.map((ett) => ({
+        ...ett,
+        name: ticketTypes.find((tt) => tt.id === ett.ticket_type_id)?.name ?? 'sans type',
+      }))
+    );
+    if (eventForm.event_status === 'published') {
+      if (publishCheck.errors.length > 0) {
+        setWarnings([]);
+        setError(`Publication impossible : ${publishCheck.errors.join(' ')}`);
+        return;
+      }
+      if (publishCheck.warnings.length > 0 &&
+          !confirm(`${publishCheck.warnings.join('\n')}\n\nPublier quand même ?`)) {
+        return;
+      }
+      setWarnings([]);
+    } else {
+      setWarnings([...publishCheck.errors, ...publishCheck.warnings]);
+    }
+
     try {
       if (editingEvent) {
-        const { error: updateError } = await supabase
-          .from('events')
-          .update(eventForm)
-          .eq('id', editingEvent.id);
-
-        if (updateError) throw updateError;
-
+        // Passes retirés : supprimés en premier. Si la base refuse (ventes,
+        // Price Locks…), rien d'autre n'est enregistré.
         const submittedIds = eventTicketTypes.filter((t) => t.id).map((t) => t.id!);
         const removedIds = (editingEvent.event_ticket_types || [])
           .map((e) => e.id)
@@ -410,6 +435,13 @@ export function EventsManagement() {
 
           if (deleteError) throw deleteError;
         }
+
+        const { error: updateError } = await supabase
+          .from('events')
+          .update(eventForm)
+          .eq('id', editingEvent.id);
+
+        if (updateError) throw updateError;
 
         for (const ett of eventTicketTypes) {
           const payload = toTicketTypePayload(ett);
@@ -514,6 +546,18 @@ export function EventsManagement() {
         <div className="p-4 bg-red-900 bg-opacity-40 border border-red-600 border-opacity-40 rounded-lg text-red-300 flex items-center space-x-2">
           <AlertCircle className="w-5 h-5" />
           <span>{error}</span>
+        </div>
+      )}
+
+      {warnings.length > 0 && (
+        <div className="p-4 bg-amber-900 bg-opacity-30 border border-amber-600 border-opacity-40 rounded-lg text-amber-200 text-sm">
+          <p className="flex items-center space-x-2 font-medium mb-2">
+            <AlertCircle className="w-5 h-5" />
+            <span>À corriger avant publication :</span>
+          </p>
+          <ul className="list-disc ml-6 space-y-1">
+            {warnings.map((w) => <li key={w}>{w}</li>)}
+          </ul>
         </div>
       )}
 
