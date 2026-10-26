@@ -85,7 +85,7 @@ export function priceLockDeadline(ett: EttWithPricing): Date | null {
   const guaranteed = new Date(
     new Date(next.starts_at).getTime() + (ett.price_lock_guarantee_days ?? 30) * 86400000
   );
-  const saleEnd = ett.sales_end_date ? new Date(ett.sales_end_date) : null;
+  const saleEnd = ett.sale_end_date ? new Date(ett.sale_end_date) : null;
   if (saleEnd && saleEnd < guaranteed) return saleEnd;
   return guaranteed;
 }

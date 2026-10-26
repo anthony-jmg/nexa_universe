@@ -24,3 +24,12 @@ describe('URL du profil Academy Discovery', () => {
     expect(buildAppPath('landing')).toBe('/');
   });
 });
+
+describe('Pages légales', () => {
+  it('CGV et politique de remboursement ont une URL directe', () => {
+    expect(buildAppPath('terms')).toBe('/terms');
+    expect(parseAppPath('/terms')).toEqual({ page: 'terms' });
+    expect(buildAppPath('refund-policy')).toBe('/refund-policy');
+    expect(parseAppPath('/refund-policy')).toEqual({ page: 'refund-policy' });
+  });
+});

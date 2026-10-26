@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import {
-  Sparkles, ArrowRight, MapPin, Calendar, Users, Lock,
+  ArrowRight, MapPin, Calendar, Lock,
   GraduationCap, ChevronLeft, ChevronRight,
   Ticket, Heart, CheckCircle, ChevronDown,
   Music, Compass
@@ -9,7 +9,7 @@ import { BackgroundDecor } from '../components/BackgroundDecor';
 import { useLanguage } from '../contexts/LanguageContext';
 import { supabase } from '../lib/supabase';
 import { Database } from '../lib/database.types';
-import { currentPrice, nextPrice, nextPriceChangeAt, priceLockAvailable, minEventPrice, minNextEventPrice, EttWithPricing } from '../lib/tierPricing';
+import { priceLockAvailable, minEventPrice, minNextEventPrice, EttWithPricing } from '../lib/tierPricing';
 interface LandingProps {
   onNavigate: (page: string, eventId?: string) => void;
 }
@@ -281,7 +281,6 @@ export function Landing({ onNavigate }: LandingProps) {
           const activeTickets = (event.event_ticket_types || []).filter(tt => tt.is_active);
           if (activeTickets.length === 0) return null;
 
-          const firstActive = activeTickets[0];
           const lockAvailable = activeTickets.some(tt => priceLockAvailable(tt as EttWithPricing));
           const lockAmount = lockAvailable
             ? Math.min(...activeTickets
@@ -692,7 +691,9 @@ export function Landing({ onNavigate }: LandingProps) {
             <div className="flex flex-wrap items-center justify-center gap-x-4 sm:gap-x-5 gap-y-2 mb-8 sm:mb-9">
               <span className="text-[11px] sm:text-xs text-gray-600 hover:text-gray-500 transition-colors cursor-default">Mentions légales</span>
               <span className="text-gray-800">·</span>
-              <span className="text-[11px] sm:text-xs text-gray-600 hover:text-gray-500 transition-colors cursor-default">CGV</span>
+              <button onClick={() => onNavigate('terms')} className="text-[11px] sm:text-xs text-gray-600 hover:text-gray-500 transition-colors">CGV</button>
+              <span className="text-gray-800">·</span>
+              <button onClick={() => onNavigate('refund-policy')} className="text-[11px] sm:text-xs text-gray-600 hover:text-gray-500 transition-colors">Remboursement</button>
               <span className="text-gray-800">·</span>
               <span className="text-[11px] sm:text-xs text-gray-600 hover:text-gray-500 transition-colors cursor-default">Confidentialité</span>
             </div>
