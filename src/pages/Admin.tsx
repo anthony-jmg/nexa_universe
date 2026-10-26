@@ -11,6 +11,7 @@ import { TicketTypesManagement } from '../components/TicketTypesManagement';
 import ProfessorPayments from '../components/ProfessorPayments';
 import { getPresentationVideoUrlError } from '../lib/videoUrl';
 import { isValidHttpUrl } from '../lib/academyDiscovery';
+import { ProfessorDraft, isProfessorDraftDirty } from '../lib/professorDraft';
 import { Database } from '../lib/database.types';
 import { Video, Users, Plus, CreditCard as Edit2, Trash2, X, Check, AlertCircle, ShoppingBag, Package, Search, Filter, Tag, Calendar, Ticket, DollarSign, GraduationCap, Globe } from 'lucide-react';
 
@@ -87,6 +88,20 @@ export function Admin({ onNavigate }: AdminProps) {
   const [videos, setVideos] = useState<Video[]>([]);
   const [users, setUsers] = useState<Profile[]>([]);
   const [professors, setProfessors] = useState<Professor[]>([]);
+  // Brouillon « Ajouter un professeur » : gardé ici pour survivre aux
+  // changements d'onglet (l'onglet Professeurs est démonté).
+  const [professorDraft, setProfessorDraft] = useState<ProfessorDraft | null>(null);
+  const hasUnsavedProfessorDraft = isProfessorDraftDirty(professorDraft);
+
+  useEffect(() => {
+    if (!hasUnsavedProfessorDraft) return;
+    const warn = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = '';
+    };
+    window.addEventListener('beforeunload', warn);
+    return () => window.removeEventListener('beforeunload', warn);
+  }, [hasUnsavedProfessorDraft]);
   const [products, setProducts] = useState<Product[]>([]);
   const [productTypes, setProductTypes] = useState<ProductType[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
@@ -1616,7 +1631,14 @@ export function Admin({ onNavigate }: AdminProps) {
         ) : activeTab === 'professor-requests' ? (
           <ProfessorRequestsSection onCountChange={setPendingProfessorRequestsCount} />
         ) : activeTab === 'professors' ? (
-          <ProfessorDiscoveryManagement professors={professors} onRefresh={loadProfessors} setError={setError} setSuccess={setSuccess} />
+          <ProfessorDiscoveryManagement
+            professors={professors}
+            onRefresh={loadProfessors}
+            setError={setError}
+            setSuccess={setSuccess}
+            createDraft={professorDraft}
+            onCreateDraftChange={setProfessorDraft}
+          />
         ) : null}
       </div>
     </div>
@@ -1837,24 +1859,30 @@ export function ProfessorDiscoveryManagement({
   onRefresh,
   setError,
   setSuccess,
+  createDraft,
+  onCreateDraftChange,
 }: {
   professors: Professor[];
   onRefresh: () => Promise<void>;
   setError: (msg: string) => void;
   setSuccess: (msg: string) => void;
+  createDraft: ProfessorDraft | null;
+  onCreateDraftChange: (draft: ProfessorDraft | null) => void;
 }) {
   // 'new' = création d'une fiche ; sinon id de la fiche en cours d'édition.
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [fullName, setFullName] = useState('');
-  const [avatarUrl, setAvatarUrl] = useState('');
-  const [websiteUrl, setWebsiteUrl] = useState('');
-  const [coverImage, setCoverImage] = useState('');
-  const [bio, setBio] = useState('');
-  const [specialties, setSpecialties] = useState<string[]>([]);
+  // Un brouillon de création existant rouvre le formulaire au retour sur l'onglet.
+  const [editingId, setEditingId] = useState<string | null>(createDraft ? 'new' : null);
+  const [fullName, setFullName] = useState(createDraft?.full_name ?? '');
+  const [avatarUrl, setAvatarUrl] = useState(createDraft?.avatar_url ?? '');
+  const [websiteUrl, setWebsiteUrl] = useState(createDraft?.website_url ?? '');
+  const [coverImage, setCoverImage] = useState(createDraft?.website_cover_image ?? '');
+  const [bio, setBio] = useState(createDraft?.bio ?? '');
+  const [specialties, setSpecialties] = useState<string[]>(createDraft?.specialties ?? []);
   const [newSpecialty, setNewSpecialty] = useState('');
-  const [experienceYears, setExperienceYears] = useState(0);
-  const [videoUrls, setVideoUrls] = useState<string[]>([]);
-  const [isFeatured, setIsFeatured] = useState(false);
+  const [experienceYears, setExperienceYears] = useState(createDraft?.experience_years ?? 0);
+  const [videoUrls, setVideoUrls] = useState<string[]>(createDraft?.profile_video_urls ?? []);
+  const [isFeatured, setIsFeatured] = useState(createDraft?.is_featured ?? false);
+  const [isActive, setIsActive] = useState(createDraft?.is_active ?? true);
   const [saving, setSaving] = useState(false);
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const [clickStats, setClickStats] = useState<Record<string, { profile: number; website: number }>>({});
@@ -1877,6 +1905,24 @@ export function ProfessorDiscoveryManagement({
     });
   }, []);
 
+  useEffect(() => {
+    if (editingId !== 'new') return;
+    onCreateDraftChange({
+      full_name: fullName,
+      avatar_url: avatarUrl,
+      bio,
+      specialties,
+      experience_years: experienceYears,
+      website_url: websiteUrl,
+      website_cover_image: coverImage,
+      profile_video_urls: videoUrls,
+      is_featured: isFeatured,
+      is_active: isActive,
+    });
+    // onCreateDraftChange : setter stable du parent
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editingId, fullName, avatarUrl, bio, specialties, experienceYears, websiteUrl, coverImage, videoUrls, isFeatured, isActive]);
+
   const displayName = (prof: Professor) => prof.full_name || prof.profiles?.full_name || 'Professeur';
 
   const resetForm = () => {
@@ -1890,11 +1936,45 @@ export function ProfessorDiscoveryManagement({
     setExperienceYears(0);
     setVideoUrls([]);
     setIsFeatured(false);
+    setIsActive(true);
+  };
+
+  const loadDraft = (draft: ProfessorDraft) => {
+    setFullName(draft.full_name);
+    setAvatarUrl(draft.avatar_url);
+    setWebsiteUrl(draft.website_url);
+    setCoverImage(draft.website_cover_image);
+    setBio(draft.bio);
+    setSpecialties(draft.specialties);
+    setNewSpecialty('');
+    setExperienceYears(draft.experience_years);
+    setVideoUrls(draft.profile_video_urls);
+    setIsFeatured(draft.is_featured);
+    setIsActive(draft.is_active);
   };
 
   const startCreate = () => {
-    resetForm();
+    // Reprend le brouillon en cours s'il existe (ex. après modification d'une autre fiche)
+    if (createDraft) loadDraft(createDraft);
+    else resetForm();
     setEditingId('new');
+  };
+
+  // Fin d'édition d'une fiche existante : le brouillon de création éventuel est rouvert.
+  const closeEdit = () => {
+    if (createDraft) {
+      loadDraft(createDraft);
+      setEditingId('new');
+    } else {
+      setEditingId(null);
+      resetForm();
+    }
+  };
+
+  const discardDraft = () => {
+    onCreateDraftChange(null);
+    setEditingId(null);
+    resetForm();
   };
 
   const startEdit = (prof: Professor) => {
@@ -1912,8 +1992,14 @@ export function ProfessorDiscoveryManagement({
   };
 
   const cancelEdit = () => {
-    setEditingId(null);
-    resetForm();
+    if (editingId !== 'new') {
+      closeEdit();
+      return;
+    }
+    if (isProfessorDraftDirty(createDraft) && !window.confirm('Abandonner la création de ce professeur ? Les informations saisies seront perdues.')) {
+      return;
+    }
+    discardDraft();
   };
 
   const addSpecialty = () => {
@@ -1982,7 +2068,7 @@ export function ProfessorDiscoveryManagement({
     setSaving(true);
     // Fiche Discovery : aucun compte utilisateur créé (profile_id reste vide).
     const { error } = editingId === 'new'
-      ? await supabase.from('professors').insert(payload)
+      ? await supabase.from('professors').insert({ ...payload, is_active: isActive })
       : await supabase.from('professors').update(payload).eq('id', editingId);
     setSaving(false);
 
@@ -1993,7 +2079,8 @@ export function ProfessorDiscoveryManagement({
 
     setSuccess(editingId === 'new' ? 'Professeur ajouté' : 'Professeur mis à jour');
     setTimeout(() => setSuccess(''), 3000);
-    cancelEdit();
+    if (editingId === 'new') discardDraft();
+    else closeEdit();
     await onRefresh();
   };
 
