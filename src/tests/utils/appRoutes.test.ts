@@ -33,3 +33,12 @@ describe('Pages légales', () => {
     expect(parseAppPath('/refund-policy')).toEqual({ page: 'refund-policy' });
   });
 });
+
+describe('Mentions légales et confidentialité', () => {
+  it('ont une URL directe', () => {
+    expect(buildAppPath('legal-notice')).toBe('/legal-notice');
+    expect(parseAppPath('/legal-notice')).toEqual({ page: 'legal-notice' });
+    expect(buildAppPath('privacy')).toBe('/privacy');
+    expect(parseAppPath('/privacy')).toEqual({ page: 'privacy' });
+  });
+});

@@ -689,13 +689,13 @@ export function Landing({ onNavigate }: LandingProps) {
             </nav>
 
             <div className="flex flex-wrap items-center justify-center gap-x-4 sm:gap-x-5 gap-y-2 mb-8 sm:mb-9">
-              <span className="text-[11px] sm:text-xs text-gray-600 hover:text-gray-500 transition-colors cursor-default">Mentions légales</span>
+              <button onClick={() => onNavigate('legal-notice')} className="text-[11px] sm:text-xs text-gray-600 hover:text-gray-500 transition-colors">Mentions légales</button>
               <span className="text-gray-800">·</span>
               <button onClick={() => onNavigate('terms')} className="text-[11px] sm:text-xs text-gray-600 hover:text-gray-500 transition-colors">CGV</button>
               <span className="text-gray-800">·</span>
               <button onClick={() => onNavigate('refund-policy')} className="text-[11px] sm:text-xs text-gray-600 hover:text-gray-500 transition-colors">Remboursement</button>
               <span className="text-gray-800">·</span>
-              <span className="text-[11px] sm:text-xs text-gray-600 hover:text-gray-500 transition-colors cursor-default">Confidentialité</span>
+              <button onClick={() => onNavigate('privacy')} className="text-[11px] sm:text-xs text-gray-600 hover:text-gray-500 transition-colors">Confidentialité</button>
             </div>
 
             <p className="text-[11px] sm:text-xs text-gray-600 font-light">

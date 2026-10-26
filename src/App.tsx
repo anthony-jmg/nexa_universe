@@ -37,6 +37,8 @@ const EventTicketPurchasePage = lazy(() => import('./pages/EventTicketPurchasePa
 const NotificationsPage = lazy(() => import('./pages/Notifications'));
 const TermsAndConditions = lazy(() => import('./pages/TermsAndConditions'));
 const RefundPolicy = lazy(() => import('./pages/RefundPolicy'));
+const LegalNotice = lazy(() => import('./pages/LegalNotice'));
+const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy'));
 const NotFound = lazy(() => import('./pages/NotFound').then(m => ({ default: m.NotFound })));
 
 function AppContent() {
@@ -297,6 +299,10 @@ function AppContent() {
         return <TermsAndConditions onNavigate={handleNavigate} />;
       case 'refund-policy':
         return <RefundPolicy onNavigate={handleNavigate} />;
+      case 'legal-notice':
+        return <LegalNotice onNavigate={handleNavigate} />;
+      case 'privacy':
+        return <PrivacyPolicy onNavigate={handleNavigate} />;
       default:
         return <NotFound onNavigate={handleNavigate} />;
     }

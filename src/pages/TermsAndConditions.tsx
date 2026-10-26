@@ -1,198 +1,247 @@
-import { ArrowLeft } from 'lucide-react';
-import { BackgroundDecor } from '../components/BackgroundDecor';
+import { LegalPage, LegalSection, LegalList, LegalCallout, ToComplete } from '../components/LegalPage';
 
 interface TermsAndConditionsProps {
   onNavigate: (page: string) => void;
 }
 
+// Texte aligné sur le modèle actuel (Nexa Pass, Price Lock, Academy Discovery).
+// Les passages marqués « À VALIDER (juriste) » doivent être relus par un
+// professionnel du droit avant mise en production définitive.
 export default function TermsAndConditions({ onNavigate }: TermsAndConditionsProps) {
+  const link = (page: string, label: string) => (
+    <button onClick={() => onNavigate(page)} className="text-[#D4AC5B] hover:underline">{label}</button>
+  );
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900 text-white">
-      <BackgroundDecor />
+    <LegalPage title="Conditions générales de vente et d’utilisation" onNavigate={onNavigate}>
+      <LegalSection title="1. Objet">
+        <p>
+          Les présentes conditions générales (les « Conditions ») régissent l’utilisation du site Nexa Universe
+          (le « Site ») et la vente des pass de festivals proposés par Nexa. Toute commande implique l’acceptation
+          sans réserve des présentes Conditions dans leur version en vigueur au jour de la commande.
+        </p>
+        <p>Le Site propose :</p>
+        <LegalList
+          items={[
+            <><strong className="text-white">Nexa Pass</strong> : la réservation et l’achat de pass pour des festivals de danse, au comptant ou via le Price Lock ;</>,
+            <><strong className="text-white">Nexa Academy</strong> : un annuaire permettant de découvrir des professeurs de danse et d’accéder à leur site externe.</>,
+          ]}
+        />
+        <p>
+          Nexa ne vend actuellement aucun abonnement, aucune formation ni aucune vidéo payante dans la Nexa Academy.
+        </p>
+      </LegalSection>
 
-      <div className="relative z-10 max-w-4xl mx-auto px-4 py-12">
-        <button
-          onClick={() => onNavigate('landing')}
-          className="flex items-center space-x-2 text-gray-400 hover:text-white transition-colors mb-8"
-        >
-          <ArrowLeft className="w-5 h-5" />
-          <span>Back to Home</span>
-        </button>
+      <LegalSection title="2. Éditeur du Site">
+        <p>
+          Le Site est édité par <ToComplete label="nom ou raison sociale" />, <ToComplete label="statut juridique" />,
+          dont le siège est situé <ToComplete label="adresse" />, immatriculé sous le numéro <ToComplete label="SIREN / SIRET" />.
+          Les informations complètes figurent dans les {link('legal-notice', 'mentions légales')}.
+        </p>
+      </LegalSection>
 
-        <div className="bg-gray-800/50 backdrop-blur-sm rounded-2xl p-8 border border-[#B8913D]/30">
-          <h1 className="text-4xl font-bold mb-2 bg-gradient-to-r from-[#D4AC5B] to-[#B8913D] bg-clip-text text-transparent">
-            Terms and Conditions
-          </h1>
-          <p className="text-gray-400 mb-8">Last updated: {new Date().toLocaleDateString()}</p>
+      <LegalSection title="3. Compte utilisateur">
+        <p>
+          La commande d’un pass et la création d’un Price Lock nécessitent un compte. L’utilisateur s’engage à fournir
+          des informations exactes et à jour, à préserver la confidentialité de ses identifiants et reste responsable
+          des actions effectuées depuis son compte. Il prévient Nexa sans délai en cas d’utilisation non autorisée.
+        </p>
+      </LegalSection>
 
-          <div className="space-y-8 text-gray-300">
-            <section>
-              <h2 className="text-2xl font-semibold text-white mb-4">1. Introduction</h2>
-              <p className="mb-4">
-                Welcome to our Kizomba learning platform. By accessing and using our services, you agree to be bound by these Terms and Conditions. Please read them carefully.
-              </p>
-              <p>
-                These terms govern your use of our website, subscription services, and all content, features, and products we offer.
-              </p>
-            </section>
+      <LegalSection title="4. Commande d’un pass">
+        <p>
+          L’utilisateur choisit le festival, le type de pass et la quantité, renseigne les informations des participants,
+          puis choisit entre l’achat comptant et le Price Lock lorsque celui-ci est proposé pour ce pass.
+          La commande est définitive après confirmation du paiement par le prestataire de paiement.
+        </p>
+        <p>
+          Avant le paiement, un récapitulatif indique le pass choisi, le prix et, pour un Price Lock, le montant du
+          premier versement, le solde restant et la date limite de paiement du solde.
+        </p>
+      </LegalSection>
 
-            <section>
-              <h2 className="text-2xl font-semibold text-white mb-4">2. Services Description</h2>
-              <p className="mb-4">We offer the following services:</p>
-              <ul className="list-disc list-inside space-y-2 ml-4">
-                <li>Individual professor subscriptions</li>
-                <li>Single video purchases</li>
-                <li>Complete program purchases</li>
-                <li>Event tickets and merchandise</li>
-              </ul>
-            </section>
+      <LegalSection title="5. Prix">
+        <p>
+          Les prix sont indiqués en euros, toutes taxes comprises <ToComplete label="mention TVA applicable (TTC, TVA non applicable art. 293 B du CGI, etc.)" />.
+          Le prix d’un pass peut évoluer par paliers successifs. Le prix applicable est celui affiché et confirmé au
+          moment du paiement, sauf tarif bloqué par un Price Lock actif dans les conditions de l’article 7.
+        </p>
+      </LegalSection>
 
-            <section>
-              <h2 className="text-2xl font-semibold text-white mb-4">3. Account Registration</h2>
-              <p className="mb-4">
-                To access certain features of our platform, you must create an account. You agree to:
-              </p>
-              <ul className="list-disc list-inside space-y-2 ml-4">
-                <li>Provide accurate, current, and complete information</li>
-                <li>Maintain the security of your password</li>
-                <li>Accept all responsibility for activities under your account</li>
-                <li>Notify us immediately of any unauthorized use</li>
-              </ul>
-            </section>
+      <LegalSection title="6. Paiement">
+        <p>
+          Les paiements sont traités par <strong className="text-white">Stripe</strong>, prestataire de paiement sécurisé.
+          Nexa ne collecte ni ne conserve les numéros de carte bancaire, qui sont saisis et conservés exclusivement chez Stripe.
+        </p>
+        <p>
+          Une commande non payée dans le délai indiqué lors du paiement est automatiquement annulée et les places
+          provisoirement réservées sont libérées.
+        </p>
+      </LegalSection>
 
-            <section>
-              <h2 className="text-2xl font-semibold text-white mb-4">4. Subscriptions</h2>
-              <p className="mb-4">
-                Our subscription services are billed on a recurring monthly basis. By subscribing, you agree to:
-              </p>
-              <ul className="list-disc list-inside space-y-2 ml-4">
-                <li>Automatic renewal until you cancel</li>
-                <li>Charges to your payment method on each billing cycle</li>
-                <li>Subscription prices may change with 30 days notice</li>
-                <li>Existing subscribers maintain their current price (grandfathering)</li>
-              </ul>
-            </section>
+      <LegalSection title="7. Price Lock">
+        {/* À VALIDER (juriste) : qualification juridique du premier versement (ni « arrhes » ni « acompte » au sens
+            du Code de la consommation dans ce texte) et caractère non remboursable. */}
+        <p>
+          Le Price Lock permet de bloquer le prix actuel d’un pass en effectuant un premier versement, puis de régler
+          le solde plus tard, avant une date limite.
+        </p>
+        <h3 className="text-lg font-semibold text-white">7.1 Premier versement</h3>
+        <LegalList
+          items={[
+            'Le montant minimum du premier versement est fixé par Nexa pour chaque pass et affiché avant le paiement.',
+            'L’utilisateur peut choisir de verser davantage que ce minimum, dans la limite affichée (le versement doit rester inférieur au prix bloqué).',
+            <><strong className="text-white">Le premier versement n’est pas remboursable</strong>, sauf disposition légale impérative contraire ou geste commercial décidé par Nexa au cas par cas.</>,
+          ]}
+        />
+        <h3 className="text-lg font-semibold text-white">7.2 Effets du Price Lock</h3>
+        <p>
+          Tant qu’il est actif, le Price Lock garantit le prix bloqué et réserve une place pour le pass concerné.
+          Il ne donne pas accès au festival : l’accès suppose le paiement intégral du solde avant la date limite.
+        </p>
+        <h3 className="text-lg font-semibold text-white">7.3 Paiement du solde</h3>
+        <LegalList
+          items={[
+            'Le solde correspond au prix bloqué diminué des sommes déjà versées. Il est payé en une seule fois, avant la date limite indiquée lors de la création du Price Lock et dans l’espace « Mes Pass ».',
+            'Le solde peut être payé manuellement depuis l’espace « Mes Pass ».',
+            'Il peut aussi être prélevé automatiquement, uniquement si l’utilisateur a choisi cette option et donné son consentement exprès en cochant la case prévue à cet effet. Il autorise alors Nexa, via Stripe, à débiter le moyen de paiement enregistré du montant du solde à la date indiquée.',
+            'Si le solde est réglé manuellement avant la date prévue, aucun autre débit n’est effectué.',
+            'Si le prélèvement automatique échoue, l’utilisateur en est informé dans « Mes Pass » et peut régler le solde manuellement jusqu’à la date limite. Nexa ne garantit pas de nouvelle tentative de prélèvement.',
+          ]}
+        />
+        {/* À VALIDER (juriste) : modalités de retrait du consentement au prélèvement automatique (aucune option dans l’interface à ce jour). */}
+        <p>
+          Pour toute question relative au prélèvement automatique, l’utilisateur peut contacter Nexa avant la date de
+          prélèvement à l’adresse indiquée à l’article 16.
+        </p>
+        <h3 className="text-lg font-semibold text-white">7.4 Date limite et expiration</h3>
+        <p>
+          La date limite est calculée par Nexa et ne peut pas dépasser la fin des ventes du pass. Si le solde n’est pas
+          intégralement payé à cette date, le Price Lock expire :
+        </p>
+        <LegalList
+          items={[
+            'le premier versement n’est pas remboursé ;',
+            'le prix bloqué est perdu et la place réservée est libérée ;',
+            'pour participer au festival, l’utilisateur doit acheter un nouveau pass au tarif public en vigueur, sous réserve de places disponibles.',
+          ]}
+        />
+      </LegalSection>
 
-            <section>
-              <h2 className="text-2xl font-semibold text-white mb-4">5. Right of Withdrawal (EU)</h2>
-              <div className="bg-blue-900/20 border border-blue-500/30 rounded-lg p-4 mb-4">
-                <p className="font-semibold mb-2">14-Day Withdrawal Period</p>
-                <p>
-                  In accordance with EU Directive 2011/83/EU, you have the right to withdraw from your subscription within 14 days of purchase without giving a reason and receive a full refund, provided you have not used any subscription benefits.
-                </p>
-              </div>
-              <p className="mb-4">
-                To exercise your right of withdrawal, you must inform us of your decision through your account settings or by contacting our support team.
-              </p>
-              <p className="mb-4">
-                <strong>Important:</strong> If you use any subscription benefits during the withdrawal period (such as subscriber discounts on purchases), you automatically waive your right to withdraw and will not be eligible for a refund. This is in accordance with EU Directive 2011/83/EU Article 16(m).
-              </p>
-            </section>
+      <LegalSection title="8. Disponibilité">
+        <p>
+          Les pass sont proposés dans la limite des places disponibles et pendant la période de vente fixée pour chaque pass.
+          Une place n’est réservée qu’après confirmation du paiement (achat comptant ou premier versement d’un Price Lock).
+        </p>
+      </LegalSection>
 
-            <section>
-              <h2 className="text-2xl font-semibold text-white mb-4">6. Cancellation Policy</h2>
-              <p className="mb-4">
-                You may cancel your subscription at any time through your account settings. When you cancel:
-              </p>
-              <ul className="list-disc list-inside space-y-2 ml-4">
-                <li>Your subscription remains active until the end of the current billing period</li>
-                <li>You will not be charged for subsequent periods</li>
-                <li>You retain access to content until the expiration date</li>
-                <li>After 14 days from purchase, refunds are not provided but access continues until period end</li>
-                <li>If you used subscription benefits during the withdrawal period, no refund is available</li>
-              </ul>
-            </section>
+      <LegalSection title="9. Billet officiel">
+        <p>
+          Nexa gère la réservation, le paiement et le suivi du pass dans l’espace « Mes Pass ». Le billet officiel
+          permettant l’accès au festival est émis par l’organisateur, via Weezevent ou le système de billetterie qu’il utilise.
+          Seul ce billet officiel fait foi pour l’accès au festival ; aucun autre document fourni par Nexa ne vaut billet.
+        </p>
+        <p>
+          Le billet officiel est émis une fois le pass intégralement payé, dans un délai qui dépend de l’organisateur et
+          de son partenaire de billetterie. L’accès au festival est soumis aux conditions de l’organisateur.
+        </p>
+      </LegalSection>
 
-            <section>
-              <h2 className="text-2xl font-semibold text-white mb-4">7. Payment Failures</h2>
-              <p className="mb-4">
-                If a payment fails, we will:
-              </p>
-              <ul className="list-disc list-inside space-y-2 ml-4">
-                <li>Notify you by email</li>
-                <li>Provide a 7-day grace period to update payment information</li>
-                <li>Retry the payment during the grace period</li>
-                <li>Suspend access if payment is not successful within the grace period</li>
-              </ul>
-            </section>
+      <LegalSection title="10. Droit de rétractation">
+        {/* À VALIDER (juriste) : application de l’exception aux pass et au premier versement Price Lock. */}
+        <p>
+          Conformément à l’article L221-28, 12° du Code de la consommation, le droit de rétractation ne s’applique pas
+          aux prestations de services d’activités de loisirs devant être fournies à une date ou une période déterminée,
+          ce qui est le cas des pass de festivals.
+        </p>
+      </LegalSection>
 
-            <section>
-              <h2 className="text-2xl font-semibold text-white mb-4">8. Content License</h2>
-              <p className="mb-4">
-                When you purchase or subscribe to content:
-              </p>
-              <ul className="list-disc list-inside space-y-2 ml-4">
-                <li>You receive a non-exclusive, non-transferable license to access the content</li>
-                <li>Content may not be downloaded, copied, or redistributed</li>
-                <li>Sharing of account credentials is prohibited</li>
-                <li>We reserve the right to revoke access for violations</li>
-              </ul>
-            </section>
+      <LegalSection title="11. Annulation ou modification d’un festival">
+        {/* À VALIDER (juriste) : responsabilités respectives de Nexa et de l’organisateur. */}
+        <p>
+          Les festivals sont organisés par des organisateurs tiers. En cas d’annulation, de report ou de modification
+          d’un festival, les conséquences (remboursement, report, échange) dépendent des conditions de l’organisateur,
+          de son partenaire de billetterie, des conditions particulières du festival et de la réglementation applicable.
+          Voir la {link('refund-policy', 'politique de remboursement')}.
+        </p>
+      </LegalSection>
 
-            <section>
-              <h2 className="text-2xl font-semibold text-white mb-4">9. Intellectual Property</h2>
-              <p className="mb-4">
-                All content on the platform, including videos, programs, text, graphics, logos, and software, is protected by intellectual property rights and belongs to us or our content creators (professors).
-              </p>
-            </section>
+      <LegalSection title="12. Nexa Academy et sites externes">
+        <p>
+          La Nexa Academy référence des professeurs de danse et peut fournir des liens vers leurs sites externes et vers
+          des vidéos hébergées par des plateformes tierces (YouTube, Instagram). Les professeurs référencés sont
+          indépendants : ils ne sont ni salariés ni prestataires de Nexa.
+        </p>
+        <p>Nexa n’est pas responsable :</p>
+        <LegalList
+          items={[
+            'du contenu des sites externes ;',
+            'des offres, cours et prestations proposés par les professeurs ;',
+            'des paiements effectués sur ces sites ;',
+            'des conditions commerciales des professeurs ;',
+            'de leurs disponibilités.',
+          ]}
+        />
+        <p>Toute relation entre un utilisateur et un professeur s’établit directement entre eux.</p>
+      </LegalSection>
 
-            <section>
-              <h2 className="text-2xl font-semibold text-white mb-4">10. Prohibited Activities</h2>
-              <p className="mb-4">You may not:</p>
-              <ul className="list-disc list-inside space-y-2 ml-4">
-                <li>Use the platform for any illegal purpose</li>
-                <li>Attempt to access unauthorized areas</li>
-                <li>Interfere with the platform's operation</li>
-                <li>Upload malicious code or viruses</li>
-                <li>Harass other users or professors</li>
-                <li>Impersonate another person or entity</li>
-                <li>Abuse the refund system by repeatedly subscribing, using benefits, and requesting refunds</li>
-              </ul>
-            </section>
+      <LegalSection title="13. Responsabilité">
+        {/* À VALIDER (juriste) : clause limitative, à confronter aux règles d’ordre public de la consommation. */}
+        <p>
+          Nexa s’efforce d’assurer l’accès au Site et l’exactitude des informations publiées, sans garantir une
+          disponibilité continue. Les informations relatives aux festivals (programme, artistes, horaires, lieu) sont
+          fournies par les organisateurs. Dans les limites autorisées par la loi, Nexa n’est pas responsable des
+          dommages indirects ni des manquements imputables à l’organisateur, au partenaire de billetterie ou à
+          un professeur référencé. Ces limitations ne s’appliquent pas en cas de faute lourde ou intentionnelle,
+          ni aux dommages corporels.
+        </p>
+      </LegalSection>
 
-            <section>
-              <h2 className="text-2xl font-semibold text-white mb-4">11. Anti-Abuse Measures</h2>
-              <p className="mb-4">
-                To prevent abuse of our refund policy:
-              </p>
-              <ul className="list-disc list-inside space-y-2 ml-4">
-                <li>Using subscription benefits automatically waives the withdrawal right</li>
-                <li>We track and monitor refund patterns</li>
-                <li>Accounts showing abuse patterns may be suspended or terminated</li>
-                <li>We reserve the right to refuse service to users who abuse our policies</li>
-              </ul>
-            </section>
+      <LegalSection title="14. Propriété intellectuelle">
+        <p>
+          La marque Nexa, les logos, textes, visuels et éléments du Site sont protégés. Toute reproduction ou
+          réutilisation sans autorisation est interdite. Les contenus des professeurs (photos, biographies, vidéos)
+          restent la propriété de leurs auteurs.
+        </p>
+      </LegalSection>
 
-            <section>
-              <h2 className="text-2xl font-semibold text-white mb-4">12. Limitation of Liability</h2>
-              <p className="mb-4">
-                To the maximum extent permitted by law, we shall not be liable for any indirect, incidental, special, consequential, or punitive damages resulting from your use of or inability to use the service.
-              </p>
-            </section>
+      <LegalSection title="15. Suspension de compte">
+        <p>
+          Nexa peut suspendre ou fermer un compte en cas de fraude, d’usage abusif, de contestation de paiement
+          injustifiée, d’atteinte au fonctionnement du Site ou de manquement grave aux présentes Conditions.
+          Les sommes dues restent exigibles. L’utilisateur en est informé, sauf obligation légale contraire.
+        </p>
+      </LegalSection>
 
-            <section>
-              <h2 className="text-2xl font-semibold text-white mb-4">13. Governing Law</h2>
-              <p>
-                These Terms shall be governed by and construed in accordance with the laws of the European Union and the laws of the country where our company is registered.
-              </p>
-            </section>
+      <LegalSection title="16. Contact et réclamations">
+        <p>
+          Pour toute question ou réclamation : <ToComplete label="adresse e-mail de contact" />.
+        </p>
+        {/* À VALIDER (juriste) : désignation obligatoire d’un médiateur de la consommation (art. L612-1 C. conso). */}
+        <p>
+          En cas de litige non résolu, le consommateur peut recourir gratuitement au médiateur de la consommation :
+          {' '}<ToComplete label="nom et coordonnées du médiateur de la consommation" />.
+        </p>
+      </LegalSection>
 
-            <section>
-              <h2 className="text-2xl font-semibold text-white mb-4">14. Changes to Terms</h2>
-              <p className="mb-4">
-                We reserve the right to modify these Terms at any time. We will notify you of significant changes via email or through the platform. Your continued use after changes constitutes acceptance.
-              </p>
-            </section>
+      <LegalSection title="17. Droit applicable">
+        <p>
+          Les présentes Conditions sont soumises au droit français. À défaut de résolution amiable, le litige est porté
+          devant les juridictions compétentes, sans préjudice des règles protectrices dont bénéficie le consommateur.
+        </p>
+      </LegalSection>
 
-            <section>
-              <h2 className="text-2xl font-semibold text-white mb-4">15. Contact Information</h2>
-              <p>
-                If you have questions about these Terms and Conditions, please contact us through the platform's support system or at the contact information provided on our website.
-              </p>
-            </section>
-          </div>
-        </div>
-      </div>
-    </div>
+      <LegalSection title="18. Modification des Conditions">
+        <p>
+          Nexa peut modifier les présentes Conditions. La version applicable est celle en vigueur à la date de la commande.
+        </p>
+      </LegalSection>
+
+      <LegalCallout>
+        <p className="text-sm text-gray-400">
+          Voir aussi : {link('refund-policy', 'politique de remboursement')} · {link('privacy', 'politique de confidentialité')}.
+        </p>
+      </LegalCallout>
+    </LegalPage>
   );
 }
