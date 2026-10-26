@@ -190,31 +190,40 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
   const loadTickets = async () => {
     if (!user) return;
 
-    const { data, error } = await supabase
-      .from('event_attendees')
-      .select(`
-        *,
-        event_ticket_types (
-          id,
-          price,
-          ticket_types (name)
-        ),
-        events (
-          id,
-          title,
-          location,
-          start_date,
-          end_date,
-          thumbnail_url
-        )
-      `)
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false });
+    const [{ data, error }, { data: hiddenIds }] = await Promise.all([
+      supabase
+        .from('event_attendees')
+        .select(`
+          *,
+          event_ticket_types (
+            id,
+            price,
+            ticket_types (name)
+          ),
+          events (
+            id,
+            title,
+            location,
+            start_date,
+            end_date,
+            thumbnail_url
+          )
+        `)
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false }),
+      // Réservations annulées à l'expiration d'un Price Lock : remplacées par
+      // le rachat ou sans valeur pour le client. Masquées ici uniquement
+      // (données conservées, visibles côté admin). En cas d'erreur : rien masqué.
+      supabase.rpc('get_my_expired_price_lock_reservation_ids'),
+    ]);
 
     if (!error && data) {
+      const hidden = new Set((hiddenIds as string[] | null) ?? []);
       // Événement dépublié (brouillon) : masqué par RLS, il revient à null.
       // On n'affiche pas ces billets plutôt que de faire planter la page.
-      setTickets((data as unknown as AttendeeWithDetails[]).filter((ticket) => ticket.events));
+      setTickets(
+        (data as unknown as AttendeeWithDetails[]).filter((ticket) => ticket.events && !hidden.has(ticket.id))
+      );
     }
   };
 

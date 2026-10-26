@@ -2584,6 +2584,10 @@ export type Database = {
           sale_end_date: string
         }[]
       }
+      get_my_expired_price_lock_reservation_ids: {
+        Args: never
+        Returns: string[]
+      }
       get_my_profile: {
         Args: never
         Returns: {

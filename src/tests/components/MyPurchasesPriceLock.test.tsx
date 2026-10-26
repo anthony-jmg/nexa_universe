@@ -62,6 +62,8 @@ const data: { price_locks: unknown[]; event_attendees: unknown[] } = { price_loc
 // Offres de rachat renvoyées par get_price_lock_repurchase_quote, par lock.
 const quotes: Record<string, unknown> = {};
 const rpcCalls: { fn: string; args: unknown }[] = [];
+// Réservations annulées d'un Price Lock expiré, renvoyées par la base.
+const hiddenReservations: string[] = [];
 const queries: { table: string; method: string; args: unknown[] }[] = [];
 
 // Objets stables : MyPurchases recharge ses données à chaque changement de `user`.
@@ -109,6 +111,9 @@ vi.mock('../../lib/supabase', () => {
       },
       rpc: (fn: string, args: { p_lock_id?: string }) => {
         rpcCalls.push({ fn, args });
+        if (fn === 'get_my_expired_price_lock_reservation_ids') {
+          return Promise.resolve({ data: [...hiddenReservations], error: null });
+        }
         return Promise.resolve({ data: (args?.p_lock_id && quotes[args.p_lock_id]) ?? null, error: null });
       },
       auth: { getSession: () => Promise.resolve({ data: { session: { access_token: 'token' } } }) },
@@ -131,6 +136,7 @@ describe('Mes Pass', () => {
     data.event_attendees = [];
     queries.length = 0;
     rpcCalls.length = 0;
+    hiddenReservations.length = 0;
     for (const key of Object.keys(quotes)) delete quotes[key];
   });
 
@@ -339,6 +345,31 @@ describe('Mes Pass', () => {
     it('n’affiche plus un lock dont le crédit a déjà été utilisé', async () => {
       await renderPage();
       expect(queries).toContainEqual({ table: 'price_locks', method: 'is', args: ['credit_consumed_at', null] });
+    });
+  });
+
+  describe('Mes billets après rachat d’un Price Lock expiré', () => {
+    it('masque uniquement la réservation annulée du Price Lock expiré', async () => {
+      data.event_attendees = [
+        ticket('valide', 'Festival F', 'not_checked_in', 'pending'),
+        ticket('reservation', 'Festival F', 'cancelled', 'pending'),
+        ticket('autre-annule', 'Festival G', 'cancelled', 'pending'),
+      ];
+      hiddenReservations.push('reservation');
+      await renderPage();
+
+      expect(screen.getByText('Festival F')).toBeInTheDocument();
+      expect(screen.getAllByText('Festival F')).toHaveLength(1);
+      expect(screen.getByText('Billet officiel en attente d’émission')).toBeInTheDocument();
+      // Un billet annulé sans lien avec un Price Lock expiré reste visible
+      expect(screen.getByText('Festival G')).toBeInTheDocument();
+      expect(rpcCalls.map((c) => c.fn)).toContain('get_my_expired_price_lock_reservation_ids');
+    });
+
+    it('sans réponse de la base, ne masque aucun billet', async () => {
+      data.event_attendees = [ticket('reservation', 'Festival F', 'cancelled', 'pending')];
+      await renderPage();
+      expect(screen.getByText('Festival F')).toBeInTheDocument();
     });
   });
 });
