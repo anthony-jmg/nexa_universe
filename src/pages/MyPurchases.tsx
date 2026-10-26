@@ -236,7 +236,7 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
         auto_balance_payment_status,
         event_ticket_types (
           id,
-          ticket_types (name),
+          ticket_types (name)
         ),
         events (id, title, start_date)
       `)

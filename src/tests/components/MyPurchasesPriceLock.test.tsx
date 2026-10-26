@@ -329,6 +329,13 @@ describe('Mes Pass', () => {
       expect(screen.getByRole('button', { name: /^Acheter au prix actuel/ })).toBeInTheDocument();
     });
 
+    it('requêtes Supabase bien formées (pas de virgule avant une parenthèse)', async () => {
+      await renderPage();
+      const selects = queries.filter((q) => q.method === 'select').map((q) => String(q.args[0]));
+      expect(selects.length).toBeGreaterThan(0);
+      for (const select of selects) expect(select).not.toMatch(/,\s*\)/);
+    });
+
     it('n’affiche plus un lock dont le crédit a déjà été utilisé', async () => {
       await renderPage();
       expect(queries).toContainEqual({ table: 'price_locks', method: 'is', args: ['credit_consumed_at', null] });
