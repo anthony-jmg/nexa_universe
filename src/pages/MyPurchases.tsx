@@ -13,12 +13,10 @@ import {
   MapPin,
   Lock,
   X,
-  XCircle,
-  FileText
+  XCircle
 } from 'lucide-react';
 import { startPriceLockBalanceCheckout } from '../lib/priceLock';
 import { formatEuro } from '../lib/formatEuro';
-import { openPassPdf } from '../lib/passService';
 
 interface AttendeeWithDetails {
   id: string;
@@ -95,8 +93,6 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
   const [priceLocks, setPriceLocks] = useState<PriceLockWithEvent[]>([]);
   const [payingLockId, setPayingLockId] = useState<string | null>(null);
   const [selectedTicket, setSelectedTicket] = useState<AttendeeWithDetails | null>(null);
-  const [passError, setPassError] = useState('');
-  const [passOpening, setPassOpening] = useState(false);
   const [loading, setLoading] = useState(true);
   const [verifyingPayment, setVerifyingPayment] = useState(false);
   const [errorPay, setErrorPay] = useState('');
@@ -120,12 +116,6 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
       loadData();
     }
   }, [user]);
-
-  useEffect(() => {
-    if (selectedTicket) {
-      setPassError('');
-    }
-  }, [selectedTicket]);
 
   const cancelPendingOrder = async () => {
     const pendingOrderId = localStorage.getItem('pendingOrderId');
@@ -259,15 +249,6 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
       setErrorPay(err.message || 'Erreur lors du démarrage du paiement.');
       setPayingLockId(null);
     }
-  };
-
-  const handleViewPass = async () => {
-    if (!selectedTicket || passOpening) return;
-    setPassOpening(true);
-    setPassError('');
-    const result = await openPassPdf(selectedTicket);
-    if (!result.ok) setPassError(result.error);
-    setPassOpening(false);
   };
 
   const cancelTicket = async (ticketId: string) => {
@@ -637,22 +618,8 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
               </div>
             )}
 
-            {selectedTicket.check_in_status === 'not_checked_in' && selectedTicket.pass_status === 'available' && (
-              <div className="flex flex-col space-y-2">
-                <button
-                  onClick={handleViewPass}
-                  disabled={passOpening}
-                  className="py-3 bg-gradient-to-r from-[#B8913D] to-[#D4AC5B] text-white text-sm sm:text-base rounded-lg font-medium hover:shadow-lg transition-all flex items-center justify-center space-x-2 disabled:opacity-60"
-                >
-                  <FileText className="w-4 h-4" />
-                  <span>{passOpening ? 'Ouverture…' : 'Voir mon pass'}</span>
-                </button>
-                {passError && <p className="text-xs text-red-400 text-center">{passError}</p>}
-                <p className="text-xs text-gray-500 text-center">
-                  Document PDF ajouté par l’équipe Nexa.
-                </p>
-              </div>
-            )}
+            {/* Billet officiel = billet Weezevent uniquement : l'ancien PDF importé
+                par l'admin (pass_file_path) n'est plus proposé ici. Données conservées. */}
 
             {selectedTicket.check_in_status === 'not_checked_in' && (
               selectedTicket.weezevent_sync_status === 'synced' ? (

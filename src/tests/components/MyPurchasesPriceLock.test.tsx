@@ -207,7 +207,7 @@ describe('Mes Pass', () => {
     expect(screen.queryByText('Vous n’avez pas encore de billet de festival.')).not.toBeInTheDocument();
   });
 
-  it('ne présente jamais un PDF Nexa comme billet officiel et reste neutre pour skipped', async () => {
+  it('ne propose plus l’ancien PDF Nexa et reste neutre pour skipped', async () => {
     data.event_attendees = [
       ticket('p', 'Festival PDF Nexa', 'not_checked_in', 'pending', 'available'),
       ticket('s', 'Festival sans Weezevent', 'not_checked_in', 'skipped'),
@@ -220,11 +220,11 @@ describe('Mes Pass', () => {
     expect(screen.getByText('Achat confirmé')).toBeInTheDocument();
     expect(screen.getAllByText(/Billet officiel/)).toHaveLength(1);
 
-    // Détail : le bouton « Voir mon pass » existant reste, sans mention « officiel »
+    // Détail : l'ancien PDF Nexa n'est plus proposé (seul le billet Weezevent fait foi)
     fireEvent.click(screen.getByText('Billet officiel en attente d’émission'));
-    expect(await screen.findByText('Voir mon pass')).toBeInTheDocument();
-    expect(screen.getByText('Document PDF ajouté par l’équipe Nexa.')).toBeInTheDocument();
-    expect(screen.queryByText(/pass officiel/)).not.toBeInTheDocument();
+    expect(await screen.findByText('Votre achat est confirmé. Votre billet officiel sera émis prochainement.')).toBeInTheDocument();
+    expect(screen.queryByText('Voir mon pass')).not.toBeInTheDocument();
+    expect(screen.queryByText('Document PDF ajouté par l’équipe Nexa.')).not.toBeInTheDocument();
   });
 
   it('affiche le statut clair dans le détail du billet', async () => {
