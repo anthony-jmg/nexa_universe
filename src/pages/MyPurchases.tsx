@@ -21,8 +21,9 @@ import {
   startPriceLockRepurchaseCheckout,
   type PriceLockRepurchaseQuote,
 } from '../lib/priceLock';
-import { formatEuro } from '../lib/formatEuro';
-import { getActiveLocale } from '../lib/locale';
+import { formatPrice } from '../lib/formatEuro';
+import { formatDate, formatLongDate } from '../lib/locale';
+import { priceLockErrorMessage } from '../lib/purchaseErrors';
 
 interface AttendeeWithDetails {
   id: string;
@@ -84,10 +85,11 @@ interface PriceLockWithEvent {
 const isLockExpired = (lock: PriceLockWithEvent) =>
   lock.status === 'expired' || (lock.expires_at != null && new Date(lock.expires_at).getTime() <= Date.now());
 
+// Clés du dictionnaire par statut d'offre de rachat (aucun bouton d'achat).
 const REPURCHASE_MESSAGES: Partial<Record<PriceLockRepurchaseQuote['status'], string>> = {
-  contact_us: 'Contacte-nous pour finaliser ton pass.',
-  sold_out: 'Ce pass est complet pour le moment.',
-  unavailable: 'Ce pass n’est pas disponible à la vente pour le moment.',
+  contact_us: 'myPasses.repurchase.contactUs',
+  sold_out: 'myPasses.repurchase.soldOut',
+  unavailable: 'myPasses.repurchase.unavailable',
 };
 
 interface MyPurchasesProps {
@@ -271,7 +273,7 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
       const checkoutUrl = await startPriceLockBalanceCheckout(lock);
       window.location.href = checkoutUrl;
     } catch (err: any) {
-      setErrorPay({ lockId: lock.id, message: err.message || 'Erreur lors du démarrage du paiement.' });
+      setErrorPay({ lockId: lock.id, message: priceLockErrorMessage(err, t) });
       setPayingLockId(null);
     }
   };
@@ -284,13 +286,13 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
       const checkoutUrl = await startPriceLockRepurchaseCheckout(lock.id, amountDue);
       window.location.href = checkoutUrl;
     } catch (err) {
-      setErrorPay({ lockId: lock.id, message: err instanceof Error && err.message ? err.message : 'Erreur lors du démarrage du paiement.' });
+      setErrorPay({ lockId: lock.id, message: priceLockErrorMessage(err, t) });
       setPayingLockId(null);
     }
   };
 
   const cancelTicket = async (ticketId: string) => {
-    if (!confirm('Êtes-vous sûr de vouloir annuler ce billet ? Cette action est irréversible.')) {
+    if (!confirm(t('myPasses.ticket.cancelConfirm'))) {
       return;
     }
 
@@ -320,23 +322,23 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
 
     switch (ticket.check_in_status) {
       case 'cancelled':
-        return badge('bg-red-900 bg-opacity-40 text-red-400 border-red-600 border-opacity-40', XCircle, 'Annulé');
+        return badge('bg-red-900 bg-opacity-40 text-red-400 border-red-600 border-opacity-40', XCircle, t('myPasses.status.cancelled'));
       case 'checked_in':
-        return badge('bg-blue-900 bg-opacity-40 text-blue-400 border-blue-600 border-opacity-40', CheckCircle, 'Utilisé');
+        return badge('bg-blue-900 bg-opacity-40 text-blue-400 border-blue-600 border-opacity-40', CheckCircle, t('myPasses.status.used'));
       case 'awaiting_balance':
-        return badge(gold, Clock, 'Paiement du solde en attente');
+        return badge(gold, Clock, t('myPasses.status.awaitingBalance'));
     }
     if (ticket.weezevent_sync_status === 'failed') {
-      return badge('bg-orange-900 bg-opacity-40 text-orange-400 border-orange-600 border-opacity-40', AlertCircle, 'Problème lors de l’émission du billet');
+      return badge('bg-orange-900 bg-opacity-40 text-orange-400 border-orange-600 border-opacity-40', AlertCircle, t('myPasses.status.issueFailed'));
     }
     if (ticket.weezevent_sync_status === 'synced') {
-      return badge(green, CheckCircle, 'Billet officiel envoyé');
+      return badge(green, CheckCircle, t('myPasses.status.sent'));
     }
     if (ticket.weezevent_sync_status === 'skipped') {
       // Pas d'émission Weezevent prévue pour ce billet : on ne promet rien.
-      return badge(green, CheckCircle, 'Achat confirmé');
+      return badge(green, CheckCircle, t('myPasses.status.confirmed'));
     }
-    return badge(gold, Clock, 'Billet officiel en attente d’émission');
+    return badge(gold, Clock, t('myPasses.status.pendingIssue'));
   };
 
   if (!profile) return null;
@@ -370,11 +372,11 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
           <section className="space-y-4 sm:space-y-6">
             <h2 className="flex items-center gap-2 text-lg sm:text-xl font-medium text-white">
               <Lock className="w-5 h-5 text-[#B8913D] flex-shrink-0" />
-              <span>Price Locks actifs</span>
+              <span>{t('myPasses.locks.title')}</span>
             </h2>
             {priceLocks.length === 0 && (
               <div className="bg-gradient-to-br from-gray-800/60 to-gray-900/60 backdrop-blur-sm border border-gray-700/50 rounded-xl sm:rounded-2xl p-4 sm:p-6 text-center">
-                <p className="text-sm sm:text-base text-gray-400">Aucun Price Lock actif</p>
+                <p className="text-sm sm:text-base text-gray-400">{t('myPasses.locks.empty')}</p>
               </div>
             )}
             {priceLocks.map((lock) => {
@@ -390,13 +392,13 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
                   <div className="flex-1 w-full min-w-0">
                     <div className="flex flex-wrap items-center gap-2 mb-2">
                       <Lock className="w-4 h-4 text-[#F0D38A] flex-shrink-0" />
-                      <h3 className="text-base sm:text-lg font-medium text-white">{isExpired ? 'Price Lock expiré' : 'Price Lock'}</h3>
+                      <h3 className="text-base sm:text-lg font-medium text-white">{isExpired ? t('myPasses.lock.expiredTitle') : 'Price Lock'}</h3>
                       <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${
                         isExpired
                           ? 'border-gray-500/50 bg-gray-500/10 text-gray-300'
                           : 'border-[#D4AC5B]/50 bg-[#D4AC5B]/10 text-[#F0D38A]'
                       }`}>
-                        {isExpired ? 'Expiré' : 'Actif'}
+                        {isExpired ? t('myPasses.lock.badgeExpired') : t('myPasses.lock.badgeActive')}
                       </span>
                     </div>
                     <p className="text-sm text-gray-300 mb-1">{lock.events?.title ?? quote?.event_title}</p>
@@ -406,56 +408,55 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
                     {lock.expires_at && (
                       <p className="text-xs text-gray-400">
                         {isExpired
-                          ? `Expiré le ${new Date(lock.expires_at).toLocaleDateString(getActiveLocale(), { day: 'numeric', month: 'long', year: 'numeric' })}`
-                          : `Prix garanti jusqu'au ${new Date(lock.expires_at).toLocaleDateString(getActiveLocale(), { day: 'numeric', month: 'long', year: 'numeric' })}`}
+                          ? t('myPasses.lock.expiredOn', { date: formatLongDate(lock.expires_at) })
+                          : t('myPasses.lock.guaranteedUntil', { date: formatLongDate(lock.expires_at) })}
                       </p>
                     )}
                     {isExpired && quote?.status === 'credit_lapsed' ? (
                       // Fin de validité atteinte : montant définitivement inutilisable.
                       <p className="mt-3 rounded-lg border border-gray-600/50 bg-gray-800/60 px-3 py-2 text-xs sm:text-sm text-gray-300">
-                        Le montant de {formatEuro(lock.total_paid)} que tu avais versé n’est plus utilisable car{' '}
-                        {quote.lapsed_reason === 'sales_closed' ? 'les ventes de ce pass sont terminées' : 'l’événement a commencé'}.
+                        {t(quote.lapsed_reason === 'sales_closed' ? 'myPasses.lock.lapsedSalesClosed' : 'myPasses.lock.lapsedEventStarted', { amount: formatPrice(lock.total_paid) })}
                       </p>
                     ) : isExpired && quote?.status === 'event_cancelled' ? (
                       // Cas séparé : montant non déclaré perdu, traitement hors de ce parcours.
                       <p className="mt-3 rounded-lg border border-gray-600/50 bg-gray-800/60 px-3 py-2 text-xs sm:text-sm text-gray-300">
-                        Cet événement a été annulé. Ton versement est en cours de traitement selon les conditions applicables.
+                        {t('myPasses.lock.eventCancelled')}
                       </p>
                     ) : isExpired ? (
                       <>
-                        <p className="text-sm text-gray-300 mt-2">Ton ancien tarif n’est plus garanti.</p>
+                        <p className="text-sm text-gray-300 mt-2">{t('myPasses.lock.noLongerGuaranteed')}</p>
                         <p className="text-sm text-gray-300">
-                          Les {formatEuro(lock.total_paid)} déjà versés restent déductibles du prix actuel.
+                          {t('myPasses.lock.deductible', { amount: formatPrice(lock.total_paid) })}
                         </p>
                         <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs sm:text-sm text-gray-400 mt-2">
-                          <span>Prix actuel : <span className="text-white font-medium">{quote?.current_price != null ? formatEuro(quote.current_price) : '—'}</span></span>
-                          <span>Déjà versé : <span className="text-white font-medium">{formatEuro(lock.total_paid)}</span></span>
+                          <span>{t('myPasses.lock.currentPrice')} <span className="text-white font-medium">{quote?.current_price != null ? formatPrice(quote.current_price) : '—'}</span></span>
+                          <span>{t('myPasses.lock.alreadyPaidExpired')} <span className="text-white font-medium">{formatPrice(lock.total_paid)}</span></span>
                           {quote?.status === 'available' && quote.amount_due != null && (
-                            <span>Reste à payer : <span className="text-[#F0D38A] font-semibold">{formatEuro(quote.amount_due)}</span></span>
+                            <span>{t('myPasses.lock.leftToPay')} <span className="text-[#F0D38A] font-semibold">{formatPrice(quote.amount_due)}</span></span>
                           )}
                         </div>
                         {quote && quote.status !== 'available' && REPURCHASE_MESSAGES[quote.status] && (
                           <p className="mt-3 rounded-lg border border-gray-600/50 bg-gray-800/60 px-3 py-2 text-xs sm:text-sm text-gray-300">
-                            {REPURCHASE_MESSAGES[quote.status]}
+                            {t(REPURCHASE_MESSAGES[quote.status] as string)}
                           </p>
                         )}
                       </>
                     ) : (
                       <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs sm:text-sm text-gray-400 mt-2">
-                        <span>Prix bloqué : <span className="text-white font-medium">{formatEuro(lock.locked_price)}</span></span>
-                        <span>Déjà payé : <span className="text-white font-medium">{formatEuro(lock.total_paid)}</span></span>
-                        <span>Solde : <span className="text-[#F0D38A] font-semibold">{formatEuro(lock.remaining_amount)}</span></span>
+                        <span>{t('myPasses.lock.lockedPrice')} <span className="text-white font-medium">{formatPrice(lock.locked_price)}</span></span>
+                        <span>{t('myPasses.lock.alreadyPaid')} <span className="text-white font-medium">{formatPrice(lock.total_paid)}</span></span>
+                        <span>{t('myPasses.lock.balance')} <span className="text-[#F0D38A] font-semibold">{formatPrice(lock.remaining_amount)}</span></span>
                       </div>
                     )}
                     {!isExpired && lock.balance_payment_mode === 'automatic' && !lock.auto_balance_payment_status && lock.auto_balance_payment_at && (
                       <p className="text-xs text-gray-400 mt-2">
-                        Prélèvement automatique du solde prévu le {new Date(lock.auto_balance_payment_at).toLocaleDateString(getActiveLocale(), { day: 'numeric', month: 'long', year: 'numeric' })}
+                        {t('myPasses.lock.autoScheduled', { date: formatLongDate(lock.auto_balance_payment_at) })}
                       </p>
                     )}
                     {!isExpired && lock.auto_balance_payment_status === 'failed' && (
                       // Raison technique (Stripe) volontairement non affichée au client.
                       <p className="mt-3 rounded-lg border border-[#D4AC5B]/40 bg-[#D4AC5B]/10 px-3 py-2 text-xs sm:text-sm text-[#F0D38A]">
-                        Le prélèvement automatique n’a pas abouti. Vous pouvez régler votre solde manuellement.
+                        {t('myPasses.lock.autoFailed')}
                       </p>
                     )}
                   </div>
@@ -466,7 +467,7 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
                         disabled={payingLockId === lock.id}
                         className="w-full sm:w-auto px-5 py-2.5 bg-gradient-to-r from-[#D4AC5B] to-[#B8913D] text-gray-950 text-sm font-semibold rounded-lg hover:shadow-lg hover:shadow-[#D4AC5B]/30 transition-all disabled:opacity-50 whitespace-nowrap"
                       >
-                        {payingLockId === lock.id ? 'Redirection...' : `Acheter au prix actuel — ${formatEuro(quote.amount_due)}`}
+                        {payingLockId === lock.id ? t('myPasses.lock.redirecting') : t('myPasses.lock.buyAtCurrentPrice', { amount: formatPrice(quote.amount_due) })}
                       </button>
                     )
                   ) : (
@@ -475,7 +476,7 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
                       disabled={payingLockId === lock.id || Number(lock.remaining_amount) <= 0}
                       className="w-full sm:w-auto px-5 py-2.5 bg-gradient-to-r from-[#D4AC5B] to-[#B8913D] text-gray-950 text-sm font-semibold rounded-lg hover:shadow-lg hover:shadow-[#D4AC5B]/30 transition-all disabled:opacity-50 whitespace-nowrap"
                     >
-                      {payingLockId === lock.id ? 'Redirection...' : `Payer le solde — ${formatEuro(lock.remaining_amount)}`}
+                      {payingLockId === lock.id ? t('myPasses.lock.redirecting') : t('myPasses.lock.payBalance', { amount: formatPrice(lock.remaining_amount) })}
                     </button>
                   )}
                 </div>
@@ -490,16 +491,16 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
           <section className="space-y-4 sm:space-y-6">
             <h2 className="flex items-center gap-2 text-lg sm:text-xl font-medium text-white">
               <Ticket className="w-5 h-5 text-[#B8913D] flex-shrink-0" />
-              <span>Mes billets</span>
+              <span>{t('myPasses.tickets.title')}</span>
             </h2>
             {tickets.length === 0 ? (
               <div className="bg-gradient-to-br from-gray-800/60 to-gray-900/60 backdrop-blur-sm border border-gray-700/50 rounded-xl sm:rounded-2xl p-4 sm:p-6 text-center">
-                <p className="text-sm sm:text-base text-gray-400 mb-4">Vous n’avez pas encore de billet de festival.</p>
+                <p className="text-sm sm:text-base text-gray-400 mb-4">{t('myPasses.tickets.empty')}</p>
                 <button
                   onClick={() => onNavigate('shop')}
                   className="px-5 sm:px-6 py-2.5 sm:py-3 bg-gradient-to-r from-[#B8913D] to-[#D4AC5B] text-white text-sm sm:text-base rounded-full hover:shadow-xl transition-all hover:scale-105"
                 >
-                  Découvrir les événements
+                  {t('myPasses.tickets.discover')}
                 </button>
               </div>
             ) : (
@@ -533,7 +534,7 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
                               <div className="flex items-center space-x-2 text-gray-300">
                                 <Calendar className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#B8913D] flex-shrink-0" />
                                 <span className="text-xs sm:text-sm">
-                                  {eventDate.toLocaleDateString(getActiveLocale(), {
+                                  {formatDate(eventDate, {
                                     weekday: 'long',
                                     year: 'numeric',
                                     month: 'long',
@@ -553,7 +554,7 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
                           </div>
                           {isPast && (
                             <span className="px-2.5 sm:px-3 py-1 bg-gray-800 text-gray-400 rounded-full text-xs sm:text-sm whitespace-nowrap">
-                              Evenement passe
+                              {t('myPasses.tickets.past')}
                             </span>
                           )}
                         </div>
@@ -581,7 +582,7 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
                                   )}
                                   <p className="text-xs text-gray-400 mt-1">
                                     {ticket.purchased_at
-                                      ? `Achete le ${new Date(ticket.purchased_at).toLocaleDateString(getActiveLocale())}`
+                                      ? t('myPasses.tickets.purchasedOn', { date: formatDate(ticket.purchased_at) })
                                       : ''}
                                   </p>
                                 </div>
@@ -596,11 +597,13 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
                                 <p className="text-xs text-gray-500 mt-2 flex items-center space-x-1">
                                   <Clock className="w-3 h-3 flex-shrink-0" />
                                   <span className="truncate">
-                                    Scanne le {new Date(ticket.checked_in_at).toLocaleDateString(getActiveLocale(), {
-                                      day: 'numeric',
-                                      month: 'short',
-                                      hour: '2-digit',
-                                      minute: '2-digit'
+                                    {t('myPasses.tickets.scannedOn', {
+                                      date: formatDate(ticket.checked_in_at, {
+                                        day: 'numeric',
+                                        month: 'short',
+                                        hour: '2-digit',
+                                        minute: '2-digit'
+                                      }),
                                     })}
                                   </span>
                                 </p>
@@ -624,6 +627,7 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
           <div className="bg-gray-900 bg-opacity-95 backdrop-blur-sm rounded-xl sm:rounded-2xl max-w-md w-full p-5 sm:p-8 border border-[#B8913D] border-opacity-30 shadow-2xl relative max-h-[90vh] overflow-y-auto">
             <button
               onClick={() => setSelectedTicket(null)}
+              aria-label={t('myPasses.modal.close')}
               className="absolute top-3 right-3 sm:top-4 sm:right-4 text-gray-400 hover:text-white transition-colors z-10"
             >
               <X className="w-5 h-5 sm:w-6 sm:h-6" />
@@ -633,25 +637,25 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
 
             <div className="space-y-3 sm:space-y-4 mb-5 sm:mb-6">
               <div>
-                <p className="text-xs sm:text-sm text-gray-400">Evenement</p>
+                <p className="text-xs sm:text-sm text-gray-400">{t('myPasses.modal.event')}</p>
                 <p className="text-sm sm:text-base text-white font-medium">{selectedTicket.events.title}</p>
               </div>
 
               {selectedTicket.event_ticket_types?.ticket_types && (
                 <div>
-                  <p className="text-xs sm:text-sm text-gray-400">Type de billet</p>
+                  <p className="text-xs sm:text-sm text-gray-400">{t('myPasses.modal.ticketType')}</p>
                   <p className="text-sm sm:text-base text-[#B8913D] font-medium">{selectedTicket.event_ticket_types.ticket_types.name}</p>
                 </div>
               )}
 
               <div>
-                <p className="text-xs sm:text-sm text-gray-400 mb-2">Statut</p>
+                <p className="text-xs sm:text-sm text-gray-400 mb-2">{t('myPasses.modal.status')}</p>
                 {getTicketStatusBadge(selectedTicket)}
               </div>
 
               {(selectedTicket.attendee_first_name || selectedTicket.attendee_last_name || selectedTicket.attendee_email || selectedTicket.attendee_phone) && (
                 <div className="pt-3 border-t border-gray-700">
-                  <p className="text-xs sm:text-sm text-gray-400 mb-2">Participant</p>
+                  <p className="text-xs sm:text-sm text-gray-400 mb-2">{t('myPasses.modal.participant')}</p>
                   <div className="bg-gray-800 rounded-lg p-3 space-y-1">
                     {(selectedTicket.attendee_first_name || selectedTicket.attendee_last_name) && (
                       <p className="text-white font-medium text-sm sm:text-base">
@@ -672,8 +676,8 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
             {selectedTicket.check_in_status === 'awaiting_balance' && (
               <div className="text-center py-2">
                 <AlertCircle className="w-10 h-10 sm:w-12 sm:h-12 text-orange-400 mx-auto mb-3" />
-                <p className="text-sm sm:text-base text-orange-400 font-medium mb-1">Paiement du solde en attente</p>
-                <p className="text-xs text-gray-400">Votre billet officiel sera émis une fois le solde réglé.</p>
+                <p className="text-sm sm:text-base text-orange-400 font-medium mb-1">{t('myPasses.status.awaitingBalance')}</p>
+                <p className="text-xs text-gray-400">{t('myPasses.modal.awaitingBalanceText')}</p>
               </div>
             )}
 
@@ -684,29 +688,29 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
               selectedTicket.weezevent_sync_status === 'synced' ? (
                 <div className="text-center py-2">
                   <CheckCircle className="w-10 h-10 sm:w-12 sm:h-12 text-green-400 mx-auto mb-3" />
-                  <p className="text-sm sm:text-base text-green-400 font-medium mb-1">Billet officiel envoyé</p>
-                  <p className="text-xs text-gray-400">Votre billet officiel a été émis et vous a été envoyé.</p>
+                  <p className="text-sm sm:text-base text-green-400 font-medium mb-1">{t('myPasses.status.sent')}</p>
+                  <p className="text-xs text-gray-400">{t('myPasses.modal.sentText')}</p>
                 </div>
               ) : selectedTicket.weezevent_sync_status === 'failed' ? (
                 <div className="text-center py-2">
                   <AlertCircle className="w-10 h-10 sm:w-12 sm:h-12 text-orange-400 mx-auto mb-3" />
-                  <p className="text-sm sm:text-base text-orange-400 font-medium mb-1">Problème lors de l’émission du billet</p>
+                  <p className="text-sm sm:text-base text-orange-400 font-medium mb-1">{t('myPasses.status.issueFailed')}</p>
                   <p className="text-xs text-gray-400">
-                    Votre achat est bien confirmé. Contactez-nous si votre billet officiel ne vous parvient pas.
+                    {t('myPasses.modal.issueFailedText')}
                   </p>
                 </div>
               ) : selectedTicket.weezevent_sync_status === 'skipped' ? (
                 <div className="text-center py-2">
                   <CheckCircle className="w-10 h-10 sm:w-12 sm:h-12 text-green-400 mx-auto mb-3" />
-                  <p className="text-sm sm:text-base text-green-400 font-medium mb-1">Achat confirmé</p>
-                  <p className="text-xs text-gray-400">Votre achat est confirmé.</p>
+                  <p className="text-sm sm:text-base text-green-400 font-medium mb-1">{t('myPasses.status.confirmed')}</p>
+                  <p className="text-xs text-gray-400">{t('myPasses.modal.confirmedText')}</p>
                 </div>
               ) : (
                 <div className="text-center py-2">
                   <Clock className="w-10 h-10 sm:w-12 sm:h-12 text-[#D4AC5B] mx-auto mb-3" />
-                  <p className="text-sm sm:text-base text-[#F0D38A] font-medium mb-1">Billet officiel en attente d’émission</p>
+                  <p className="text-sm sm:text-base text-[#F0D38A] font-medium mb-1">{t('myPasses.status.pendingIssue')}</p>
                   <p className="text-xs text-gray-400">
-                    Votre achat est confirmé. Votre billet officiel sera émis prochainement.
+                    {t('myPasses.modal.pendingIssueText')}
                   </p>
                 </div>
               )
@@ -717,22 +721,24 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
                 onClick={() => cancelTicket(selectedTicket.id)}
                 className="w-full mt-2 py-2.5 border border-red-600 text-red-400 text-sm sm:text-base rounded-lg hover:bg-red-900 hover:bg-opacity-20 transition-colors"
               >
-                Annuler
+                {t('myPasses.modal.cancelTicket')}
               </button>
             )}
 
             {selectedTicket.check_in_status === 'checked_in' && (
               <div className="text-center">
                 <CheckCircle className="w-12 h-12 sm:w-16 sm:h-16 text-green-400 mx-auto mb-3" />
-                <p className="text-sm sm:text-base text-green-400 font-medium mb-2">Billet deja utilise</p>
+                <p className="text-sm sm:text-base text-green-400 font-medium mb-2">{t('myPasses.modal.used')}</p>
                 {selectedTicket.checked_in_at && (
                   <p className="text-xs sm:text-sm text-gray-400">
-                    Scanne le {new Date(selectedTicket.checked_in_at).toLocaleDateString(getActiveLocale(), {
-                      day: 'numeric',
-                      month: 'long',
-                      year: 'numeric',
-                      hour: '2-digit',
-                      minute: '2-digit'
+                    {t('myPasses.tickets.scannedOn', {
+                      date: formatDate(selectedTicket.checked_in_at, {
+                        day: 'numeric',
+                        month: 'long',
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      }),
                     })}
                   </p>
                 )}
@@ -742,7 +748,7 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
             {selectedTicket.check_in_status === 'cancelled' && (
               <div className="text-center">
                 <XCircle className="w-12 h-12 sm:w-16 sm:h-16 text-red-400 mx-auto mb-3" />
-                <p className="text-sm sm:text-base text-red-400 font-medium">Billet annule</p>
+                <p className="text-sm sm:text-base text-red-400 font-medium">{t('myPasses.modal.cancelled')}</p>
               </div>
             )}
           </div>

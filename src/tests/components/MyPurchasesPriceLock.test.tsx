@@ -74,15 +74,16 @@ vi.mock('../../contexts/AuthContext', () => ({
 vi.mock('../../contexts/CartContext', () => ({
   useCart: () => ({ clearCart: vi.fn() }),
 }));
-vi.mock('../../contexts/LanguageContext', () => ({
-  useLanguage: () => ({
-    t: (key: string) =>
-      ({
-        'purchases.title': 'Mes Pass',
-        'purchases.subtitle': 'Retrouvez vos Price Locks et vos billets de festivals',
-      })[key] ?? key,
-  }),
-}));
+// Vrai dictionnaire français (Mes Pass est traduit depuis le LOT 4).
+vi.mock('../../contexts/LanguageContext', async () => {
+  const { translate } = await import('../../i18n/translations');
+  return {
+    useLanguage: () => ({
+      t: (key: string, params?: Record<string, string | number>) => translate('fr', key, params),
+      language: 'fr',
+    }),
+  };
+});
 vi.mock('../../lib/supabase', () => {
   const result = (table: string) => ({
     data: (data as Record<string, unknown[]>)[table] ?? [],
@@ -283,10 +284,10 @@ describe('Mes Pass', () => {
 
       expect(await screen.findByText('Price Lock expiré')).toBeInTheDocument();
       expect(screen.getByText('Ton ancien tarif n’est plus garanti.')).toBeInTheDocument();
-      expect(screen.getByText(/Les 20,00\s€ déjà versés restent déductibles du prix actuel\./)).toBeInTheDocument();
-      expect(screen.getByText(/95,00\s€/)).toBeInTheDocument();
+      expect(screen.getByText(/Les 20\s€ déjà versés restent déductibles du prix actuel\./)).toBeInTheDocument();
+      expect(screen.getByText(/95\s€/)).toBeInTheDocument();
       expect(screen.getByText('Reste à payer :')).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: /^Acheter au prix actuel — 75,00\s€$/ })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /^Acheter au prix actuel — 75\s€$/ })).toBeInTheDocument();
       // Ce n'est plus le solde du lock d'origine
       expect(screen.queryByText(/Payer le solde|Payer le nouveau solde/)).not.toBeInTheDocument();
       expect(screen.queryByText(/Prix bloqué/)).not.toBeInTheDocument();
@@ -337,7 +338,7 @@ describe('Mes Pass', () => {
 
       expect(await screen.findByText('Price Lock expiré')).toBeInTheDocument();
       expect(
-        screen.getByText(new RegExp(`Le montant de 20,00\\s€ que tu avais versé n’est plus utilisable car ${cause}\\.`))
+        screen.getByText(new RegExp(`Le montant de 20\\s€ que tu avais versé n’est plus utilisable car ${cause}\\.`))
       ).toBeInTheDocument();
       expect(screen.queryByText(/restent déductibles|reste déductible/)).not.toBeInTheDocument();
       expect(screen.queryByText(/Reste à payer/)).not.toBeInTheDocument();

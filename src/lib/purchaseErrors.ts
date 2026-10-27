@@ -44,12 +44,28 @@ const RULES: ErrorRule[] = [
   { match: ['Montant de la commande incohérent. Recommence ta commande.'], key: 'purchaseError.orderAmountMismatch' },
   { match: ['Failed to create order', 'Failed to create order items', 'Erreur lors de la création de la commande', 'Aucune réponse reçue de la validation de commande'], key: 'purchaseError.orderFailed' },
   { match: [/^Configuration Stripe invalide/, /^Payment system not configured/, 'Failed to create checkout session', 'No checkout URL received', 'Paiement impossible.'], key: 'purchaseError.paymentUnavailable' },
+  // Paiement du solde et rachat d'un Price Lock (Mes Pass).
+  { match: ['Vous devez être connecté.'], key: 'purchaseError.signInRequired' },
+  { match: ['Price Lock introuvable.', 'Ce Price Lock ne vous appartient pas.'], key: 'purchaseError.lockNotFound' },
+  { match: ["Ce Price Lock n'est plus actif."], key: 'purchaseError.lockNotActive' },
+  { match: ["Ce Price Lock a expiré : ton ancien tarif n'est plus garanti."], key: 'purchaseError.lockExpired' },
+  { match: ['Le prélèvement automatique de ce solde est en cours. Réessaie dans quelques minutes.'], key: 'purchaseError.autoInProgress' },
+  { match: ['Aucun solde restant sur ce Price Lock.'], key: 'purchaseError.noBalance' },
+  { match: ["Ce Price Lock n'est pas expiré."], key: 'purchaseError.lockNotExpired' },
+  { match: ['Le versement de ce Price Lock a déjà été utilisé.'], key: 'purchaseError.creditConsumed' },
+  { match: ['Le versement de ce Price Lock a été remboursé.'], key: 'purchaseError.creditRefunded' },
+  { match: ['Les ventes de ce pass sont terminées.'], key: 'purchaseError.passSalesClosed' },
+  { match: ['Ce pass est complet pour le moment.'], key: 'myPasses.repurchase.soldOut' },
+  { match: ["Ce pass n'est plus disponible à la vente."], key: 'purchaseError.passUnavailable' },
+  { match: ['Contacte-nous pour finaliser ton pass.'], key: 'myPasses.repurchase.contactUs' },
+  { match: ['Achat impossible pour ce Price Lock.'], key: 'purchaseError.repurchaseImpossible' },
+  { match: ['Impossible de démarrer le paiement du solde.', 'Impossible de démarrer le paiement.'], key: 'purchaseError.paymentStart' },
 ];
 
 // Apostrophes typographiques et espaces normalisés avant comparaison.
 const normalize = (message: string) => message.replace(/[\u2019\u2018]/g, "'").replace(/\s+/g, ' ').trim();
 
-export function purchaseErrorMessage(error: unknown, t: Translate): string {
+export function purchaseErrorMessage(error: unknown, t: Translate, fallbackKey = 'purchaseError.generic'): string {
   const raw = typeof error === 'string' ? error : (error as { message?: unknown } | null)?.message;
   const message = typeof raw === 'string' ? normalize(raw) : '';
   if (message) {
@@ -68,5 +84,9 @@ export function purchaseErrorMessage(error: unknown, t: Translate): string {
       }
     }
   }
-  return t('purchaseError.generic');
+  return t(fallbackKey);
 }
+
+/** Paiement du solde / rachat d'un Price Lock : repli « paiement non démarré ». */
+export const priceLockErrorMessage = (error: unknown, t: Translate): string =>
+  purchaseErrorMessage(error, t, 'purchaseError.paymentStart');

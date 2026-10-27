@@ -120,6 +120,7 @@ import { MyPurchases } from '../../pages/MyPurchases';
 import { setActiveLanguage } from '../../lib/locale';
 import { purchaseErrorMessage } from '../../lib/purchaseErrors';
 import { translate } from '../../i18n/translations';
+import { frenchStrings } from '../utils/hardcodedFrench';
 
 // Langue mémorisée (localStorage neutralisé par le setup global) : stockage en mémoire.
 const store = new Map<string, string>();
@@ -333,6 +334,41 @@ describe('I/J — changement de langue', () => {
   });
 });
 
+describe('aucune clé du dictionnaire affichée telle quelle (EN)', () => {
+  const RAW_KEY = /\b(home|footer|nav|pass|event|events|checkout|payment|myPasses|priceLock|purchaseError|common|errorPage|notFound)\.[a-z][a-zA-Z]*/;
+  const rawKey = () => text().match(RAW_KEY)?.[0];
+
+  it('accueil, page festival, panier', async () => {
+    renderIn('en', <Landing onNavigate={vi.fn()} />);
+    await screen.findAllByText('From €80');
+    expect(rawKey()).toBeUndefined();
+    cleanup();
+
+    renderIn('en', <EventDetail eventId="evt-1" onNavigate={vi.fn()} />);
+    await screen.findByText('About the festival');
+    expect(rawKey()).toBeUndefined();
+    cleanup();
+
+    cartState.eventTickets = [cartTicket, { ...cartTicket, purchaseType: 'price_lock_deposit', depositAmount: 20, quantity: 1 }];
+    renderIn('en', <Cart onNavigate={vi.fn()} />);
+    expect(rawKey()).toBeUndefined();
+  });
+
+  it('Shop : carte, détails, choix achat et Price Lock', async () => {
+    renderIn('en', <Shop onNavigate={vi.fn()} />);
+    fireEvent.click(await screen.findByRole('button', { name: 'View details' }));
+    expect(rawKey()).toBeUndefined();
+    fireEvent.click(screen.getAllByRole('button', { name: 'Close' })[0]);
+    fireEvent.click(screen.getByRole('button', { name: 'Buy or reserve' }));
+    fireEvent.click(screen.getAllByRole('button', { name: '+' })[0]);
+    expect(rawKey()).toBeUndefined();
+    fireEvent.click(screen.getByRole('button', { name: /^Price Lock\s*Pay part of the price today/ }));
+    fireEvent.click(screen.getAllByRole('button', { name: '+' })[0]);
+    fireEvent.click(screen.getByText('Automatic payment'));
+    expect(rawKey()).toBeUndefined();
+  });
+});
+
 describe('Erreurs serveur du parcours d’achat', () => {
   const en = (key: string, params?: Record<string, string | number>) => translate('en', key, params);
   const fr = (key: string, params?: Record<string, string | number>) => translate('fr', key, params);
@@ -387,28 +423,6 @@ describe('K — aucun texte français codé en dur dans les écrans actifs du LO
       code = code.slice(0, from) + code.slice(to);
     }
     return code;
-  };
-
-  const FRENCH = /[À-ÿ’]|\b(Voir|Aucun|Retour|Réserver|Prix|Payer|Annuler|Fermer|Paiement|Billet|billets?|Complet|Suivant|Précédent|le|la|les|du|des|pour|avec|sur|ton|ta|tes|votre|vos)\b/;
-
-  const frenchStrings = (code: string): string[] => {
-    const lines = code
-      .replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, ' '))
-      .split('\n')
-      .map((l) => l.replace(/(^|[^:'"`])\/\/.*$/, '$1'));
-    const found: string[] = [];
-    for (const line of lines) {
-      const clean = line.replace(/\bt\(\s*'[^']*'/g, '').replace(/className=("[^"]*"|\{`[^`]*`\})/g, '');
-      const jsxText = [...clean.matchAll(/>([^<>{}]+)</g)].map((m) => m[1].trim());
-      if (/^\s*[A-Za-zÀ-ÿ][^<>{}=;()]*$/.test(clean) && !/^\s*(import|export|const|let|return|if|else|type|interface|case|default)\b/.test(clean)) {
-        jsxText.push(clean.trim());
-      }
-      const literals = [...clean.matchAll(/(['"`])((?:\\.|(?!\1).)*)\1/g)].map((m) => m[2]);
-      for (const s of [...jsxText, ...literals]) {
-        if (FRENCH.test(s) && /[a-zA-Z]{2}/.test(s)) found.push(s);
-      }
-    }
-    return found;
   };
 
   it('chaque texte visible passe par t(…), hors exceptions justifiées', () => {

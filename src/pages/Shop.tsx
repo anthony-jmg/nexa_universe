@@ -71,6 +71,7 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
   const [balancePaymentMode, setBalancePaymentMode] = useState<'manual' | 'automatic' | null>(null);
   const [autoBalanceConsent, setAutoBalanceConsent] = useState(false);
   const [quickAddError, setQuickAddError] = useState('');
+  // Clé du dictionnaire (traduite à l'affichage, suit le changement de langue).
   const [quickAddNotice, setQuickAddNotice] = useState('');
   const [eventLockExists, setEventLockExists] = useState(false);
   const [success, setSuccess] = useState('');
@@ -1201,7 +1202,7 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
 
             {quickAddNotice && !quickAddError && (
               <div className="mb-4 p-3 bg-blue-900/30 border border-blue-700/40 rounded-lg">
-                <p className="text-xs text-blue-200 leading-relaxed whitespace-pre-line">{quickAddNotice}</p>
+                <p className="text-xs text-blue-200 leading-relaxed whitespace-pre-line">{t(quickAddNotice)}</p>
               </div>
             )}
 
@@ -1260,7 +1261,7 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
                       });
                       return next;
                     });
-                    setQuickAddNotice(t('pass.choice.lockNotice'));
+                    setQuickAddNotice('pass.choice.lockNotice');
                   }}
                   className={`flex items-start gap-3 px-3.5 py-3 rounded-xl text-left transition-all border ${
                     quickAddLockMode
@@ -1335,7 +1336,7 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
                           <div className="text-[11px] sm:text-xs text-gray-400 mt-1">{t('pass.choice.lockUnavailable')}</div>
                         ) : showLock ? (
                           <>
-                            <div className="text-[10px] uppercase tracking-wide text-gray-400">pass.choice.lockedPrice</div>
+                            <div className="text-[10px] uppercase tracking-wide text-gray-400">{t('pass.choice.lockedPrice')}</div>
                             <div className="text-base sm:text-xl font-bold text-[#B8913D]">{formatPrice(price)}</div>
                             <div className="text-[11px] sm:text-xs text-gray-300 mt-1">
                               {t('pass.choice.today')} <span className="font-semibold text-white">{formatPrice(selectedDeposit)}</span>
@@ -1384,7 +1385,7 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
                           </>
                         ) : (
                           <>
-                            <div className="text-[10px] uppercase tracking-wide text-gray-400">pass.choice.price</div>
+                            <div className="text-[10px] uppercase tracking-wide text-gray-400">{t('pass.choice.price')}</div>
                             <div className="text-base sm:text-xl font-bold text-[#B8913D]">{formatPrice(price)}</div>
                             <div className="text-[11px] sm:text-xs text-gray-300 mt-1">
                               {t('pass.choice.payToday')} <span className="font-semibold text-white">{formatPrice(price)}</span>
@@ -1452,7 +1453,7 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
                             const value = parseInt(e.target.value) || 0;
                             if (showLock && value > 1) {
                               setTicketQuantities(prev => ({ ...prev, [ett.id]: 1 }));
-                              setQuickAddNotice(t('pass.choice.oneLockNotice'));
+                              setQuickAddNotice('pass.choice.oneLockNotice');
                               return;
                             }
                             const newQty = Math.max(0, Math.min(value, maxQty));
@@ -1505,7 +1506,7 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
                         : 'border-gray-700 bg-gray-800/60 hover:border-[#B8913D]/50'
                     }`}
                   >
-                    <p className="text-sm font-medium text-white">pass.balance.manual</p>
+                    <p className="text-sm font-medium text-white">{t('pass.balance.manual')}</p>
                     <p className="text-[11px] text-gray-400 mt-0.5 leading-snug">
                       {t('pass.balance.manualHint', { date: selectedLockDeadlineLabel })}
                     </p>
@@ -1518,7 +1519,7 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
                         : 'border-gray-700 bg-gray-800/60 hover:border-[#B8913D]/50'
                     }`}
                   >
-                    <p className="text-sm font-medium text-white">pass.balance.auto</p>
+                    <p className="text-sm font-medium text-white">{t('pass.balance.auto')}</p>
                     <p className="text-[11px] text-gray-400 mt-0.5 leading-snug">
                       {t('pass.balance.autoHint', {
                         amount: (() => {
