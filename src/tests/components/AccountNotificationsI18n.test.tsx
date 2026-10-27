@@ -322,7 +322,7 @@ describe('Notifications', () => {
     expect(screen.getByText('Tout est lu')).toBeInTheDocument();
     switchToEnglish();
     expect(screen.getByText('No notifications')).toBeInTheDocument();
-    expect(screen.getByText('Add instructors to your favourites to receive notifications')).toBeInTheDocument();
+    expect(screen.getByText('Your notifications will appear here.')).toBeInTheDocument();
   });
 
   it('menu déroulant : FR → EN, compteur inchangé, texte stocké inchangé', async () => {

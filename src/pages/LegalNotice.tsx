@@ -1,61 +1,57 @@
-import { LegalPage, LegalSection, LegalList, ToComplete } from '../components/LegalPage';
+import { LegalPage, type LegalSectionDef } from '../components/LegalPage';
 
 interface LegalNoticeProps {
   onNavigate: (page: string) => void;
 }
 
 // Aucune donnée administrative n'existe dans le projet : placeholders explicites
-// à compléter avant mise en production.
+// à compléter avant mise en production (rien n'est inventé).
+// Textes FR / EN : clés legal.notice.* du dictionnaire.
+const SECTIONS: LegalSectionDef[] = [
+  {
+    title: 'legal.notice.s1.title',
+    blocks: [
+      { list: ['legal.notice.s1.b1.i1', 'legal.notice.s1.b1.i2', 'legal.notice.s1.b1.i3', 'legal.notice.s1.b1.i4', 'legal.notice.s1.b1.i5', 'legal.notice.s1.b1.i6', 'legal.notice.s1.b1.i7', 'legal.notice.s1.b1.i8', 'legal.notice.s1.b1.i9'] },
+    ],
+  },
+  {
+    title: 'legal.notice.s2.title',
+    blocks: [
+      { p: 'legal.notice.s2.b1' },
+    ],
+  },
+  {
+    title: 'legal.notice.s3.title',
+    blocks: [
+      { list: ['legal.notice.s3.b1.i1', 'legal.notice.s3.b1.i2'] },
+    ],
+  },
+  {
+    title: 'legal.notice.s4.title',
+    blocks: [
+      { p: 'legal.notice.s4.b1' },
+    ],
+  },
+  {
+    title: 'legal.notice.s5.title',
+    blocks: [
+      { p: 'legal.notice.s5.b1' },
+    ],
+  },
+  {
+    title: 'legal.notice.s6.title',
+    blocks: [
+      { p: 'legal.notice.s6.b1' },
+    ],
+  },
+  {
+    title: 'legal.notice.s7.title',
+    blocks: [
+      { p: 'legal.notice.s7.b1' },
+    ],
+  },
+];
+
 export default function LegalNotice({ onNavigate }: LegalNoticeProps) {
-  return (
-    <LegalPage title="Mentions légales" onNavigate={onNavigate}>
-      <LegalSection title="1. Éditeur du site">
-        <LegalList
-          items={[
-            <>Nom ou raison sociale : <ToComplete label="nom ou raison sociale" /></>,
-            <>Statut juridique : <ToComplete label="forme juridique (micro-entreprise, SAS, SASU…)" /></>,
-            <>Capital social : <ToComplete label="montant, si société" /></>,
-            <>Adresse : <ToComplete label="adresse du siège" /></>,
-            <>SIREN / SIRET : <ToComplete label="numéro d’immatriculation" /></>,
-            <>RCS ou RNE : <ToComplete label="registre et ville d’immatriculation" /></>,
-            <>Numéro de TVA intracommunautaire : <ToComplete label="numéro de TVA, si applicable" /></>,
-            <>Contact : <ToComplete label="adresse e-mail" /> — <ToComplete label="téléphone" /></>,
-            <>Site : nexa-universe.fr</>,
-          ]}
-        />
-      </LegalSection>
-
-      <LegalSection title="2. Responsable de la publication">
-        <p><ToComplete label="nom et qualité du directeur ou de la directrice de la publication" /></p>
-      </LegalSection>
-
-      <LegalSection title="3. Hébergement">
-        <LegalList
-          items={[
-            <>Site : Vercel Inc. — <ToComplete label="adresse et contact de l’hébergeur" /></>,
-            <>Base de données et comptes utilisateurs : Supabase (serveurs situés dans l’Union européenne, Irlande) — <ToComplete label="dénomination exacte, adresse et contact" /></>,
-          ]}
-        />
-      </LegalSection>
-
-      <LegalSection title="4. Paiement">
-        <p>Les paiements sont traités par Stripe. Nexa ne conserve aucune donnée de carte bancaire.</p>
-      </LegalSection>
-
-      <LegalSection title="5. Propriété intellectuelle">
-        <p>
-          Les éléments du site (marque Nexa, logos, textes, visuels) sont protégés par le droit de la propriété
-          intellectuelle. Toute reproduction sans autorisation est interdite. Les contenus des professeurs référencés
-          dans la Nexa Academy et les contenus des festivals restent la propriété de leurs auteurs.
-        </p>
-      </LegalSection>
-
-      <LegalSection title="6. Données personnelles">
-        <p>
-          Le traitement des données personnelles est décrit dans la{' '}
-          <button onClick={() => onNavigate('privacy')} className="text-[#D4AC5B] hover:underline">politique de confidentialité</button>.
-        </p>
-      </LegalSection>
-    </LegalPage>
-  );
+  return <LegalPage title='legal.notice.title' sections={SECTIONS} onNavigate={onNavigate} />;
 }
