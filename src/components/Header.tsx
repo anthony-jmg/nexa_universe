@@ -111,7 +111,7 @@ export function Header({ onNavigate, currentPage }: HeaderProps) {
                     }`}
                   >
                     <LayoutDashboard className="w-3.5 h-3.5 lg:w-4 lg:h-4" />
-                    <span className="hidden xl:inline">Dashboard</span>
+                    <span className="hidden xl:inline">{t('nav.dashboard')}</span>
                   </button>
                 )}
                 {profile?.role === 'admin' && (
@@ -124,7 +124,7 @@ export function Header({ onNavigate, currentPage }: HeaderProps) {
                     }`}
                   >
                     <Shield className="w-3.5 h-3.5 lg:w-4 lg:h-4" />
-                    <span className="hidden xl:inline">Admin</span>
+                    <span className="hidden xl:inline">{t('nav.admin')}</span>
                   </button>
                 )}
                 <LanguageSelector />
@@ -160,7 +160,7 @@ export function Header({ onNavigate, currentPage }: HeaderProps) {
                         }}
                         className="block w-full text-left px-4 py-2 text-sm text-gray-300 hover:text-white hover:bg-white/5 transition-colors"
                       >
-                        Mon compte
+                        {t('nav.myAccount')}
                       </button>
                       {profile?.role !== 'admin' && (
                         <button
@@ -170,7 +170,7 @@ export function Header({ onNavigate, currentPage }: HeaderProps) {
                           }}
                           className="block w-full text-left px-4 py-2 text-sm text-gray-300 hover:text-white hover:bg-white/5 transition-colors"
                         >
-                          Mes Pass
+                          {t('nav.myPasses')}
                         </button>
                       )}
                       <div className="border-t border-gray-800/50 my-2"></div>
@@ -178,7 +178,7 @@ export function Header({ onNavigate, currentPage }: HeaderProps) {
                         onClick={handleSignOut}
                         className="block w-full text-left px-4 py-2 text-sm text-gray-300 hover:text-white hover:bg-white/5 transition-colors"
                       >
-                        Déconnexion
+                        {t('nav.signOut')}
                       </button>
                     </div>
                   )}
@@ -247,7 +247,7 @@ export function Header({ onNavigate, currentPage }: HeaderProps) {
                 >
                   <span className="flex items-center space-x-3">
                     <GraduationCap className="w-5 h-5 text-gold-400" />
-                    <span>Academy</span>
+                    <span>{t('nav.academy')}</span>
                   </span>
                 </button>
                 <button
@@ -274,7 +274,7 @@ export function Header({ onNavigate, currentPage }: HeaderProps) {
                       <span className="flex items-center justify-between">
                         <span className="flex items-center space-x-3">
                           <ShoppingCart className="w-5 h-5 text-gold-400" />
-                          <span>Panier</span>
+                          <span>{t('nav.cart')}</span>
                         </span>
                         {getCartCount() > 0 && (
                           <span className="ml-2 px-2 py-1 bg-gradient-to-br from-[#B8913D] to-[#D4AC5B] text-white text-xs rounded-full font-bold">
@@ -293,7 +293,7 @@ export function Header({ onNavigate, currentPage }: HeaderProps) {
                       <span className="flex items-center justify-between">
                         <span className="flex items-center space-x-3">
                           <Heart className="w-5 h-5 text-red-400" />
-                          <span>Favoris</span>
+                          <span>{t('nav.favorites')}</span>
                         </span>
                         {favorites.length > 0 && (
                           <span className="ml-2 px-2 py-1 bg-gradient-to-br from-red-500 to-pink-500 text-white text-xs rounded-full font-bold">
@@ -311,7 +311,7 @@ export function Header({ onNavigate, currentPage }: HeaderProps) {
                     >
                       <span className="flex items-center space-x-3">
                         <Package className="w-5 h-5 text-gold-400" />
-                        <span>Mes Pass</span>
+                        <span>{t('nav.myPasses')}</span>
                       </span>
                     </button>
                     <button
@@ -323,7 +323,7 @@ export function Header({ onNavigate, currentPage }: HeaderProps) {
                     >
                       <span className="flex items-center space-x-3">
                         <Bell className="w-5 h-5 text-gold-400" />
-                        <span>Notifications</span>
+                        <span>{t('nav.notifications')}</span>
                       </span>
                     </button>
                   </>
@@ -338,7 +338,7 @@ export function Header({ onNavigate, currentPage }: HeaderProps) {
                   >
                     <span className="flex items-center space-x-3">
                       <LayoutDashboard className="w-5 h-5 text-gold-400" />
-                      <span>Dashboard</span>
+                      <span>{t('nav.dashboard')}</span>
                     </span>
                   </button>
                 )}
@@ -352,7 +352,7 @@ export function Header({ onNavigate, currentPage }: HeaderProps) {
                   >
                     <span className="flex items-center space-x-3">
                       <Shield className="w-5 h-5 text-gold-400" />
-                      <span>Admin</span>
+                      <span>{t('nav.admin')}</span>
                     </span>
                   </button>
                 )}
@@ -366,7 +366,7 @@ export function Header({ onNavigate, currentPage }: HeaderProps) {
                 >
                   <span className="flex items-center space-x-3">
                     <User className="w-5 h-5 text-gold-400" />
-                    <span>Mon compte</span>
+                    <span>{t('nav.myAccount')}</span>
                   </span>
                 </button>
                 <button
@@ -375,7 +375,7 @@ export function Header({ onNavigate, currentPage }: HeaderProps) {
                 >
                   <span className="flex items-center space-x-3">
                     <LogOut className="w-5 h-5" />
-                    <span>Déconnexion</span>
+                    <span>{t('nav.signOut')}</span>
                   </span>
                 </button>
                 <div className="pt-3 px-4">
@@ -393,7 +393,7 @@ export function Header({ onNavigate, currentPage }: HeaderProps) {
                 >
                   <span className="flex items-center space-x-3">
                     <GraduationCap className="w-5 h-5 text-gold-400" />
-                    <span>Academy</span>
+                    <span>{t('nav.academy')}</span>
                   </span>
                 </button>
                 <button
@@ -421,7 +421,7 @@ export function Header({ onNavigate, currentPage }: HeaderProps) {
                 >
                   <span className="flex items-center space-x-3">
                     <LogIn className="w-5 h-5 text-gold-400" />
-                    <span>Connexion</span>
+                    <span>{t('nav.signIn')}</span>
                   </span>
                 </button>
                 <button

@@ -12,7 +12,9 @@ import { PriceLockModal } from '../components/PriceLockModal';
 import { PriceLockExplainer } from '../components/PriceLockExplainer';
 import { fetchPriceLockSummary, fetchUserPriceLock, verifyPriceLockPayment, PriceLockSummary, PriceLockRecord } from '../lib/priceLock';
 import { currentPrice, nextPrice, nextPriceChangeAt, priceLockDeadline, priceLockAvailable, minEventPrice, minNextEventPrice } from '../lib/tierPricing';
-import { getActiveLocale } from '../lib/locale';
+import { formatDate, formatTime, formatLongDate } from '../lib/locale';
+import { formatPrice } from '../lib/formatEuro';
+import { purchaseErrorMessage } from '../lib/purchaseErrors';
 
 const PRICE_LOCK_DEPOSIT = 20;
 const PRICE_INCREASE_STEP = 15;
@@ -24,7 +26,7 @@ const getPriceLockMinimum = (event: EventWithTickets, ticket: EventTicketType): 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 const formatDateShort = (date: Date) =>
-  date.toLocaleDateString(getActiveLocale(), { day: 'numeric', month: 'short' });
+  formatDate(date, { day: 'numeric', month: 'short' });
 
 type Product = Database['public']['Tables']['products']['Row'];
 type ProductSize = Database['public']['Tables']['product_sizes']['Row'];
@@ -481,7 +483,7 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
     const ticketTypeId = eventTicketTypeId || event.event_ticket_types?.[0]?.id;
     if (ticketTypeId) {
       addEventTicketToCart(ticketTypeId, quantity, purchaseType);
-      setSuccess('Billet ajouté au panier');
+      setSuccess(t('pass.addedToCart.one', { count: 1 }));
       setSelectedEvent(null);
       setQuantity(1);
       setTimeout(() => setSuccess(''), 3000);
@@ -499,11 +501,11 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
     // Le mode de règlement du solde est obligatoire pour un Price Lock, choisi ici,
     // AVANT l'ajout au panier. Il n'est jamais demandé après.
     if (quickAddLockMode && !balancePaymentMode) {
-      setQuickAddError('Choisis d’abord comment tu régleras le reste.');
+      setQuickAddError(t('pass.error.chooseBalanceMode'));
       return;
     }
     if (quickAddLockMode && balancePaymentMode === 'automatic' && !autoBalanceConsent) {
-      setQuickAddError('Coche la case de consentement pour le prélèvement automatique.');
+      setQuickAddError(t('pass.error.autoConsent'));
       return;
     }
 
@@ -516,7 +518,7 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
         return !Number.isFinite(amount) || amount < minimum || amount >= currentPrice(ticket as any);
       });
       if (invalidDeposit) {
-        setQuickAddError('Le montant choisi doit être au moins égal au minimum et inférieur au prix bloqué.');
+        setQuickAddError(t('pass.error.depositRange'));
         return;
       }
     }
@@ -535,12 +537,12 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
         );
       }
     } catch (error: any) {
-      setQuickAddError(error?.message || 'Impossible d’ajouter ce billet au panier.');
+      setQuickAddError(purchaseErrorMessage(error, t));
       return;
     }
 
     const totalTickets = ticketsToAdd.reduce((sum, [_, qty]) => sum + qty, 0);
-    setSuccess(`${totalTickets} billet${totalTickets > 1 ? 's' : ''} ajouté${totalTickets > 1 ? 's' : ''} au panier`);
+    setSuccess(t(totalTickets > 1 ? 'pass.addedToCart.other' : 'pass.addedToCart.one', { count: totalTickets }));
     setSelectedEvent(null);
     setTicketQuantities({});
     setPriceLockDeposits({});
@@ -559,6 +561,13 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
     const isValid = entered.trim() !== '' && Number.isFinite(amount) && amount >= minimum && amount < price;
     return isValid ? amount : (validPriceLockDeposits[ticket.id] ?? minimum);
   };
+
+  // Date limite du pass Price Lock sélectionné (texte du choix de règlement du solde).
+  const selectedLockDeadlineLabel = (() => {
+    const firstSelected = selectedEvent?.event_ticket_types?.find(e => (ticketQuantities[e.id] || 0) > 0);
+    const dl = firstSelected ? priceLockDeadline(firstSelected as any) : null;
+    return dl ? formatLongDate(dl) : t('pass.balance.deadlineFallback');
+  })();
 
   const hasInvalidPriceLockDeposit = Boolean(
     quickAddLockMode && selectedEvent?.event_ticket_types?.some(ticket => {
@@ -584,7 +593,7 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
           <div className="flex justify-center mb-2 sm:mb-3 lg:mb-2">
             <div className="w-10 sm:w-16 lg:w-12 h-0.5 sm:h-1 lg:h-0.5 bg-gradient-to-r from-transparent via-[#B8913D] to-transparent rounded-full"></div>
           </div>
-          <p className="text-xs sm:text-base lg:text-sm text-gray-400 px-2">Réserve tes festivals avant que les prix augmentent.</p>
+          <p className="text-xs sm:text-base lg:text-sm text-gray-400 px-2">{t('pass.subtitle')}</p>
         </div>
 
         <PriceLockExplainer />
@@ -611,7 +620,7 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
               <Search className="absolute left-2.5 sm:left-4 top-1/2 transform -translate-y-1/2 w-3.5 h-3.5 sm:w-5 sm:h-5 text-[#B8913D] transition-all group-focus-within:text-[#D4AC5B]" />
               <input
                 type="text"
-                placeholder={t('shop.search.placeholder')}
+                placeholder={t('pass.searchPlaceholder')}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full pl-9 sm:pl-12 pr-9 sm:pr-12 py-2.5 sm:py-4 text-xs sm:text-base bg-gray-900 bg-opacity-60 backdrop-blur-sm border border-[#B8913D] border-opacity-30 rounded-full text-white placeholder-gray-400 focus:ring-2 focus:ring-[#B8913D] focus:border-[#D4AC5B] focus:bg-opacity-80 outline-none shadow-lg hover:border-opacity-50 transition-all"
@@ -619,6 +628,7 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
               {searchQuery && (
                 <button
                   onClick={() => setSearchQuery('')}
+                  aria-label={t('pass.clearSearch')}
                   className="absolute right-2.5 sm:right-4 top-1/2 transform -translate-y-1/2 text-[#B8913D] hover:text-[#D4AC5B] transition-colors"
                 >
                   <X className="w-3.5 h-3.5 sm:w-5 sm:h-5" />
@@ -640,7 +650,7 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
               }`}
             >
               <Ticket className="w-3 h-3 sm:w-4 sm:h-4" />
-              <span>Événements</span>
+              <span>{t('pass.tabEvents')}</span>
             </button>
           </div>
         </div>
@@ -655,8 +665,8 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
               <Calendar className="w-16 h-16 text-[#B8913D] opacity-50 mx-auto mb-4" />
               <p className="text-gray-300">
                 {searchQuery || priceRange !== 'all'
-                  ? 'Aucun événement ne correspond à vos filtres'
-                  : 'Aucun événement disponible pour le moment'}
+                  ? t('pass.empty.filtered')
+                  : t('pass.empty.none')}
               </p>
             </div>
           ) : (
@@ -697,7 +707,8 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
                         <button
                           onClick={(e) => { e.stopPropagation(); setLightboxImage((event as any).thumbnail_url); }}
                           className="absolute top-2 right-2 p-1.5 rounded-full bg-black/40 hover:bg-black/70 text-white transition-all opacity-0 group-hover:opacity-100 z-10"
-                          title="Voir la photo"
+                          title={t('pass.viewPhoto')}
+                          aria-label={t('pass.viewPhoto')}
                         >
                           <Images className="w-3.5 h-3.5" />
                         </button>
@@ -707,16 +718,16 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
                         {isUpcoming ? (
                           <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-gray-950/85 backdrop-blur-sm text-gray-300 text-[10px] font-semibold rounded-full border border-gray-600">
                             <Clock className="w-2.5 h-2.5" />
-                            Bientôt disponible
+                            {t('pass.badge.comingSoon')}
                           </span>
                         ) : isFull ? (
                           <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-gray-950/90 text-gray-300 text-[10px] font-semibold rounded-full border border-gray-700">
-                            Complet
+                            {t('pass.badge.soldOut')}
                           </span>
                         ) : priceLock?.lockAvailable ? (
                           <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-gray-950/85 backdrop-blur-sm text-[#F0D38A] text-[10px] font-semibold rounded-full border border-[#D4AC5B]/50">
                             <Lock className="w-2.5 h-2.5" />
-                            Price Lock disponible
+                            {t('pass.badge.priceLock')}
                           </span>
                         ) : null}
                       </div>
@@ -729,7 +740,7 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
                       <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-400">
                         <span className="inline-flex items-center gap-1">
                           <Calendar className="w-3.5 h-3.5 text-[#B8913D] flex-shrink-0" />
-                          {eventDate.toLocaleDateString(getActiveLocale(), { day: 'numeric', month: 'long', year: 'numeric' })}
+                          {formatLongDate(eventDate)}
                         </span>
                         {event.location && (
                           <span className="inline-flex items-center gap-1 min-w-0">
@@ -742,25 +753,25 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
                       <div className="my-3 h-px bg-gradient-to-r from-transparent via-[#D4AC5B]/25 to-transparent"></div>
 
                       <div>
-                        <span className="text-[10px] font-bold tracking-[0.18em] text-[#D4AC5B] uppercase">Prix actuel</span>
+                        <span className="text-[10px] font-bold tracking-[0.18em] text-[#D4AC5B] uppercase">{t('pass.card.currentPrice')}</span>
                         {isUpcoming ? (
                           <div className="mt-1">
-                            <span className="text-sm font-medium text-[#B8913D]">Tarif à venir</span>
-                            <p className="mt-0.5 text-[11px] text-gray-400">Les ventes ouvriront prochainement.</p>
+                            <span className="text-sm font-medium text-[#B8913D]">{t('pass.card.priceTbc')}</span>
+                            <p className="mt-0.5 text-[11px] text-gray-400">{t('pass.card.salesSoon')}</p>
                           </div>
                         ) : minPrice !== null ? (
                           <div className="mt-0.5 text-3xl font-bold tracking-tight text-white">
-                            {Math.round(minPrice)}&nbsp;<span className="text-xl">€</span>
+                            {formatPrice(minPrice)}
                           </div>
                         ) : (
-                          <div className="mt-1 text-sm font-medium text-gray-400">Prix à venir</div>
+                          <div className="mt-1 text-sm font-medium text-gray-400">{t('pass.card.priceTbc')}</div>
                         )}
                         {priceLock?.nextPrice != null && !isUpcoming && (
                           <>
                             <p className="mt-1 text-xs text-gray-400">
-                              Prochain tarif : <span className="font-semibold text-gray-200">{priceLock.nextPrice} €</span>
+                              {t('pass.card.nextPrice')} <span className="font-semibold text-gray-200">{formatPrice(priceLock.nextPrice)}</span>
                             </p>
-                            <p className="text-[11px] text-gray-400">À partir du {priceLock.increaseDate}</p>
+                            <p className="text-[11px] text-gray-400">{t('pass.card.fromDate', { date: priceLock.increaseDate ?? '' })}</p>
                           </>
                         )}
                       </div>
@@ -771,9 +782,11 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
                             <Lock className="w-2.5 h-2.5" />
                             Price Lock
                           </p>
-                          <p className="mt-1 text-xs font-semibold text-white">Verse {priceLock.deposit} € pour bloquer ce tarif</p>
-                          <p className="text-[11px] text-gray-400">{Math.round(minPrice)} € garanti jusqu’au {priceLock.guaranteeEnd}</p>
-                          <p className="text-[11px] text-gray-400">{PRICE_LOCK_DEPOSIT} € déduits du montant final.</p>
+                          <p className="mt-1 text-xs font-semibold text-white">{t('pass.card.lockPay', { deposit: formatPrice(priceLock.deposit) })}</p>
+                          {minPrice !== null && priceLock.guaranteeEnd && (
+                            <p className="text-[11px] text-gray-400">{t('pass.card.lockGuaranteed', { price: formatPrice(minPrice), date: priceLock.guaranteeEnd })}</p>
+                          )}
+                          <p className="text-[11px] text-gray-400">{t('pass.card.lockDeducted', { deposit: formatPrice(priceLock.deposit) })}</p>
                         </div>
                       )}
 
@@ -782,7 +795,7 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
                           onClick={() => setDetailEvent(event)}
                           className="mt-auto w-full px-3 py-2.5 rounded-xl text-xs font-semibold bg-gradient-to-r from-[#B8913D] to-[#D4AC5B] text-white hover:shadow-lg hover:shadow-[#B8913D]/40 transition-all"
                         >
-                          Voir les détails
+                          {t('pass.card.details')}
                         </button>
                       ) : (
                         <div className="mt-auto grid grid-cols-2 gap-2 pt-4">
@@ -794,13 +807,13 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
                                 : 'bg-gradient-to-r from-[#B8913D] to-[#D4AC5B] text-white hover:shadow-lg hover:shadow-[#B8913D]/40'
                             }`}
                           >
-                            {isFull ? 'Complet' : 'Acheter ou réserver'}
+                            {isFull ? t('pass.badge.soldOut') : t('pass.card.buyOrReserve')}
                           </button>
                           <button
                             onClick={() => setDetailEvent(event)}
                             className="px-2 py-2.5 rounded-xl text-xs font-semibold border border-gray-600 text-gray-300 hover:bg-gray-800 hover:text-white transition-all"
                           >
-                            Voir les détails
+                            {t('pass.card.details')}
                           </button>
                         </div>
                       )}
@@ -818,7 +831,7 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
                     className="px-3 py-2 sm:px-6 sm:py-3 rounded-full text-xs sm:text-base bg-gray-900 bg-opacity-60 backdrop-blur-sm border border-[#B8913D] border-opacity-30 text-white disabled:opacity-50 disabled:cursor-not-allowed hover:bg-opacity-80 transition-all flex items-center space-x-1"
                   >
                     <ChevronLeft className="w-3 h-3 sm:w-4 sm:h-4" />
-                    <span className="hidden sm:inline">Précédent</span>
+                    <span className="hidden sm:inline">{t('pass.pagination.previous')}</span>
                   </button>
 
                   <span className="text-white px-2 sm:px-4 text-xs sm:text-base">
@@ -830,7 +843,7 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
                     disabled={currentPage === totalPages}
                     className="px-3 py-2 sm:px-6 sm:py-3 rounded-full text-xs sm:text-base bg-gradient-to-r from-[#B8913D] to-[#A07F35] text-white disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-lg transition-all flex items-center space-x-1"
                   >
-                    <span className="hidden sm:inline">Suivant</span>
+                    <span className="hidden sm:inline">{t('pass.pagination.next')}</span>
                     <ChevronRight className="w-3 h-3 sm:w-4 sm:h-4" />
                   </button>
                 </div>
@@ -1021,12 +1034,13 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
           <button
             className="absolute top-4 right-4 p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
             onClick={() => setLightboxImage(null)}
+            aria-label={t('pass.close')}
           >
             <X className="w-6 h-6" />
           </button>
           <img
             src={lightboxImage}
-            alt="Affiche de l'événement"
+            alt={t('pass.posterAlt')}
             className="max-w-[90vw] max-h-[90vh] object-contain rounded-xl shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           />
@@ -1048,6 +1062,7 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
                 <div className="absolute inset-0 bg-gradient-to-t from-gray-900 via-gray-900/40 to-transparent"></div>
                 <button
                   onClick={() => setDetailEvent(null)}
+                  aria-label={t('pass.close')}
                   className="absolute top-3 right-3 p-1.5 bg-black bg-opacity-50 text-white rounded-full hover:bg-opacity-75 transition-all"
                 >
                   <X className="w-4 h-4" />
@@ -1064,6 +1079,7 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
                   <h3 className="text-lg sm:text-2xl font-semibold text-white leading-tight flex-1 pr-4">{detailEvent.title}</h3>
                   <button
                     onClick={() => setDetailEvent(null)}
+                    aria-label={t('pass.close')}
                     className="p-1.5 bg-gray-800 text-gray-400 rounded-full hover:bg-gray-700 hover:text-white transition-all flex-shrink-0"
                   >
                     <X className="w-4 h-4" />
@@ -1075,12 +1091,10 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
                 <div className="flex items-center space-x-2 text-gray-300">
                   <Calendar className="w-4 h-4 text-[#B8913D] flex-shrink-0" />
                   <span className="text-sm">
-                    {new Date(detailEvent.start_date).toLocaleDateString(getActiveLocale(), {
-                      weekday: 'long',
-                      day: 'numeric',
-                      month: 'long',
-                      year: 'numeric'
-                    })} à {new Date(detailEvent.start_date).toLocaleTimeString(getActiveLocale(), { hour: '2-digit', minute: '2-digit' })}
+                    {t('pass.detail.dateAtTime', {
+                      date: formatDate(detailEvent.start_date, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }),
+                      time: formatTime(detailEvent.start_date, { hour: '2-digit', minute: '2-digit' }),
+                    })}
                   </span>
                 </div>
                 {detailEvent.location && (
@@ -1093,22 +1107,22 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
                   <Users className="w-4 h-4 text-[#B8913D] flex-shrink-0" />
                   <span className="text-sm">
                     {getAvailableTickets(detailEvent) > 0
-                      ? `${getAvailableTickets(detailEvent)} places disponibles`
-                      : 'Complet'}
+                      ? t('pass.detail.placesAvailable', { count: getAvailableTickets(detailEvent) })
+                      : t('pass.badge.soldOut')}
                   </span>
                 </div>
               </div>
 
               {localized(detailEvent.description, detailEvent.description_en, language) && (
                 <div className="mb-5">
-                  <h4 className="text-xs font-semibold text-[#B8913D] uppercase tracking-wider mb-2">Description</h4>
+                  <h4 className="text-xs font-semibold text-[#B8913D] uppercase tracking-wider mb-2">{t('pass.detail.description')}</h4>
                   <p className="text-sm text-gray-300 leading-relaxed whitespace-pre-line">{localized(detailEvent.description, detailEvent.description_en, language)}</p>
                 </div>
               )}
 
               {!isDetailUpcoming && detailEvent.event_ticket_types && detailEvent.event_ticket_types.filter(ett => ett.is_active).length > 0 && (
                 <div className="mb-5">
-                  <h4 className="text-xs font-semibold text-[#B8913D] uppercase tracking-wider mb-2">Tarifs</h4>
+                  <h4 className="text-xs font-semibold text-[#B8913D] uppercase tracking-wider mb-2">{t('pass.detail.prices')}</h4>
                   <div className="space-y-2">
                     {detailEvent.event_ticket_types.filter(ett => ett.is_active).map((ett) => {
                       const ticketsLeft = ett.quantity_available === null ? null : ett.quantity_available - ett.quantity_sold;
@@ -1120,14 +1134,14 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
                               <p className="text-xs text-gray-400 mt-0.5">{localized(ett.ticket_type.description, ett.ticket_type.description_en, language)}</p>
                             )}
                             {ticketsLeft !== null && ticketsLeft < 10 && ticketsLeft > 0 && (
-                              <p className="text-xs text-red-400 mt-0.5">Plus que {ticketsLeft} disponibles</p>
+                              <p className="text-xs text-red-400 mt-0.5">{t('pass.stock.fewLeft', { count: ticketsLeft })}</p>
                             )}
                             {ticketsLeft !== null && ticketsLeft <= 0 && (
-                              <p className="text-xs text-gray-500 mt-0.5">Épuisé</p>
+                              <p className="text-xs text-gray-500 mt-0.5">{t('pass.stock.soldOut')}</p>
                             )}
                           </div>
                           <div className="text-right ml-4">
-                            <div className="text-base font-bold text-[#B8913D]">{currentPrice(ett as any).toFixed(2)}€</div>
+                            <div className="text-base font-bold text-[#B8913D]">{formatPrice(currentPrice(ett as any))}</div>
                           </div>
                         </div>
                       );
@@ -1139,7 +1153,7 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
               {isDetailUpcoming && (
                 <div className="mb-5 p-3 bg-[#B8913D] bg-opacity-10 border border-[#B8913D] border-opacity-30 rounded-lg flex items-center gap-2">
                   <Clock className="w-4 h-4 text-[#B8913D] flex-shrink-0" />
-                  <p className="text-sm text-[#B8913D] font-medium">Les billets seront bientôt disponibles à la vente.</p>
+                  <p className="text-sm text-[#B8913D] font-medium">{t('pass.detail.ticketsSoon')}</p>
                 </div>
               )}
 
@@ -1148,7 +1162,7 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
                   onClick={() => setDetailEvent(null)}
                   className="flex-1 py-2.5 text-sm border border-gray-700 text-gray-300 rounded-lg hover:bg-gray-800 transition-colors font-medium"
                 >
-                  Fermer
+                  {t('pass.close')}
                 </button>
                 {!isDetailUpcoming && (
                   <button
@@ -1163,7 +1177,7 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
                     }`}
                   >
                     <ShoppingBag className="w-4 h-4" />
-                    <span>{eventHasStock(detailEvent) ? 'Réserver' : 'Complet'}</span>
+                    <span>{eventHasStock(detailEvent) ? t('pass.detail.reserve') : t('pass.badge.soldOut')}</span>
                   </button>
                 )}
               </div>
@@ -1177,7 +1191,7 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
         <div className="fixed inset-0 bg-black bg-opacity-70 backdrop-blur-sm flex items-center justify-center z-50 p-3 sm:p-4">
           <div className="bg-gray-900/95 backdrop-blur-sm rounded-2xl max-w-xl w-full p-4 sm:p-6 border border-[#D4AC5B]/25 shadow-2xl max-h-[90vh] overflow-y-auto">
             <h3 className="text-xl sm:text-2xl font-semibold tracking-tight text-white mb-1">{selectedEvent.title}</h3>
-            <p className="text-xs sm:text-sm text-gray-400 mb-4 sm:mb-5">Choisis ton mode de réservation et le montant de ton premier versement.</p>
+            <p className="text-xs sm:text-sm text-gray-400 mb-4 sm:mb-5">{t('pass.choice.intro')}</p>
 
             {quickAddError && (
               <div className="mb-4 p-3 bg-red-900/40 border border-red-600/40 rounded-lg">
@@ -1193,13 +1207,13 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
 
             {eventLockExists && (
               <div className="mb-4 p-3 bg-[#B8913D]/[0.08] border border-[#D4AC5B]/30 rounded-xl">
-                <p className="text-xs text-[#F0D38A] font-medium">Tu as déjà un Price Lock actif pour ce festival.</p>
-                <p className="text-[11px] text-gray-400 mt-0.5">Un seul Price Lock est autorisé par compte et par événement. Le mode achat comptant reste disponible.</p>
+                <p className="text-xs text-[#F0D38A] font-medium">{t('pass.choice.lockExists')}</p>
+                <p className="text-[11px] text-gray-400 mt-0.5">{t('pass.choice.lockExistsHint')}</p>
               </div>
             )}
 
             <div className="mb-4 sm:mb-5">
-              <h4 className="text-sm sm:text-base font-semibold tracking-tight text-white mb-2.5">Comment souhaites-tu réserver ton pass ?</h4>
+              <h4 className="text-sm sm:text-base font-semibold tracking-tight text-white mb-2.5">{t('pass.choice.title')}</h4>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3">
                 <button
                   onClick={() => {
@@ -1214,8 +1228,8 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
                 >
                   <ShoppingBag className={`w-5 h-5 flex-shrink-0 mt-0.5 ${!quickAddLockMode ? 'text-[#D4AC5B]' : 'text-gray-400'}`} />
                   <span className="flex-1 min-w-0">
-                    <span className="block text-sm font-semibold text-white">Acheter maintenant</span>
-                    <span className="block text-[11px] sm:text-xs text-gray-400 mt-0.5">Paie ton Full Pass en totalité aujourd’hui.</span>
+                    <span className="block text-sm font-semibold text-white">{t('pass.choice.buyNow')}</span>
+                    <span className="block text-[11px] sm:text-xs text-gray-400 mt-0.5">{t('pass.choice.buyNowHint')}</span>
                   </span>
                   {!quickAddLockMode && <CheckCircle className="w-5 h-5 text-[#D4AC5B] flex-shrink-0" />}
                 </button>
@@ -1246,7 +1260,7 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
                       });
                       return next;
                     });
-                    setQuickAddNotice('Comment fonctionne Price Lock ?\nTu verses une partie aujourd’hui pour bloquer ton tarif, puis tu règles le reste en une seule fois avant la date indiquée.\nUn seul Price Lock peut être actif par festival.');
+                    setQuickAddNotice(t('pass.choice.lockNotice'));
                   }}
                   className={`flex items-start gap-3 px-3.5 py-3 rounded-xl text-left transition-all border ${
                     quickAddLockMode
@@ -1257,7 +1271,7 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
                   <Lock className={`w-5 h-5 flex-shrink-0 mt-0.5 ${quickAddLockMode ? 'text-[#D4AC5B]' : 'text-gray-400'}`} />
                   <span className="flex-1 min-w-0">
                     <span className="block text-sm font-semibold text-white">Price Lock</span>
-                    <span className="block text-[11px] sm:text-xs text-gray-400 mt-0.5">Verse une partie aujourd’hui pour garder ce tarif. Tu règleras le montant restant en une seule fois avant la date limite.</span>
+                    <span className="block text-[11px] sm:text-xs text-gray-400 mt-0.5">{t('pass.choice.lockHint')}</span>
                   </span>
                   {quickAddLockMode && <CheckCircle className="w-5 h-5 text-[#D4AC5B] flex-shrink-0" />}
                 </button>
@@ -1277,9 +1291,9 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
                 const amountIsValid = enteredDeposit.trim() !== '' && Number.isFinite(parsedDeposit) && parsedDeposit >= minimumDeposit && parsedDeposit < price;
                 const selectedDeposit = amountIsValid ? parsedDeposit : (validPriceLockDeposits[ett.id] ?? minimumDeposit);
                 const depositError = enteredDeposit.trim() === '' || !Number.isFinite(parsedDeposit) || parsedDeposit < minimumDeposit
-                  ? `Le versement minimum pour ce Price Lock est de ${minimumDeposit.toFixed(2)} €.`
+                  ? t('pass.choice.depositMin', { amount: formatPrice(minimumDeposit) })
                   : parsedDeposit >= price
-                    ? 'Pour payer la totalité du pass, choisis Acheter maintenant.'
+                    ? t('pass.choice.depositFull')
                     : '';
                 const maxQty = showLock ? 1 : Math.min(10, ticketsLeft);
                 const otherTypeSelected = quickAddLockMode && currentQty === 0 && Object.entries(ticketQuantities).some(([id, q]) => q > 0 && id !== ett.id);
@@ -1307,24 +1321,24 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
                         )}
                         {ticketsLeft < 10 && ticketsLeft > 0 && (
                           <div className="text-[10px] sm:text-xs text-red-400 mt-0.5 sm:mt-1">
-                            Plus que {ticketsLeft} disponibles
+                            {t('pass.stock.fewLeft', { count: ticketsLeft })}
                           </div>
                         )}
                         {ticketsLeft <= 0 && (
                           <div className="text-[10px] sm:text-xs text-gray-500 mt-0.5 sm:mt-1">
-                            Épuisé
+                            {t('pass.stock.soldOut')}
                           </div>
                         )}
                       </div>
                       <div className="text-right w-[48%] sm:w-auto shrink-0">
                         {quickAddLockMode && !lockEligible ? (
-                          <div className="text-[11px] sm:text-xs text-gray-400 mt-1">Price Lock indisponible</div>
+                          <div className="text-[11px] sm:text-xs text-gray-400 mt-1">{t('pass.choice.lockUnavailable')}</div>
                         ) : showLock ? (
                           <>
-                            <div className="text-[10px] uppercase tracking-wide text-gray-400">Prix bloqué</div>
-                            <div className="text-base sm:text-xl font-bold text-[#B8913D]">{price.toFixed(2)}€</div>
+                            <div className="text-[10px] uppercase tracking-wide text-gray-400">pass.choice.lockedPrice</div>
+                            <div className="text-base sm:text-xl font-bold text-[#B8913D]">{formatPrice(price)}</div>
                             <div className="text-[11px] sm:text-xs text-gray-300 mt-1">
-                              Aujourd’hui : <span className="font-semibold text-white">{selectedDeposit.toFixed(2)} €</span>
+                              {t('pass.choice.today')} <span className="font-semibold text-white">{formatPrice(selectedDeposit)}</span>
                             </div>
                             <input
                               type="text"
@@ -1342,8 +1356,8 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
                                 }
                                 setQuickAddError('');
                               }}
-                              placeholder={`Autre montant · min. ${minimumDeposit.toFixed(2)} €`}
-                              aria-label={`Montant du dépôt pour ${ett.ticket_type.name}`}
+                              placeholder={t('pass.choice.otherAmount', { amount: formatPrice(minimumDeposit) })}
+                              aria-label={t('pass.choice.depositAria', { name: ett.ticket_type.name })}
                               aria-invalid={Boolean(depositError)}
                               className={`mt-2 w-full max-w-[150px] px-2 py-1.5 text-right text-xs bg-gray-900 rounded-lg text-white placeholder-gray-500 focus:ring-1 outline-none ${depositError ? 'border border-red-500/70 focus:ring-red-500' : 'border border-gray-700 focus:ring-[#B8913D]'}`}
                             />
@@ -1356,12 +1370,12 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
                                 <div className="text-[11px] sm:text-xs text-gray-300 leading-snug">
                                   {payDeadline ? (
                                     <>
-                                      Reste à payer avant le {payDeadline.toLocaleDateString(getActiveLocale(), { day: 'numeric', month: 'long', year: 'numeric' })} :{' '}
-                                      <span className="font-semibold text-[#F0D38A]">{Math.max(0, price - selectedDeposit).toFixed(2)} €</span>
+                                      {t('pass.choice.remainingBefore', { date: formatLongDate(payDeadline) })}{' '}
+                                      <span className="font-semibold text-[#F0D38A]">{formatPrice(Math.max(0, price - selectedDeposit))}</span>
                                     </>
                                   ) : (
                                     <>
-                                      Reste à payer : <span className="font-semibold text-[#F0D38A]">{Math.max(0, price - selectedDeposit).toFixed(2)} €</span>
+                                      {t('pass.choice.remaining')} <span className="font-semibold text-[#F0D38A]">{formatPrice(Math.max(0, price - selectedDeposit))}</span>
                                     </>
                                   )}
                                 </div>
@@ -1370,10 +1384,10 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
                           </>
                         ) : (
                           <>
-                            <div className="text-[10px] uppercase tracking-wide text-gray-400">Prix</div>
-                            <div className="text-base sm:text-xl font-bold text-[#B8913D]">{price.toFixed(2)}€</div>
+                            <div className="text-[10px] uppercase tracking-wide text-gray-400">pass.choice.price</div>
+                            <div className="text-base sm:text-xl font-bold text-[#B8913D]">{formatPrice(price)}</div>
                             <div className="text-[11px] sm:text-xs text-gray-300 mt-1">
-                              À payer aujourd’hui : <span className="font-semibold text-white">{price.toFixed(0)} €</span>
+                              {t('pass.choice.payToday')} <span className="font-semibold text-white">{formatPrice(price)}</span>
                             </div>
                           </>
                         )}
@@ -1385,7 +1399,7 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
                       return (
                         <div className="mb-2 sm:mb-3 flex items-center gap-1.5 text-[11px] text-[#F0D38A]">
                           <Lock className="w-3 h-3 flex-shrink-0" />
-                          <span>Ton prix de {price.toFixed(0)} € est garanti jusqu’au {deadline.toLocaleDateString(getActiveLocale(), { day: 'numeric', month: 'long', year: 'numeric' })}</span>
+                          <span>{t('pass.choice.guaranteed', { price: formatPrice(price), date: formatLongDate(deadline) })}</span>
                         </div>
                       );
                     })()}
@@ -1394,7 +1408,7 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
                       soldOutInterest[ett.id] === 'done' ? (
                         <div className="w-full py-2.5 rounded-lg border border-green-500/30 bg-green-500/10 text-green-300 text-sm font-medium flex items-center justify-center gap-1.5">
                           <Check className="w-4 h-4" />
-                          Intérêt enregistré
+                          {t('pass.soldOut.registered')}
                         </div>
                       ) : (
                         <>
@@ -1403,17 +1417,17 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
                             disabled={soldOutInterest[ett.id] === 'saving'}
                             className="w-full py-2.5 rounded-lg border border-[#B8913D]/60 text-[#F0D38A] text-sm font-medium hover:bg-[#B8913D]/15 transition-all disabled:opacity-60 disabled:cursor-wait"
                           >
-                            {soldOutInterest[ett.id] === 'saving' ? 'Enregistrement...' : 'Je suis intéressé'}
+                            {soldOutInterest[ett.id] === 'saving' ? t('pass.soldOut.saving') : t('pass.soldOut.interested')}
                           </button>
                           {soldOutInterest[ett.id] === 'error' && (
-                            <p className="mt-1.5 text-[11px] text-red-300">Impossible d'enregistrer ton intérêt pour le moment. Réessaie.</p>
+                            <p className="mt-1.5 text-[11px] text-red-300">{t('pass.soldOut.error')}</p>
                           )}
                         </>
                       )
                     ) : (
                     <div className="flex items-center space-x-2 sm:space-x-3">
                       <label className="text-xs sm:text-sm font-medium text-gray-300 min-w-[50px] sm:min-w-[70px]">
-                        Quantité
+                        {t('pass.choice.quantity')}
                       </label>
                       <div className="flex items-center space-x-1.5 sm:space-x-2 flex-1">
                         <button
@@ -1438,7 +1452,7 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
                             const value = parseInt(e.target.value) || 0;
                             if (showLock && value > 1) {
                               setTicketQuantities(prev => ({ ...prev, [ett.id]: 1 }));
-                              setQuickAddNotice('Un seul Price Lock est autorisé par compte et par festival. Pour bloquer un autre pass pour ce festival, l\u2019autre participant doit utiliser son propre compte Nexa.');
+                              setQuickAddNotice(t('pass.choice.oneLockNotice'));
                               return;
                             }
                             const newQty = Math.max(0, Math.min(value, maxQty));
@@ -1466,13 +1480,13 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
                       </div>
                       {currentQty > 0 && (
                         <div className="text-xs sm:text-sm font-medium text-[#B8913D] min-w-[60px] sm:min-w-[80px] text-right">
-                          {((showLock ? selectedDeposit : price) * currentQty).toFixed(2)}€
+                          {formatPrice((showLock ? selectedDeposit : price) * currentQty)}
                         </div>
                       )}
                     </div>
                     )}
                     {otherTypeSelected && (
-                      <p className="mt-2 text-[11px] text-gray-400">Un Price Lock est déjà sélectionné pour ce festival</p>
+                      <p className="mt-2 text-[11px] text-gray-400">{t('pass.choice.lockSelected')}</p>
                     )}
                   </div>
                 );
@@ -1481,7 +1495,7 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
 
             {quickAddLockMode && Object.values(ticketQuantities).some(qty => qty > 0) && (
               <div className="mb-4 sm:mb-6 p-3 sm:p-4 rounded-lg border border-[#D4AC5B]/40 bg-[#D4AC5B]/[0.05]">
-                <p className="text-sm font-semibold text-white">Comment veux-tu régler le reste ?</p>
+                <p className="text-sm font-semibold text-white">{t('pass.balance.title')}</p>
                 <div className="mt-2.5 space-y-2">
                   <button
                     onClick={() => { setBalancePaymentMode('manual'); setQuickAddError(''); }}
@@ -1491,13 +1505,9 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
                         : 'border-gray-700 bg-gray-800/60 hover:border-[#B8913D]/50'
                     }`}
                   >
-                    <p className="text-sm font-medium text-white">Je paierai moi-même</p>
+                    <p className="text-sm font-medium text-white">pass.balance.manual</p>
                     <p className="text-[11px] text-gray-400 mt-0.5 leading-snug">
-                      Tu pourras régler le montant restant depuis Nexa avant le {(() => {
-                        const firstSelected = selectedEvent.event_ticket_types?.find(e => (ticketQuantities[e.id] || 0) > 0);
-                        const dl = firstSelected ? priceLockDeadline(firstSelected as any) : null;
-                        return dl ? dl.toLocaleDateString(getActiveLocale(), { day: 'numeric', month: 'long', year: 'numeric' }) : 'la date limite';
-                      })()}.
+                      {t('pass.balance.manualHint', { date: selectedLockDeadlineLabel })}
                     </p>
                   </button>
                   <button
@@ -1508,19 +1518,18 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
                         : 'border-gray-700 bg-gray-800/60 hover:border-[#B8913D]/50'
                     }`}
                   >
-                    <p className="text-sm font-medium text-white">Prélèvement automatique</p>
+                    <p className="text-sm font-medium text-white">pass.balance.auto</p>
                     <p className="text-[11px] text-gray-400 mt-0.5 leading-snug">
-                      Le montant restant de {(() => {
-                        const firstSelected = selectedEvent.event_ticket_types?.find(e => (ticketQuantities[e.id] || 0) > 0);
-                        if (!firstSelected) return '…';
-                        const p = currentPrice(firstSelected as any);
-                        const deposit = displayedPriceLockDeposit(firstSelected);
-                        return Math.max(0, p - deposit).toFixed(2);
-                      })()} € sera débité automatiquement le {(() => {
-                        const firstSelected = selectedEvent.event_ticket_types?.find(e => (ticketQuantities[e.id] || 0) > 0);
-                        const dl = firstSelected ? priceLockDeadline(firstSelected as any) : null;
-                        return dl ? dl.toLocaleDateString(getActiveLocale(), { day: 'numeric', month: 'long', year: 'numeric' }) : 'la date limite';
-                      })()} si tu ne l’as pas réglé avant.
+                      {t('pass.balance.autoHint', {
+                        amount: (() => {
+                          const firstSelected = selectedEvent.event_ticket_types?.find(e => (ticketQuantities[e.id] || 0) > 0);
+                          if (!firstSelected) return '…';
+                          const p = currentPrice(firstSelected as any);
+                          const deposit = displayedPriceLockDeposit(firstSelected);
+                          return formatPrice(Math.max(0, p - deposit));
+                        })(),
+                        date: selectedLockDeadlineLabel,
+                      })}
                     </p>
                   </button>
                 </div>
@@ -1533,7 +1542,7 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
                       className="mt-0.5 w-4 h-4 accent-[#B8913D]"
                     />
                     <span className="text-[11px] text-gray-300 leading-snug">
-                      J’autorise Nexa à débiter automatiquement le montant restant de mon pass à la date indiquée. Si je règle le solde avant cette date, aucun autre débit ne sera effectué.
+                      {t('pass.balance.consent')}
                     </span>
                   </label>
                 )}
@@ -1545,10 +1554,10 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
               <div className="mb-4 sm:mb-5 p-3 sm:p-3.5 bg-[#B8913D]/[0.08] rounded-xl border border-[#D4AC5B]/40">
                 <div className="flex justify-between items-center">
                   <span className="text-white text-sm sm:text-base font-semibold">
-                    {quickAddLockMode ? 'À payer aujourd’hui (versements)' : 'À payer aujourd’hui'}
+                    {quickAddLockMode ? t('pass.summary.todayDeposits') : t('pass.summary.today')}
                   </span>
                   <span className="text-xl sm:text-2xl font-bold text-[#B8913D]">
-                    {selectedEvent.event_ticket_types
+                    {formatPrice(selectedEvent.event_ticket_types
                       ?.filter(ett => ett.is_active)
                       .reduce((total, ett) => {
                         const qty = ticketQuantities[ett.id] || 0;
@@ -1556,12 +1565,11 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
                           ? displayedPriceLockDeposit(ett)
                           : currentPrice(ett as any);
                         return total + (unit * qty);
-                      }, 0)
-                      .toFixed(2)}€
+                      }, 0) ?? 0)}
                   </span>
                 </div>
                 {quickAddLockMode && (
-                  <p className="mt-1.5 text-[11px] text-gray-400 leading-snug">Le reste à payer sera à régler en une seule fois, avant la date de garantie.</p>
+                  <p className="mt-1.5 text-[11px] text-gray-400 leading-snug">{t('pass.summary.restLater')}</p>
                 )}
               </div>
             )}
@@ -1578,7 +1586,7 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
                 }}
                 className="flex-1 py-2.5 sm:py-3 text-xs sm:text-base border border-gray-700 text-gray-300 rounded-lg hover:bg-gray-800 transition-colors font-medium"
               >
-                Annuler
+                {t('pass.cancel')}
               </button>
               <button
                 onClick={handleQuickAddEventTicket}
@@ -1592,17 +1600,15 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
                 <ShoppingBag className="w-4 h-4 flex-shrink-0" />
                 <span>
                   {quickAddLockMode
-                    ? `Ajouter le Price Lock au panier — ${selectedEvent.event_ticket_types
+                    ? t('pass.choice.addLock', { amount: formatPrice(selectedEvent.event_ticket_types
                         ?.filter(ett => ett.is_active && priceLockAvailable(ett as any))
                         .reduce((total, ett) => {
                           const deposit = displayedPriceLockDeposit(ett);
                           return total + deposit * (ticketQuantities[ett.id] || 0);
-                        }, 0)
-                        .toFixed(2)}€`
-                    : `Ajouter au panier — ${selectedEvent.event_ticket_types
+                        }, 0) ?? 0) })
+                    : t('pass.choice.add', { amount: formatPrice(selectedEvent.event_ticket_types
                         ?.filter(ett => ett.is_active)
-                        .reduce((total, ett) => total + currentPrice(ett as any) * (ticketQuantities[ett.id] || 0), 0)
-                        .toFixed(2)}€`}
+                        .reduce((total, ett) => total + currentPrice(ett as any) * (ticketQuantities[ett.id] || 0), 0) ?? 0) })}
                 </span>
               </button>
             </div>
@@ -1827,14 +1833,14 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
                       <p className="text-base sm:text-lg font-semibold text-white">Prix bloqué avec succès</p>
                     </div>
                     <p className="mt-3 text-sm text-gray-300 leading-relaxed">
-                      Ton billet reste à <span className="font-semibold text-white">{lockPrice} €</span> jusqu’au {lock ? new Date(lock.expires_at).toLocaleDateString(getActiveLocale(), { day: 'numeric', month: 'long', year: 'numeric' }) : ''}.
+                      Ton billet reste à <span className="font-semibold text-white">{lockPrice} €</span> jusqu’au {lock ? formatLongDate(lock.expires_at) : ''}.
                     </p>
                     <div className="mt-5 rounded-xl border border-[#D4AC5B]/25 bg-[#D4AC5B]/[0.05] px-4 py-4 space-y-3">
                       {[
                         ['Déjà payé', `${Math.round(totalPaid)} €`],
                         ['Reste à payer', `${Math.round(remaining)} €`],
                         ['Ton prix bloqué', `${Math.round(lockPrice)} €`],
-                        ['Date limite', lock ? new Date(lock.expires_at).toLocaleDateString(getActiveLocale(), { day: 'numeric', month: 'long', year: 'numeric' }) : ''],
+                        ['Date limite', lock ? formatLongDate(lock.expires_at) : ''],
                       ].map(([label, value]) => (
                         <div key={label} className="flex items-center justify-between gap-3">
                           <span className="text-xs text-gray-400">{label}</span>
@@ -2006,7 +2012,7 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
                             <p className="mt-0.5 text-xs text-gray-400 line-clamp-1">{localized(ett.ticket_type.description, ett.ticket_type.description_en, language)}</p>
                           )}
                           <p className="mt-0.5 text-[11px] text-gray-500">
-                            {changeAt ? `Hausse le ${changeAt.toLocaleDateString(getActiveLocale(), { day: 'numeric', month: 'long' })}` : ''}
+                            {changeAt ? `Hausse le ${formatDate(changeAt, { day: 'numeric', month: 'long' })}` : ''}
                           </p>
                         </div>
                         <div className="text-right flex-shrink-0">

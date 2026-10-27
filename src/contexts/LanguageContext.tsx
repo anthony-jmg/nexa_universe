@@ -7,7 +7,7 @@ export type { Language } from '../i18n/translations';
 interface LanguageContextType {
   language: Language;
   setLanguage: (lang: Language) => void;
-  t: (key: string, params?: Record<string, string>) => string;
+  t: (key: string, params?: Record<string, string | number>) => string;
 }
 
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
@@ -49,7 +49,7 @@ export function LanguageProvider({ children }: LanguageProviderProps) {
     setLanguageState(lang);
   };
 
-  const t = (key: string, params?: Record<string, string>): string => translate(language, key, params);
+  const t = (key: string, params?: Record<string, string | number>): string => translate(language, key, params);
 
   return (
     <LanguageContext.Provider value={{ language, setLanguage, t }}>

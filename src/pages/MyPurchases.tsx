@@ -362,7 +362,7 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
           <div className="text-center py-16 sm:py-20">
             <div className="inline-block w-10 h-10 sm:w-12 sm:h-12 border-4 border-[#B8913D] border-t-transparent rounded-full animate-spin"></div>
             {verifyingPayment && (
-              <p className="mt-4 text-gray-400 text-sm">Confirmation du paiement en cours...</p>
+              <p className="mt-4 text-gray-400 text-sm">{t('payment.verifying')}</p>
             )}
           </div>
         ) : (

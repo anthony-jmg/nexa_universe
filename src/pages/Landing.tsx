@@ -10,7 +10,8 @@ import { useLanguage } from '../contexts/LanguageContext';
 import { supabase } from '../lib/supabase';
 import { Database } from '../lib/database.types';
 import { priceLockAvailable, minEventPrice, minNextEventPrice, EttWithPricing } from '../lib/tierPricing';
-import { getActiveLocale } from '../lib/locale';
+import { formatDate } from '../lib/locale';
+import { formatPrice } from '../lib/formatEuro';
 interface LandingProps {
   onNavigate: (page: string, eventId?: string) => void;
 }
@@ -29,74 +30,56 @@ interface LandingFestival {
   id: string;
   festival: string;
   image: string | null;
-  dateRange: string;
-  location: string;
+  startDate: string | null;
+  endDate: string | null;
+  location: string | null;
   currentPrice: number | null;
   nextPrice: number | null;
-  increaseIn: string | null;
+  increaseAt: Date | null;
   priceLockActive: boolean;
   lockAmount: number | null;
 }
 
-const formatDateShort = (date: Date) =>
-  date.toLocaleDateString(getActiveLocale(), { day: 'numeric', month: 'short' });
+type Translate = (key: string, params?: Record<string, string | number>) => string;
 
-function buildDateRange(start: string | null, end: string | null): string {
-  if (!start) return 'Dates à venir';
+function buildDateRange(start: string | null, end: string | null, t: Translate): string {
+  if (!start) return t('home.festival.datesTbc');
   const startDate = new Date(start);
   const endDate = end ? new Date(end) : null;
   if (!endDate || startDate.toDateString() === endDate.toDateString()) {
-    return startDate.toLocaleDateString(getActiveLocale(), { day: 'numeric', month: 'long' });
+    return formatDate(startDate, { day: 'numeric', month: 'long' });
   }
-  return `${formatDateShort(startDate)} — ${formatDateShort(endDate)}`;
+  const short: Intl.DateTimeFormatOptions = { day: 'numeric', month: 'short' };
+  return `${formatDate(startDate, short)} — ${formatDate(endDate, short)}`;
 }
 
-function buildIncreaseIn(changeAt: Date | null): string | null {
+function buildIncreaseIn(changeAt: Date | null, t: Translate): string | null {
   if (!changeAt) return null;
   const days = Math.ceil((changeAt.getTime() - Date.now()) / (24 * 60 * 60 * 1000));
-  return days <= 1 ? 'très bientôt' : `dans ${days} jours`;
+  return days <= 1 ? t('home.festival.increaseSoon') : t('home.festival.increaseInDays', { days });
 }
 
 const INCLUSIONS = [
-  { icon: Ticket, label: 'Full Pass officiel' },
-  { icon: Lock, label: 'Price Lock' },
-  { icon: CheckCircle, label: 'Paiement progressif' },
-  { icon: Calendar, label: 'Festivals partenaires' },
+  { icon: Ticket, labelKey: 'home.inclusions.fullPass' },
+  { icon: Lock, labelKey: 'home.inclusions.priceLock' },
+  { icon: CheckCircle, labelKey: 'home.inclusions.progressive' },
+  { icon: Calendar, labelKey: 'home.inclusions.partners' },
 ];
 
+// Réponses et exemple chiffré : textes du dictionnaire (home.faq.*).
 const PRICE_LOCK_FAQ = [
-  {
-    question: "Qu’est-ce qu’un Price Lock ?",
-    answer: "Le Price Lock te permet de bloquer le prix actuel d’un Full Pass pendant une durée limitée avec un premier versement.",
-  },
-  {
-    question: "Combien de temps mon prix est-il bloqué ?",
-    answer: "Chaque festival possède sa propre date limite. Cette date est affichée avant que tu confirmes ton Price Lock.",
-  },
-  {
-    question: "Que se passe-t-il si le prix du festival augmente pendant mon Price Lock ?",
-    answer: "Tant que ton Price Lock est actif, tu conserves le tarif que tu as bloqué, même si le prix public augmente.",
-  },
-  {
-    question: "Que se passe-t-il si mon Price Lock expire ?",
-    answer: "Les sommes déjà versées ne sont pas perdues. En revanche, le tarif bloqué expire et le prix public actuel s’applique.",
-    example: true,
-  },
-  {
-    question: "Puis-je payer mon Full Pass en plusieurs fois ?",
-    answer: "Oui. Après le premier versement, tous les paiements suivants viennent simplement réduire le montant restant à payer.",
-  },
-  {
-    question: "Puis-je avoir plusieurs Price Locks ?",
-    answer: "Oui, sur plusieurs festivals différents, dans la limite prévue par ton offre Nexa. Un seul Price Lock est possible par personne et par festival.",
-  },
-  {
-    question: "Quand mon Full Pass est-il confirmé ?",
-    answer: "Ton Full Pass est confirmé une fois que le montant total a été réglé.",
-  },
+  { questionKey: 'home.faq.q1', answerKey: 'home.faq.a1' },
+  { questionKey: 'home.faq.q2', answerKey: 'home.faq.a2' },
+  { questionKey: 'home.faq.q3', answerKey: 'home.faq.a3' },
+  { questionKey: 'home.faq.q4', answerKey: 'home.faq.a4', example: true },
+  { questionKey: 'home.faq.q5', answerKey: 'home.faq.a5' },
+  { questionKey: 'home.faq.q6', answerKey: 'home.faq.a6' },
+  { questionKey: 'home.faq.q7', answerKey: 'home.faq.a7' },
 ];
 
 function FestivalCard({ festival, onNavigate }: { festival: LandingFestival; onNavigate: (page: string, eventId?: string) => void }) {
+  const { t } = useLanguage();
+  const increaseIn = buildIncreaseIn(festival.increaseAt, t);
   const openDetail = () => onNavigate(`shop-${festival.id}`);
   return (
     <div
@@ -120,7 +103,7 @@ function FestivalCard({ festival, onNavigate }: { festival: LandingFestival; onN
           <div className="absolute top-4 left-4">
             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-gold-500/90 text-white text-[10px] font-semibold tracking-wide shadow-lg">
               <Lock className="w-3 h-3" />
-              Price Lock disponible
+              {t('home.festival.priceLockAvailable')}
             </span>
           </div>
         )}
@@ -133,11 +116,11 @@ function FestivalCard({ festival, onNavigate }: { festival: LandingFestival; onN
         <div className="flex items-center gap-4 text-xs text-gray-400 mb-4 pb-4 border-b border-white/[0.07]">
           <span className="flex items-center gap-1.5">
             <Calendar className="w-3.5 h-3.5 text-gold-400/80" />
-            {festival.dateRange}
+            {buildDateRange(festival.startDate, festival.endDate, t)}
           </span>
           <span className="flex items-center gap-1.5">
             <MapPin className="w-3.5 h-3.5 text-gold-400/80" />
-            {festival.location}
+            {festival.location || t('home.festival.locationTbc')}
           </span>
         </div>
 
@@ -146,25 +129,25 @@ function FestivalCard({ festival, onNavigate }: { festival: LandingFestival; onN
           {festival.currentPrice != null ? (
             <>
               <div className="flex items-end gap-2 mt-1">
-                <span className="text-[27px] leading-none font-bold text-white">À partir de {festival.currentPrice}&nbsp;€</span>
+                <span className="text-[27px] leading-none font-bold text-white">{t('home.festival.fromPrice', { price: formatPrice(festival.currentPrice) })}</span>
               </div>
               {festival.nextPrice != null && (
                 <div className="flex items-center gap-1.5 mt-2 text-xs">
-                  <span className="text-gray-500">Prochain tarif :</span>
-                  <span className="text-gold-400 font-semibold">{festival.nextPrice}&nbsp;€</span>
-                  {festival.increaseIn && <span className="text-gray-500">{festival.increaseIn}</span>}
+                  <span className="text-gray-500">{t('home.festival.nextPrice')}</span>
+                  <span className="text-gold-400 font-semibold">{formatPrice(festival.nextPrice)}</span>
+                  {increaseIn && <span className="text-gray-500">{increaseIn}</span>}
                 </div>
               )}
             </>
           ) : (
-            <div className="mt-1 text-sm text-gray-400">Tarifs bientôt disponibles</div>
+            <div className="mt-1 text-sm text-gray-400">{t('home.festival.pricesSoon')}</div>
           )}
         </div>
 
         {festival.currentPrice != null && festival.lockAmount != null && (
           <div className="flex items-center gap-1.5 text-xs text-gray-300 mb-5">
             <Lock className="w-3.5 h-3.5 text-gold-400" />
-            <span>Bloque {festival.currentPrice}&nbsp;€ avec {festival.lockAmount}&nbsp;€</span>
+            <span>{t('home.festival.lockWith', { price: formatPrice(festival.currentPrice), deposit: formatPrice(festival.lockAmount) })}</span>
           </div>
         )}
 
@@ -173,7 +156,7 @@ function FestivalCard({ festival, onNavigate }: { festival: LandingFestival; onN
             onClick={(e) => { e.stopPropagation(); openDetail(); }}
             className="inline-flex items-center gap-1.5 px-4 py-2.5 bg-gradient-to-r from-[#B8913D] to-[#D4AC5B] text-white text-xs font-semibold rounded-xl hover:shadow-glow transition-all hover:brightness-105"
           >
-            Voir le festival
+            {t('home.festival.view')}
             <ArrowRight className="w-3.5 h-3.5" />
           </button>
         </div>
@@ -183,6 +166,7 @@ function FestivalCard({ festival, onNavigate }: { festival: LandingFestival; onN
 }
 
 function MobileFestivalsCarousel({ festivals, onNavigate }: { festivals: LandingFestival[]; onNavigate: (page: string, eventId?: string) => void }) {
+  const { t } = useLanguage();
   const scrollRef = useRef<HTMLDivElement>(null);
   const [activeIndex, setActiveIndex] = useState(0);
 
@@ -216,7 +200,7 @@ function MobileFestivalsCarousel({ festivals, onNavigate }: { festivals: Landing
         ))}
       </div>
       <div className="flex items-center justify-center gap-2 mt-3">
-        <button onClick={() => scroll('left')} className="p-1.5 rounded-full bg-white/5 border border-white/10 text-gray-400 hover:text-white hover:border-gold-500/30 transition-all">
+        <button onClick={() => scroll('left')} aria-label={t('home.carousel.previous')} className="p-1.5 rounded-full bg-white/5 border border-white/10 text-gray-400 hover:text-white hover:border-gold-500/30 transition-all">
           <ChevronLeft className="w-4 h-4" />
         </button>
         <div className="flex gap-1.5">
@@ -224,7 +208,7 @@ function MobileFestivalsCarousel({ festivals, onNavigate }: { festivals: Landing
             <div key={i} className={`h-1.5 rounded-full transition-all duration-300 ${i === activeIndex ? 'bg-gold-400 w-5 shadow-[0_0_8px_rgba(212,172,91,0.5)]' : 'bg-gray-600 w-1.5'}`} />
           ))}
         </div>
-        <button onClick={() => scroll('right')} className="p-1.5 rounded-full bg-white/5 border border-white/10 text-gray-400 hover:text-white hover:border-gold-500/30 transition-all">
+        <button onClick={() => scroll('right')} aria-label={t('home.carousel.next')} className="p-1.5 rounded-full bg-white/5 border border-white/10 text-gray-400 hover:text-white hover:border-gold-500/30 transition-all">
           <ChevronRight className="w-4 h-4" />
         </button>
       </div>
@@ -294,11 +278,12 @@ export function Landing({ onNavigate }: LandingProps) {
             id: event.id,
             festival: event.title,
             image: event.thumbnail_url,
-            dateRange: buildDateRange(event.start_date, event.end_date),
-            location: event.location || 'Lieu à venir',
+            startDate: event.start_date,
+            endDate: event.end_date,
+            location: event.location,
             currentPrice: minEventPrice(event as any),
             nextPrice: nextConsistent?.price ?? null,
-            increaseIn: buildIncreaseIn(nextConsistent?.changeAt ?? null),
+            increaseAt: nextConsistent?.changeAt ?? null,
             priceLockActive: lockAvailable,
             lockAmount,
           } as LandingFestival;
@@ -314,10 +299,10 @@ export function Landing({ onNavigate }: LandingProps) {
   }, []);
 
   const steps = [
-    { num: '01', title: 'Choisis ton festival', desc: 'Découvre les festivals partenaires disponibles sur Nexa.', icon: Compass },
-    { num: '02', title: 'Bloque ton tarif', desc: 'Verse une première partie et conserve le prix actuel jusqu’à la date indiquée.', icon: Lock, note: 'Tarif garanti jusqu’au XX/XX' },
-    { num: '03', title: 'Paie le reste plus tard', desc: 'Complète ton Full Pass avant la date limite pour conserver ton tarif bloqué.', icon: Ticket },
-    { num: '04', title: 'Profite du festival', desc: 'Une fois ton Full Pass soldé, ta réservation est confirmée.', icon: Heart },
+    { num: '01', title: t('home.steps.1.title'), desc: t('home.steps.1.desc'), icon: Compass },
+    { num: '02', title: t('home.steps.2.title'), desc: t('home.steps.2.desc'), icon: Lock, note: t('home.steps.2.note') },
+    { num: '03', title: t('home.steps.3.title'), desc: t('home.steps.3.desc'), icon: Ticket },
+    { num: '04', title: t('home.steps.4.title'), desc: t('home.steps.4.desc'), icon: Heart },
   ];
 
   return (
@@ -349,20 +334,20 @@ export function Landing({ onNavigate }: LandingProps) {
                 NEXA UNIVERSE
               </span>
               <span className="text-[10px] sm:text-[11px] font-semibold tracking-[0.2em] text-gold-500/60 uppercase ml-2">
-                — VIVEZ LA DANSE AUTREMENT
+                — {t('home.hero.tagline')}
               </span>
             </div>
 
             <h1 className="text-[2.75rem] sm:text-5xl md:text-6xl lg:text-[3.5rem] xl:text-6xl font-black text-white mb-5 sm:mb-6 leading-[1.05] animate-hero-rise delay-100">
-              Apprenez. Réservez.<br />
-              <span className="text-gradient">Vivez la danse.</span>
+              {t('home.hero.title1')}<br />
+              <span className="text-gradient">{t('home.hero.title2')}</span>
             </h1>
 
             <p className="text-lg sm:text-xl text-white/90 font-semibold mb-2 animate-hero-rise delay-200">
-              Progressez auprès de professeurs reconnus. Réservez vos Full Pass partenaires et bloquez votre tarif avant qu’il augmente.
+              {t('home.hero.subtitle')}
             </p>
             <p className="text-sm sm:text-base text-gray-300/80 mb-8 sm:mb-10 leading-relaxed max-w-lg font-light animate-hero-rise delay-300">
-              De l'apprentissage aux festivals, Nexa Universe réunit tout ce qui nourrit votre passion pour la danse.
+              {t('home.hero.description')}
             </p>
 
             <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 animate-hero-rise delay-400">
@@ -372,7 +357,7 @@ export function Landing({ onNavigate }: LandingProps) {
               >
                 <div className="absolute inset-0 bg-gradient-to-r from-[#D4AC5B] to-[#B8913D] opacity-0 group-hover:opacity-100 transition-opacity" />
                 <Ticket className="w-4 h-4 mr-2 relative z-10" />
-                <span className="relative z-10">Découvrir Nexa Pass</span>
+                <span className="relative z-10">{t('home.cta.discoverPass')}</span>
                 <ArrowRight className="w-4 h-4 ml-2 relative z-10 group-hover:translate-x-1 transition-transform" />
               </button>
               <button
@@ -380,7 +365,7 @@ export function Landing({ onNavigate }: LandingProps) {
                 className="inline-flex items-center justify-center px-7 py-4 sm:px-8 sm:py-4 bg-white/[0.06] backdrop-blur-md border border-white/15 text-white text-sm sm:text-base font-semibold rounded-xl hover:bg-white/10 hover:border-white/25 transition-all"
               >
                 <GraduationCap className="w-4 h-4 mr-2" />
-                Découvrir l'Academy
+                {t('home.cta.discoverAcademy')}
               </button>
             </div>
           </div>
@@ -397,20 +382,20 @@ export function Landing({ onNavigate }: LandingProps) {
           <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between mb-7 sm:mb-8 gap-4">
             <div>
               <span className="text-[11px] font-semibold tracking-[0.2em] text-gold-400 uppercase block mb-2">
-                FESTIVALS PARTENAIRES
+                {t('home.pass.eyebrow')}
               </span>
               <h2 className="text-2xl sm:text-3xl font-bold text-white">
                 <span className="text-gradient">Nexa Pass</span>
               </h2>
               <p className="text-sm text-gray-400 mt-1.5 font-light max-w-md">
-                Réserve ton Full Pass avant la prochaine hausse de prix.
+                {t('home.pass.subtitle')}
               </p>
             </div>
             <button
               onClick={() => onNavigate('shop')}
               className="inline-flex items-center gap-1.5 text-sm font-semibold text-gold-400 hover:text-gold-300 transition-colors shrink-0"
             >
-              Voir tous les festivals
+              {t('home.pass.viewAll')}
               <ArrowRight className="w-4 h-4" />
             </button>
           </div>
@@ -446,8 +431,8 @@ export function Landing({ onNavigate }: LandingProps) {
           {!loadingFestivals && festivals.length === 0 && (
             <div className="mt-6 rounded-[20px] border border-white/[0.08] bg-[#0c1424]/95 px-6 py-10 text-center">
               <Ticket className="w-8 h-8 text-gold-500/40 mx-auto mb-3" />
-              <p className="text-sm text-gray-300 font-medium">De nouveaux festivals arrivent bientôt.</p>
-              <p className="text-xs text-gray-500 mt-1">Reviens prochainement pour découvrir les prochaines éditions.</p>
+              <p className="text-sm text-gray-300 font-medium">{t('home.pass.emptyTitle')}</p>
+              <p className="text-xs text-gray-500 mt-1">{t('home.pass.emptyText')}</p>
             </div>
           )}
         </div>
@@ -458,13 +443,13 @@ export function Landing({ onNavigate }: LandingProps) {
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-8 sm:mb-10 md:mb-12">
             <span className="text-[11px] sm:text-xs font-semibold tracking-[0.2em] text-gold-400 uppercase block mb-3">
-              Nexa, plus qu'une plateforme
+              {t('home.universes.eyebrow')}
             </span>
             <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white">
-              Réserve. Danse. <span className="text-gradient">Progresse.</span>
+              {t('home.universes.title1')} <span className="text-gradient">{t('home.universes.title2')}</span>
             </h2>
             <p className="text-sm sm:text-base text-gray-400 mt-3 font-light max-w-lg mx-auto">
-              Une seule plateforme pour réserver tes festivals et faire évoluer ta danse.
+              {t('home.universes.subtitle')}
             </p>
           </div>
 
@@ -491,16 +476,16 @@ export function Landing({ onNavigate }: LandingProps) {
                   Nexa Pass
                 </span>
                 <h3 className="text-2xl sm:text-[27px] font-bold text-white mb-2 leading-tight">
-                  Vis tes festivals autrement.
+                  {t('home.universes.pass.title')}
                 </h3>
                 <p className="text-sm text-gray-200/90 leading-relaxed font-light mb-7 max-w-sm">
-                  Réserve tes Full Pass partenaires, bloque ton tarif avant qu'il augmente et paie le reste plus tard.
+                  {t('home.universes.pass.text')}
                 </p>
                 <button
                   onClick={() => onNavigate('shop')}
                   className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-[#B8913D] to-[#D4AC5B] text-white text-sm font-semibold rounded-xl hover:shadow-glow transition-all hover:brightness-105 self-start"
                 >
-                  Découvrir Nexa Pass
+                  {t('home.cta.discoverPass')}
                   <ArrowRight className="w-4 h-4" />
                 </button>
               </div>
@@ -527,16 +512,16 @@ export function Landing({ onNavigate }: LandingProps) {
                   Nexa Academy
                 </span>
                 <h3 className="text-2xl sm:text-[27px] font-bold text-white mb-2 leading-tight">
-                  Fais évoluer ta danse.
+                  {t('home.universes.academy.title')}
                 </h3>
                 <p className="text-sm text-gray-200/90 leading-relaxed font-light mb-7 max-w-sm">
-                  Apprends auprès de professeurs reconnus grâce à des programmes et cours structurés.
+                  {t('home.universes.academy.text')}
                 </p>
                 <button
                   onClick={() => onNavigate('academy')}
                   className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-[#B8913D] to-[#D4AC5B] text-white text-sm font-semibold rounded-xl hover:shadow-glow transition-all hover:brightness-105 self-start"
                 >
-                  Découvrir l'Academy
+                  {t('home.cta.discoverAcademy')}
                   <ArrowRight className="w-4 h-4" />
                 </button>
               </div>
@@ -550,10 +535,10 @@ export function Landing({ onNavigate }: LandingProps) {
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-10 sm:mb-12 md:mb-14">
             <span className="text-[11px] sm:text-xs font-semibold tracking-[0.2em] text-gold-400 uppercase block mb-3">
-              SIMPLE, FLEXIBLE, TRANSPARENT
+              {t('home.how.eyebrow')}
             </span>
             <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white">
-              Comment ça <span className="text-gradient">marche ?</span>
+              {t('home.how.title1')} <span className="text-gradient">{t('home.how.title2')}</span>
             </h2>
           </div>
 
@@ -606,10 +591,10 @@ export function Landing({ onNavigate }: LandingProps) {
 
           {/* Reassurance strip */}
           <div className="flex flex-wrap items-center justify-center gap-x-5 sm:gap-x-7 gap-y-2.5 mt-10 sm:mt-12 pt-8 border-t border-white/[0.06]">
-            {INCLUSIONS.map(({ icon: Icon, label }, i) => (
-              <div key={label} className="flex items-center gap-2 text-xs sm:text-sm text-gray-400">
+            {INCLUSIONS.map(({ icon: Icon, labelKey }, i) => (
+              <div key={labelKey} className="flex items-center gap-2 text-xs sm:text-sm text-gray-400">
                 <Icon className="w-3.5 h-3.5 text-gold-500/60" />
-                <span>{label}</span>
+                <span>{t(labelKey)}</span>
                 {i < INCLUSIONS.length - 1 && <span className="hidden sm:inline text-gray-700 ml-5 sm:ml-7">·</span>}
               </div>
             ))}
@@ -622,10 +607,10 @@ export function Landing({ onNavigate }: LandingProps) {
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-8 sm:mb-10">
             <h2 className="text-2xl sm:text-3xl font-bold text-white">
-              Tout savoir sur le <span className="text-gradient">Price Lock</span>
+              {t('home.faq.title')} <span className="text-gradient">Price Lock</span>
             </h2>
             <p className="text-sm text-gray-400 mt-2 font-light">
-              Le fonctionnement en quelques réponses.
+              {t('home.faq.subtitle')}
             </p>
           </div>
 
@@ -634,7 +619,7 @@ export function Landing({ onNavigate }: LandingProps) {
               const isOpen = openFaqIndex === index;
 
               return (
-                <div key={item.question} className="border-b border-white/[0.08]">
+                <div key={item.questionKey} className="border-b border-white/[0.08]">
                   <button
                     type="button"
                     onClick={() => setOpenFaqIndex(isOpen ? null : index)}
@@ -643,20 +628,20 @@ export function Landing({ onNavigate }: LandingProps) {
                   >
                     <span className="flex items-center gap-3">
                       <span className="w-1.5 h-1.5 rounded-full bg-gold-400 shrink-0" />
-                      {item.question}
+                      {t(item.questionKey)}
                     </span>
                     <ChevronDown className={`w-4 h-4 text-gold-400 shrink-0 transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`} />
                   </button>
                   <div className={`grid transition-[grid-template-rows] duration-300 ${isOpen ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}>
                     <div className="overflow-hidden">
                       <div className="pb-5 pl-5 sm:pl-7 text-sm text-gray-400 font-light leading-relaxed">
-                        <p>{item.answer}</p>
+                        <p>{t(item.answerKey)}</p>
                         {item.example && (
                           <div className="mt-4 pl-4 border-l border-gold-500/30 text-xs sm:text-sm text-gray-300 space-y-1">
-                            <p><span className="text-gray-500">Prix bloqué :</span> 75 €</p>
-                            <p><span className="text-gray-500">Déjà payé :</span> 20 €</p>
-                            <p className="pt-1 text-gray-400">Si le prix actuel passe à 90 € après expiration :</p>
-                            <p className="text-gold-400 font-medium">Nouveau solde : 70 €.</p>
+                            <p><span className="text-gray-500">{t('home.faq.example.locked')}</span> {formatPrice(75)}</p>
+                            <p><span className="text-gray-500">{t('home.faq.example.paid')}</span> {formatPrice(20)}</p>
+                            <p className="pt-1 text-gray-400">{t('home.faq.example.ifPrice', { price: formatPrice(90) })}</p>
+                            <p className="text-gold-400 font-medium">{t('home.faq.example.newBalance', { amount: formatPrice(70) })}</p>
                           </div>
                         )}
                       </div>
@@ -678,7 +663,7 @@ export function Landing({ onNavigate }: LandingProps) {
               <img src="/nexa-logo.webp" alt="NEXA" className="h-10 sm:h-10 w-auto opacity-80 drop-shadow-[0_0_12px_rgba(212,172,91,0.25)]" />
             </div>
             <p className="text-sm text-gray-400 font-light tracking-wide mb-7 sm:mb-8">
-              Apprenez. Voyagez. <span className="text-gold-400/90">Vivez la danse.</span>
+              {t('footer.tagline')} <span className="text-gold-400/90">{t('home.hero.title2')}</span>
             </p>
 
             <nav className="flex flex-wrap items-center justify-center gap-x-5 sm:gap-x-7 gap-y-2.5 mb-6 sm:mb-6">
@@ -686,17 +671,17 @@ export function Landing({ onNavigate }: LandingProps) {
               <span className="text-gray-700 hidden sm:inline">•</span>
               <button onClick={() => onNavigate('shop')} className="text-xs sm:text-sm text-gray-400 hover:text-gold-400 transition-colors">Nexa Pass</button>
               <span className="text-gray-700 hidden sm:inline">•</span>
-              <span className="text-xs sm:text-sm text-gray-500 cursor-default">Contact</span>
+              <span className="text-xs sm:text-sm text-gray-500 cursor-default">{t('footer.contact')}</span>
             </nav>
 
             <div className="flex flex-wrap items-center justify-center gap-x-4 sm:gap-x-5 gap-y-2 mb-8 sm:mb-9">
-              <button onClick={() => onNavigate('legal-notice')} className="text-[11px] sm:text-xs text-gray-600 hover:text-gray-500 transition-colors">Mentions légales</button>
+              <button onClick={() => onNavigate('legal-notice')} className="text-[11px] sm:text-xs text-gray-600 hover:text-gray-500 transition-colors">{t('footer.legalNotice')}</button>
               <span className="text-gray-800">·</span>
-              <button onClick={() => onNavigate('terms')} className="text-[11px] sm:text-xs text-gray-600 hover:text-gray-500 transition-colors">CGV</button>
+              <button onClick={() => onNavigate('terms')} className="text-[11px] sm:text-xs text-gray-600 hover:text-gray-500 transition-colors">{t('footer.terms')}</button>
               <span className="text-gray-800">·</span>
-              <button onClick={() => onNavigate('refund-policy')} className="text-[11px] sm:text-xs text-gray-600 hover:text-gray-500 transition-colors">Remboursement</button>
+              <button onClick={() => onNavigate('refund-policy')} className="text-[11px] sm:text-xs text-gray-600 hover:text-gray-500 transition-colors">{t('footer.refund')}</button>
               <span className="text-gray-800">·</span>
-              <button onClick={() => onNavigate('privacy')} className="text-[11px] sm:text-xs text-gray-600 hover:text-gray-500 transition-colors">Confidentialité</button>
+              <button onClick={() => onNavigate('privacy')} className="text-[11px] sm:text-xs text-gray-600 hover:text-gray-500 transition-colors">{t('footer.privacy')}</button>
             </div>
 
             <p className="text-[11px] sm:text-xs text-gray-600 font-light">

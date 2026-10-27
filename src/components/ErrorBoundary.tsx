@@ -1,5 +1,10 @@
 import { Component, ReactNode } from 'react';
 import { AlertTriangle } from 'lucide-react';
+import { translate } from '../i18n/translations';
+import { getActiveLanguage } from '../lib/locale';
+
+// Affiché hors de LanguageProvider : langue lue dans le module de langue active.
+const tr = (key: string) => translate(getActiveLanguage(), key);
 
 interface Props {
   children: ReactNode;
@@ -55,14 +60,14 @@ export class ErrorBoundary extends Component<Props, State> {
               </div>
             </div>
 
-            <h1 className="text-2xl font-light mb-2">Une erreur est survenue</h1>
+            <h1 className="text-2xl font-light mb-2">{tr('errorPage.title')}</h1>
             <p className="text-gray-600 mb-6">
-              Désolé, quelque chose s'est mal passé. Veuillez réessayer.
+              {tr('errorPage.text')}
             </p>
 
             {import.meta.env.DEV && this.state.error && (
               <div className="mb-6 p-4 bg-gray-50 rounded text-left text-sm">
-                <p className="font-medium text-gray-900 mb-2">Détails de l'erreur:</p>
+                <p className="font-medium text-gray-900 mb-2">{tr('errorPage.details')}</p>
                 <p className="text-red-600 font-mono text-xs break-all">
                   {this.state.error.message}
                 </p>
@@ -73,7 +78,7 @@ export class ErrorBoundary extends Component<Props, State> {
               onClick={this.handleReset}
               className="bg-[#B8913D] text-white px-6 py-2 rounded hover:bg-[#9A7830] transition-colors"
             >
-              Retour à l'accueil
+              {tr('errorPage.home')}
             </button>
           </div>
         </div>

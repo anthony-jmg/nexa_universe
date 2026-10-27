@@ -8,7 +8,9 @@ import { BackgroundDecor } from '../components/BackgroundDecor';
 import { Database } from '../lib/database.types';
 import { currentPrice, nextPrice, nextPriceChangeAt, priceLockDeadline, priceLockAvailable, EttWithPricing } from '../lib/tierPricing';
 import { Calendar, MapPin, Clock, ArrowLeft, Check, Minus, Plus, ShoppingCart, Bell, ChevronDown, ChevronUp, Music, ListChecks, Info, Lock } from 'lucide-react';
-import { getActiveLocale } from '../lib/locale';
+import { formatDate, formatTime, formatLongDate } from '../lib/locale';
+import { formatPrice } from '../lib/formatEuro';
+import { purchaseErrorMessage } from '../lib/purchaseErrors';
 
 type Event = Database['public']['Tables']['events']['Row'];
 type TicketType = Database['public']['Tables']['ticket_types']['Row'];
@@ -32,11 +34,12 @@ interface EventDetailProps {
   onNavigate: (page: string) => void;
 }
 
+// Programme d'exemple affiché sur chaque festival (textes du dictionnaire).
 const MOCK_PROGRAM = [
-  '10h00 — Accueil et remise des Full Pass',
-  '11h00 — Cours intensifs avec les professeurs invités',
-  '15h00 — Workshops et sessions tous niveaux',
-  '21h00 — Soirée festival et shows partenaires',
+  'event.program.1',
+  'event.program.2',
+  'event.program.3',
+  'event.program.4',
 ];
 
 const MOCK_LINEUP = ['Marlon & Cindy', 'Tina & Alex', 'Nexa DJs'];
@@ -141,7 +144,7 @@ export function EventDetail({ eventId, onNavigate }: EventDetailProps) {
       }
       onNavigate('cart');
     } catch (err: any) {
-      setError(err.message || 'Une erreur est survenue');
+      setError(purchaseErrorMessage(err, t));
     } finally {
       setProcessing(false);
     }
@@ -159,12 +162,12 @@ export function EventDetail({ eventId, onNavigate }: EventDetailProps) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-gray-950 via-gray-900 to-gray-950 pt-20 pb-12 flex items-center justify-center">
         <div className="text-center">
-          <p className="text-gray-300">Événement non trouvé</p>
+          <p className="text-gray-300">{t('event.notFound')}</p>
           <button
             onClick={() => onNavigate('events')}
             className="mt-4 text-[#B8913D] hover:text-[#D4AC5B]"
           >
-            Retour aux événements
+            {t('event.backToEvents')}
           </button>
         </div>
       </div>
@@ -183,15 +186,15 @@ export function EventDetail({ eventId, onNavigate }: EventDetailProps) {
           className="mb-6 flex items-center space-x-2 text-gray-300 hover:text-[#B8913D] transition-colors"
         >
           <ArrowLeft className="w-5 h-5" />
-          <span>Retour aux événements</span>
+          <span>{t('event.backToEvents')}</span>
         </button>
 
         {isUpcoming && (
           <div className="mb-6 flex items-center space-x-3 px-5 py-4 rounded-xl border border-[#B8913D] border-opacity-40 bg-[#B8913D] bg-opacity-10">
             <Bell className="w-5 h-5 text-[#B8913D] flex-shrink-0" />
             <div>
-              <p className="text-[#B8913D] font-semibold text-sm">Bientôt disponible</p>
-              <p className="text-gray-400 text-xs mt-0.5">La billetterie pour cet événement n'est pas encore ouverte. Revenez bientôt !</p>
+              <p className="text-[#B8913D] font-semibold text-sm">{t('event.comingSoon')}</p>
+              <p className="text-gray-400 text-xs mt-0.5">{t('event.comingSoonText')}</p>
             </div>
           </div>
         )}
@@ -215,7 +218,7 @@ export function EventDetail({ eventId, onNavigate }: EventDetailProps) {
               <div className="flex items-center space-x-3 text-gray-300">
                 <Calendar className="w-5 h-5 text-[#B8913D]" />
                 <span>
-                  {eventDate.toLocaleDateString(getActiveLocale(), {
+                  {formatDate(eventDate, {
                     weekday: 'long',
                     year: 'numeric',
                     month: 'long',
@@ -227,7 +230,7 @@ export function EventDetail({ eventId, onNavigate }: EventDetailProps) {
               <div className="flex items-center space-x-3 text-gray-300">
                 <Clock className="w-5 h-5 text-[#B8913D]" />
                 <span>
-                  {eventDate.toLocaleTimeString(getActiveLocale(), {
+                  {formatTime(eventDate, {
                     hour: '2-digit',
                     minute: '2-digit'
                   })}
@@ -262,21 +265,21 @@ export function EventDetail({ eventId, onNavigate }: EventDetailProps) {
                     <div className="flex flex-wrap items-center gap-2 mb-3">
                       <span className="text-xs font-bold tracking-[0.24em] text-[#D4AC5B] uppercase">Full Pass</span>
                       {lockOk && (
-                        <span className="rounded-full border border-[#D4AC5B]/45 bg-[#D4AC5B]/10 px-2.5 py-1 text-[11px] font-semibold text-[#F0D38A]">Price Lock disponible</span>
+                        <span className="rounded-full border border-[#D4AC5B]/45 bg-[#D4AC5B]/10 px-2.5 py-1 text-[11px] font-semibold text-[#F0D38A]">{t('event.priceLockAvailable')}</span>
                       )}
                     </div>
                     <div className="flex items-end gap-3">
-                      <span className="text-4xl sm:text-5xl font-bold tracking-tight text-white">{price.toFixed(0)} €</span>
-                      <span className="pb-1 text-sm text-gray-400">tarif actuel</span>
+                      <span className="text-4xl sm:text-5xl font-bold tracking-tight text-white">{formatPrice(price)}</span>
+                      <span className="pb-1 text-sm text-gray-400">{t('event.currentPrice')}</span>
                     </div>
                     {next !== null && nextAt && (
-                      <p className="mt-2 text-sm text-gray-300">Prochain tarif : <span className="font-semibold text-[#F0D38A]">{next.toFixed(0)} € à partir du {nextAt.toLocaleDateString(getActiveLocale())}</span></p>
+                      <p className="mt-2 text-sm text-gray-300">{t('event.nextPrice')} <span className="font-semibold text-[#F0D38A]">{t('event.nextPriceFrom', { price: formatPrice(next), date: formatDate(nextAt) })}</span></p>
                     )}
                   </div>
                   {lockOk && (
                     <div className="sm:max-w-[240px] sm:text-right">
-                      <p className="text-sm font-semibold text-white">Bloque ton tarif actuel avec {lockDeposit.toFixed(0)} €</p>
-                      {deadline && <p className="mt-1 text-xs leading-relaxed text-gray-400">Tarif garanti jusqu’au {deadline.toLocaleDateString(getActiveLocale(), { day: 'numeric', month: 'long', year: 'numeric' })}</p>}
+                      <p className="text-sm font-semibold text-white">{t('event.lockWith', { deposit: formatPrice(lockDeposit) })}</p>
+                      {deadline && <p className="mt-1 text-xs leading-relaxed text-gray-400">{t('event.guaranteedUntil', { date: formatLongDate(deadline) })}</p>}
                     </div>
                   )}
                 </div>
@@ -287,7 +290,7 @@ export function EventDetail({ eventId, onNavigate }: EventDetailProps) {
                     onClick={() => { setLockMode(false); scrollToPurchase(); }}
                     className="inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-[#B8913D] to-[#D4AC5B] px-5 py-3.5 text-sm font-bold text-white shadow-[0_8px_24px_rgba(184,145,61,0.22)] transition-all hover:brightness-110"
                   >
-                    Acheter maintenant — {price.toFixed(0)} €
+                    {t('event.buyNow', { price: formatPrice(price) })}
                   </button>
                   {lockOk && (
                     <button
@@ -295,12 +298,12 @@ export function EventDetail({ eventId, onNavigate }: EventDetailProps) {
                       onClick={() => { setLockMode(true); scrollToPurchase(); }}
                       className="inline-flex items-center justify-center rounded-xl border border-[#D4AC5B]/50 bg-[#D4AC5B]/10 px-5 py-3.5 text-sm font-semibold text-[#F0D38A] transition-all hover:bg-[#D4AC5B]/20"
                     >
-                      Bloquer mon tarif — {lockDeposit.toFixed(0)} €
+                      {t('event.lockPrice', { deposit: formatPrice(lockDeposit) })}
                     </button>
                   )}
                 </div>
                 {lockOk && (
-                  <p className="mt-4 text-[11px] leading-relaxed text-gray-500">Les {lockDeposit.toFixed(0)} € sont déduits du prix final. Si le Price Lock expire, le tarif bloqué est perdu et ta place n’est plus réservée. Ton versement n’est pas remboursé, mais il reste déductible du prix public en vigueur si tu achètes ensuite ce même pass, selon les places disponibles.</p>
+                  <p className="mt-4 text-[11px] leading-relaxed text-gray-500">{t('event.lockTerms', { deposit: formatPrice(lockDeposit) })}</p>
                 )}
               </div>
               );
@@ -308,14 +311,14 @@ export function EventDetail({ eventId, onNavigate }: EventDetailProps) {
 
             <div className="border-t border-gray-800/80 pt-6">
               <div className="flex items-center justify-between gap-4">
-                <h2 className="text-xl font-medium text-white">À propos du festival</h2>
+                <h2 className="text-xl font-medium text-white">{t('event.about')}</h2>
                 {description.length > 220 && (
                   <button
                     type="button"
                     onClick={() => setIsDescriptionExpanded(prev => !prev)}
                     className="inline-flex shrink-0 items-center gap-1.5 text-sm font-semibold text-[#D4AC5B] transition-colors hover:text-[#F0D38A]"
                   >
-                    {isDescriptionExpanded ? 'Voir moins' : 'Voir plus'}
+                    {isDescriptionExpanded ? t('event.seeLess') : t('event.seeMore')}
                     {isDescriptionExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                   </button>
                 )}
@@ -330,27 +333,27 @@ export function EventDetail({ eventId, onNavigate }: EventDetailProps) {
             <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-[#B8913D] bg-opacity-10 border border-[#B8913D] border-opacity-30 mb-5">
               <Bell className="w-8 h-8 text-[#B8913D]" />
             </div>
-            <h2 className="text-xl font-medium text-white mb-2">Billetterie bientôt disponible</h2>
+            <h2 className="text-xl font-medium text-white mb-2">{t('event.ticketingSoon')}</h2>
             <p className="text-gray-400 mb-6 max-w-md mx-auto">
-              Les billets pour cet événement seront disponibles prochainement. Revenez sur cette page pour réserver votre place.
+              {t('event.ticketingSoonText')}
             </p>
             <button
               onClick={() => onNavigate('events')}
               className="inline-flex items-center space-x-2 px-6 py-3 border border-[#B8913D] border-opacity-50 text-[#B8913D] rounded-lg hover:bg-[#B8913D] hover:bg-opacity-10 transition-all text-sm font-medium"
             >
               <ArrowLeft className="w-4 h-4" />
-              <span>Voir tous les événements</span>
+              <span>{t('event.allEvents')}</span>
             </button>
           </div>
         ) : (
           <div id="event-purchase" className="scroll-mt-24 bg-gray-900 bg-opacity-60 backdrop-blur-sm rounded-2xl border border-[#B8913D] border-opacity-30 p-4 sm:p-8">
             <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
               <div>
-                <span className="text-[11px] font-bold tracking-[0.2em] text-[#D4AC5B] uppercase">Réservation</span>
-                <h2 className="mt-1 text-xl sm:text-2xl font-light text-white">Choisis ton Full Pass</h2>
+                <span className="text-[11px] font-bold tracking-[0.2em] text-[#D4AC5B] uppercase">{t('event.booking')}</span>
+                <h2 className="mt-1 text-xl sm:text-2xl font-light text-white">{t('event.chooseFullPass')}</h2>
               </div>
               <span className={`text-sm ${lockMode ? 'text-[#F0D38A]' : 'text-gray-400'}`}>
-                {lockMode ? 'Mode Price Lock : seule la caution sera facturée aujourd\u2019hui' : 'Tarif affiché selon la disponibilité'}
+                {lockMode ? t('event.lockModeHint') : t('event.priceHint')}
               </span>
             </div>
 
@@ -396,15 +399,15 @@ export function EventDetail({ eventId, onNavigate }: EventDetailProps) {
 
                       <div className="flex items-center justify-between sm:justify-end gap-4 sm:gap-6">
                         <div className="text-left sm:text-right">
-                          <div className="text-xl font-bold text-[#B8913D]">{price.toFixed(2)}€</div>
+                          <div className="text-xl font-bold text-[#B8913D]">{formatPrice(price)}</div>
                           {next !== null && nextAt && (
                             <p className="text-xs text-gray-400 mt-0.5">
-                              → {next.toFixed(2)}€ le {nextAt.toLocaleDateString(getActiveLocale())}
+                              {t('event.nextPriceOn', { price: formatPrice(next), date: formatDate(nextAt) })}
                             </p>
                           )}
                           {lockOk && lockDeposit > 0 && (
                             <p className="text-xs text-[#F0D38A] mt-0.5 flex items-center sm:justify-end gap-1">
-                              <Lock className="w-3 h-3" /> Price Lock : {lockDeposit.toFixed(0)} €
+                              <Lock className="w-3 h-3" /> {t('event.lockDeposit', { deposit: formatPrice(lockDeposit) })}
                             </p>
                           )}
                         </div>
@@ -413,6 +416,7 @@ export function EventDetail({ eventId, onNavigate }: EventDetailProps) {
                           <button
                             onClick={() => updateQuantity(ett.id, ett.ticket_type.name, price, -1)}
                             disabled={selectedQty === 0}
+                            aria-label={t('event.decrease')}
                             className="w-8 h-8 flex items-center justify-center rounded bg-gray-800 text-gray-300 hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
                           >
                             <Minus className="w-4 h-4" />
@@ -421,6 +425,7 @@ export function EventDetail({ eventId, onNavigate }: EventDetailProps) {
                           <button
                             onClick={() => updateQuantity(ett.id, ett.ticket_type.name, price, 1)}
                             disabled={selectedQty >= available || selectedQty >= (ett.max_per_order || 10)}
+                            aria-label={t('event.increase')}
                             className="w-8 h-8 flex items-center justify-center rounded bg-gray-800 text-gray-300 hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
                           >
                             <Plus className="w-4 h-4" />
@@ -443,9 +448,11 @@ export function EventDetail({ eventId, onNavigate }: EventDetailProps) {
                 <div className="flex items-center justify-between mb-6">
                   <div>
                     <p className="text-gray-400">
-                      {lockMode ? `Total aujourd'hui (${getTotalQuantity()} caution${getTotalQuantity() > 1 ? 's' : ''} Price Lock)` : `Total (${getTotalQuantity()} billets)`}
+                      {lockMode
+                        ? t(getTotalQuantity() > 1 ? 'event.totalLock.other' : 'event.totalLock.one', { count: getTotalQuantity() })
+                        : t(getTotalQuantity() > 1 ? 'event.total.other' : 'event.total.one', { count: getTotalQuantity() })}
                     </p>
-                    <p className="text-3xl font-bold text-[#B8913D]">{getLockTotalPrice().toFixed(2)}€</p>
+                    <p className="text-3xl font-bold text-[#B8913D]">{formatPrice(getLockTotalPrice())}</p>
                   </div>
                   <button
                     onClick={handleAddToCart}
@@ -453,7 +460,7 @@ export function EventDetail({ eventId, onNavigate }: EventDetailProps) {
                     className="px-8 py-4 bg-gradient-to-r from-[#B8913D] to-[#A07F35] text-white rounded-lg hover:shadow-lg hover:shadow-[#B8913D]/50 transition-all font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
                   >
                     <ShoppingCart className="w-5 h-5" />
-                    <span>{processing ? 'Ajout...' : 'Ajouter au panier'}</span>
+                    <span>{processing ? t('event.adding') : t('event.addToCart')}</span>
                   </button>
                 </div>
               </div>
@@ -466,10 +473,10 @@ export function EventDetail({ eventId, onNavigate }: EventDetailProps) {
             <section className="rounded-2xl border border-gray-800 bg-gray-900/60 p-5">
               <div className="mb-4 flex items-center gap-3">
                 <ListChecks className="h-5 w-5 text-[#D4AC5B]" />
-                <h2 className="font-semibold text-white">Programme</h2>
+                <h2 className="font-semibold text-white">{t('event.programme')}</h2>
               </div>
               <ul className="space-y-2.5 text-sm leading-relaxed text-gray-400">
-                {MOCK_PROGRAM.map(item => <li key={item}>{item}</li>)}
+                {MOCK_PROGRAM.map(key => <li key={key}>{t(key)}</li>)}
               </ul>
             </section>
 
@@ -486,12 +493,12 @@ export function EventDetail({ eventId, onNavigate }: EventDetailProps) {
             <section className="rounded-2xl border border-gray-800 bg-gray-900/60 p-5">
               <div className="mb-4 flex items-center gap-3">
                 <Info className="h-5 w-5 text-[#D4AC5B]" />
-                <h2 className="font-semibold text-white">Informations pratiques</h2>
+                <h2 className="font-semibold text-white">{t('event.practical')}</h2>
               </div>
               <ul className="space-y-2.5 text-sm leading-relaxed text-gray-400">
-                <li>Accès Full Pass inclus</li>
-                <li>Horaires détaillés communiqués avant l’événement</li>
-                <li>Billet nominatif à présenter à l’accueil</li>
+                <li>{t('event.practical.1')}</li>
+                <li>{t('event.practical.2')}</li>
+                <li>{t('event.practical.3')}</li>
               </ul>
             </section>
           </div>
@@ -507,7 +514,7 @@ export function EventDetail({ eventId, onNavigate }: EventDetailProps) {
                 {(() => {
                   const tickets = (event.event_ticket_types || []).filter(ett => ett.is_active);
                   if (tickets.length === 0) return null;
-                  return `À partir de ${Math.round(Math.min(...tickets.map(t => currentPrice(t))))} €`;
+                  return t('event.fromPrice', { price: formatPrice(Math.min(...tickets.map(ticket => currentPrice(ticket)))) });
                 })()}
               </p>
             </div>
@@ -516,7 +523,7 @@ export function EventDetail({ eventId, onNavigate }: EventDetailProps) {
               onClick={scrollToPurchase}
               className="rounded-xl bg-gradient-to-r from-[#B8913D] to-[#D4AC5B] px-6 py-3 text-sm font-bold text-white shadow-[0_6px_20px_rgba(184,145,61,0.2)]"
             >
-              Réserver
+              {t('event.reserve')}
             </button>
           </div>
         </div>

@@ -52,10 +52,16 @@ vi.mock('../../contexts/AuthContext', () => ({
 vi.mock('../../contexts/CartContext', () => ({
   useCart: () => ({ addToCart: vi.fn(), addEventTicketToCart, getCartCount: () => 0 }),
 }));
-const lang = vi.hoisted(() => ({ current: 'fr' }));
-vi.mock('../../contexts/LanguageContext', () => ({
-  useLanguage: () => ({ t: (key: string) => key, language: lang.current }),
-}));
+const lang = vi.hoisted(() => ({ current: 'fr' as 'fr' | 'en' }));
+vi.mock('../../contexts/LanguageContext', async () => {
+  const { translate } = await import('../../i18n/translations');
+  return {
+    useLanguage: () => ({
+      t: (key: string, params?: Record<string, string | number>) => translate(lang.current, key, params),
+      language: lang.current,
+    }),
+  };
+});
 vi.mock('../../lib/supabase', () => {
   const result = (table: string) =>
     table === 'events'
@@ -111,7 +117,7 @@ describe('Shop — CTA « Acheter ou réserver »', () => {
     fireEvent.click(priceLockOption);
     const depositInput = await screen.findByLabelText('Montant du dépôt pour Full Pass Test');
     expect(depositInput).toHaveAttribute('min', '0.5');
-    expect(depositInput).toHaveAttribute('placeholder', 'Autre montant · min. 0.50 €');
+    expect(depositInput.getAttribute('placeholder')?.replace(/[\u202f\u00a0]/g, ' ')).toBe('Autre montant · min. 0,50 €');
     fireEvent.change(depositInput, { target: { value: '0.60' } });
     expect(depositInput).toHaveValue('0.60');
 
@@ -126,10 +132,12 @@ describe('Shop — description du billet selon la langue', () => {
     testEvent.event_ticket_types[0].ticket_type.description_en = null;
   });
 
+  // Libellés selon la langue active (le parcours est traduit depuis le LOT 3).
   const openChoice = async () => {
+    const en = lang.current === 'en';
     render(<Shop onNavigate={vi.fn()} />);
-    fireEvent.click(await screen.findByRole('button', { name: 'Acheter ou réserver' }));
-    await screen.findByText('Comment souhaites-tu réserver ton pass ?');
+    fireEvent.click(await screen.findByRole('button', { name: en ? 'Buy or reserve' : 'Acheter ou réserver' }));
+    await screen.findByText(en ? 'How would you like to book your pass?' : 'Comment souhaites-tu réserver ton pass ?');
   };
 
   it('EN renseigné : description anglaise ; nom commercial inchangé', async () => {

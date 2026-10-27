@@ -10,7 +10,9 @@ import {
 import { handleOrderCheckout } from '../lib/stripe';
 import { validateAndCreateOrder } from '../lib/orderService';
 import { currentPrice, priceLockDeadline } from '../lib/tierPricing';
-import { getActiveLocale } from '../lib/locale';
+import { formatDate, formatLongDate } from '../lib/locale';
+import { formatPrice } from '../lib/formatEuro';
+import { purchaseErrorMessage } from '../lib/purchaseErrors';
 
 interface CartProps {
   onNavigate: (page: string) => void;
@@ -27,10 +29,10 @@ type Step = 'cart' | 'attendees' | 'contact';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-const STEPS: { id: Step; label: string; icon: React.ReactNode }[] = [
-  { id: 'cart', label: 'Panier', icon: <ShoppingCart className="w-4 h-4" /> },
-  { id: 'attendees', label: 'Informations des pass', icon: <User className="w-4 h-4" /> },
-  { id: 'contact', label: 'Paiement', icon: <CreditCard className="w-4 h-4" /> },
+const STEPS: { id: Step; labelKey: string; icon: React.ReactNode }[] = [
+  { id: 'cart', labelKey: 'checkout.step.cart', icon: <ShoppingCart className="w-4 h-4" /> },
+  { id: 'attendees', labelKey: 'checkout.step.attendees', icon: <User className="w-4 h-4" /> },
+  { id: 'contact', labelKey: 'checkout.step.payment', icon: <CreditCard className="w-4 h-4" /> },
 ];
 
 export function Cart({ onNavigate }: CartProps) {
@@ -116,15 +118,15 @@ export function Cart({ onNavigate }: CartProps) {
     for (let i = 0; i < attendees.length; i++) {
       const a = attendees[i];
       if (!a.firstName.trim() || !a.lastName.trim()) {
-        setError(`Veuillez renseigner le prénom et le nom du participant ${i + 1}`);
+        setError(t('checkout.error.attendeeName', { n: i + 1 }));
         return;
       }
       if (!a.email.trim()) {
-        setError(`Veuillez renseigner l'email du participant ${i + 1}`);
+        setError(t('checkout.error.attendeeEmail', { n: i + 1 }));
         return;
       }
       if (!EMAIL_REGEX.test(a.email.trim())) {
-        setError(`L'email du participant ${i + 1} n'est pas valide`);
+        setError(t('checkout.error.attendeeEmailInvalid', { n: i + 1 }));
         return;
       }
     }
@@ -160,12 +162,12 @@ export function Cart({ onNavigate }: CartProps) {
     const requiresShipping = cart.length > 0;
 
     if (requiresShipping && (!shippingInfo.name || !shippingInfo.email || !shippingInfo.address)) {
-      setError(t('cart.errors.shippingRequired'));
+      setError(t('checkout.error.shippingRequired'));
       return;
     }
 
     if (!requiresShipping && (!shippingInfo.name || !shippingInfo.email)) {
-      setError('Nom et email requis');
+      setError(t('checkout.error.nameEmailRequired'));
       return;
     }
 
@@ -236,9 +238,11 @@ export function Cart({ onNavigate }: CartProps) {
             ? { depositAmount: current_price, amountDueNow: current_price }
             : { priceSnapshot: current_price, amountDueNow: current_price }
         );
-        const fmt = (v: number) => `${v % 1 === 0 ? v : v.toFixed(2)} €`;
-        const name = ticket_name || 'ce billet';
-        setError(`Le tarif de ${name} vient d’évoluer de ${fmt(cart_price)} à ${fmt(current_price)}. Ton panier a été mis à jour.`);
+        setError(t(ticket_name ? 'checkout.error.priceChanged' : 'checkout.error.priceChangedUnnamed', {
+          name: ticket_name ?? '',
+          from: formatPrice(cart_price),
+          to: formatPrice(current_price),
+        }));
         setLoading(false);
         setStep('cart');
         return;
@@ -252,18 +256,19 @@ export function Cart({ onNavigate }: CartProps) {
         if (isDeposit) {
           await removeEventTicketFromCart(err.ticketTypeId, 'price_lock_deposit');
           setError(
-            `Ce Price Lock n’est plus disponible pour ce tarif.` +
-            (err.currentPrice != null ? ` Le tarif actuellement applicable est de ${err.currentPrice} €.` : '')
+            err.currentPrice != null
+              ? t('checkout.error.priceLockClosedWithPrice', { price: formatPrice(err.currentPrice) })
+              : t('purchaseError.priceLockClosed')
           );
         } else {
-          setError(err.message);
+          setError(purchaseErrorMessage(err, t));
         }
         setLoading(false);
         setStep('cart');
         return;
       }
 
-      setError(err.message);
+      setError(purchaseErrorMessage(err, t));
       setLoading(false);
     }
   };
@@ -304,8 +309,8 @@ export function Cart({ onNavigate }: CartProps) {
       <div className="fixed inset-0 bg-gray-950 z-50 flex flex-col items-center justify-center gap-6">
         <Loader2 className="w-12 h-12 text-[#B8913D] animate-spin" />
         <div className="text-center">
-          <p className="text-white text-lg font-medium mb-1">Redirection vers le paiement...</p>
-          <p className="text-gray-400 text-sm">Veuillez ne pas fermer cette page</p>
+          <p className="text-white text-lg font-medium mb-1">{t('checkout.redirecting')}</p>
+          <p className="text-gray-400 text-sm">{t('checkout.doNotClose')}</p>
         </div>
       </div>
     );
@@ -342,7 +347,7 @@ export function Cart({ onNavigate }: CartProps) {
                           : 'bg-gray-800 text-gray-400'
                     }`}>
                       {s.icon}
-                      <span className="hidden sm:inline">{s.label}</span>
+                      <span className="hidden sm:inline">{t(s.labelKey)}</span>
                     </div>
                     {i < visibleSteps.length - 1 && (
                       <ChevronRight className="w-4 h-4 text-gray-600 flex-shrink-0" />
@@ -377,7 +382,7 @@ export function Cart({ onNavigate }: CartProps) {
                 onClick={() => onNavigate('shop')}
                 className="px-8 py-3 border border-[#B8913D] text-[#B8913D] rounded-lg hover:bg-[#B8913D] hover:text-white transition-all"
               >
-                Voir Nexa Pass
+                {t('checkout.viewPass')}
               </button>
             </div>
           </div>
@@ -411,6 +416,7 @@ export function Cart({ onNavigate }: CartProps) {
                 onBack={() => { setError(''); setStep('cart'); }}
                 onNext={goToContact}
                 error={error}
+                t={t}
               />
             )}
 
@@ -461,51 +467,51 @@ function StepCart({
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1">
                     <Calendar className="w-3.5 h-3.5 text-[#B8913D]" />
-                    <span className="text-xs text-[#B8913D] font-medium">Billet d'événement</span>
+                    <span className="text-xs text-[#B8913D] font-medium">{t('checkout.eventTicket')}</span>
                     <span className={`ml-auto rounded-full px-2 py-0.5 text-[10px] font-semibold ${
                       isPriceLock
                         ? 'border border-[#D4AC5B]/50 bg-[#D4AC5B]/10 text-[#F0D38A]'
                         : 'bg-gray-700 text-gray-300'
                     }`}>
-                      {isPriceLock ? 'Price Lock' : 'Achat comptant'}
+                      {isPriceLock ? 'Price Lock' : t('checkout.fullPurchase')}
                     </span>
                   </div>
                   <h3 className="text-base font-medium text-white">{ticket.eventTicketType.event.title}</h3>
                   <p className="text-sm text-gray-400 mt-0.5">{ticket.eventTicketType.ticket_type.name}</p>
                   <p className="text-xs text-gray-500 mt-0.5">
-                    {new Date(ticket.eventTicketType.event.start_date).toLocaleDateString(getActiveLocale(), {
+                    {formatDate(ticket.eventTicketType.event.start_date, {
                       weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
                     })}
                   </p>
                   {isPriceLock && (
                     <div className="mt-2 space-y-0.5 text-xs">
-                      <p className="text-gray-300">Aujourd'hui : <span className="font-semibold text-white">{deposit.toFixed(2)}€</span></p>
-                      <p className="text-gray-300">Prix bloqué : <span className="font-semibold text-white">{lockedPrice.toFixed(2)}€</span></p>
-                      <p className="text-gray-300">Solde futur : <span className="font-semibold text-white">{remaining.toFixed(2)}€</span></p>
+                      <p className="text-gray-300">{t('checkout.lock.today')} <span className="font-semibold text-white">{formatPrice(deposit)}</span></p>
+                      <p className="text-gray-300">{t('checkout.lock.lockedPrice')} <span className="font-semibold text-white">{formatPrice(lockedPrice)}</span></p>
+                      <p className="text-gray-300">{t('checkout.lock.futureBalance')} <span className="font-semibold text-white">{formatPrice(remaining)}</span></p>
                       {(() => {
                         const deadline = priceLockDeadline(ticket.eventTicketType);
                         if (!deadline) return null;
-                        const mode = ticket.balancePaymentMode === 'automatic' ? 'Automatique' : 'Manuel';
-                        const dateStr = deadline.toLocaleDateString(getActiveLocale(), { day: 'numeric', month: 'long', year: 'numeric' });
+                        const mode = ticket.balancePaymentMode === 'automatic' ? t('checkout.lock.modeAuto') : t('checkout.lock.modeManual');
+                        const dateStr = formatLongDate(deadline);
                         return (
                           <>
                             <p className="text-gray-500">
-                              Prix garanti jusqu'au {dateStr}
+                              {t('checkout.lock.guaranteed', { date: dateStr })}
                             </p>
                             <div className="mt-1.5 pt-1.5 border-t border-gray-700/60 flex items-center justify-between gap-2">
                               <div>
-                                <p className="text-gray-300">Paiement du reste : <span className="font-semibold text-white">{mode}</span></p>
+                                <p className="text-gray-300">{t('checkout.lock.balanceMode')} <span className="font-semibold text-white">{mode}</span></p>
                                 {ticket.balancePaymentMode === 'automatic' ? (
-                                  <p className="text-gray-500">{remaining.toFixed(2)} € seront prélevés le {dateStr} si tu ne les as pas réglés avant.</p>
+                                  <p className="text-gray-500">{t('checkout.lock.autoHint', { amount: formatPrice(remaining), date: dateStr })}</p>
                                 ) : (
-                                  <p className="text-gray-500">{remaining.toFixed(2)} € à régler avant le {dateStr}</p>
+                                  <p className="text-gray-500">{t('checkout.lock.manualHint', { amount: formatPrice(remaining), date: dateStr })}</p>
                                 )}
                               </div>
                               <button
                                 onClick={() => onUpdateBalanceMode?.(ticket.eventTicketType.id, ticket.balancePaymentMode === 'automatic' ? 'manual' : 'automatic')}
                                 className="text-[11px] text-[#D4AC5B] hover:text-white underline flex-shrink-0"
                               >
-                                Modifier
+                                {t('checkout.lock.change')}
                               </button>
                             </div>
                           </>
@@ -517,6 +523,7 @@ function StepCart({
                     <div className="flex items-center gap-2">
                       <button
                         onClick={() => updateEventTicketQuantity(ticket.eventTicketType.id, ticket.quantity - 1, ticket.purchaseType)}
+                        aria-label={t('checkout.decrease')}
                         className="p-1.5 border border-gray-600 rounded-lg hover:bg-gray-700 transition-colors text-white"
                       >
                         <Minus className="w-3.5 h-3.5" />
@@ -524,21 +531,23 @@ function StepCart({
                       <span className="w-7 text-center font-medium text-white text-sm">{ticket.quantity}</span>
                       <button
                         onClick={() => updateEventTicketQuantity(ticket.eventTicketType.id, ticket.quantity + 1, ticket.purchaseType)}
+                        aria-label={t('checkout.increase')}
                         className="p-1.5 border border-gray-600 rounded-lg hover:bg-gray-700 transition-colors text-white"
                       >
                         <Plus className="w-3.5 h-3.5" />
                       </button>
                       <button
                         onClick={() => removeEventTicketFromCart(ticket.eventTicketType.id, ticket.purchaseType)}
+                        aria-label={t('checkout.remove')}
                         className="p-1.5 text-red-400 hover:bg-red-900 hover:bg-opacity-20 rounded-lg transition-colors"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     </div>
                     <div className="text-right">
-                      <span className="text-base font-bold text-[#B8913D]">{(dueNow * ticket.quantity).toFixed(2)}€</span>
+                      <span className="text-base font-bold text-[#B8913D]">{formatPrice(dueNow * ticket.quantity)}</span>
                       {isPriceLock && (
-                        <p className="text-[10px] text-gray-500">à payer aujourd'hui</p>
+                        <p className="text-[10px] text-gray-500">{t('checkout.payToday')}</p>
                       )}
                     </div>
                   </div>
@@ -601,7 +610,7 @@ function StepCart({
                       </button>
                     </div>
                     <div className="text-right">
-                      <span className="text-base font-bold text-[#B8913D]">{(price * item.quantity).toFixed(2)}€</span>
+                      <span className="text-base font-bold text-[#B8913D]">{formatPrice(price * item.quantity)}</span>
                     </div>
                   </div>
                 </div>
@@ -614,8 +623,8 @@ function StepCart({
       <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl p-5 border border-gray-700/50">
         <div className="space-y-2 mb-4">
           <div className="flex justify-between text-white font-bold text-lg pt-2">
-            <span>Total</span>
-            <span className="text-[#B8913D]">{total.toFixed(2)}€</span>
+            <span>{t('checkout.total')}</span>
+            <span className="text-[#B8913D]">{formatPrice(total)}</span>
           </div>
         </div>
 
@@ -623,7 +632,7 @@ function StepCart({
           onClick={onNext}
           className="w-full py-4 bg-gradient-to-r from-[#B8913D] to-[#A07F35] text-white rounded-lg hover:shadow-lg hover:shadow-[#B8913D]/30 transition-all font-medium flex items-center justify-center gap-2"
         >
-          <span>Continuer</span>
+          <span>{t('checkout.continue')}</span>
           <ChevronRight className="w-5 h-5" />
         </button>
       </div>
@@ -631,13 +640,13 @@ function StepCart({
   );
 }
 
-function StepAttendees({ eventTickets, attendees, onUpdateAttendee, onUseMyInfo, onBack, onNext, error: _error }: any) {
+function StepAttendees({ eventTickets, attendees, onUpdateAttendee, onUseMyInfo, onBack, onNext, error: _error, t }: any) {
   let ticketIndex = 0;
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
       <p className="text-gray-400 text-center text-sm">
-        Les pass sont nominatifs. Renseignez les informations du détenteur de chaque billet.
+        {t('checkout.attendees.intro')}
       </p>
 
       {eventTickets.map((ticket: any) => {
@@ -666,7 +675,7 @@ function StepAttendees({ eventTickets, attendees, onUpdateAttendee, onUseMyInfo,
                     <div className="w-6 h-6 rounded-full bg-[#B8913D] bg-opacity-20 flex items-center justify-center">
                       <span className="text-[#B8913D] text-xs font-bold">{idx + 1}</span>
                     </div>
-                    <span className="text-white text-sm font-medium">Détenteur {idx + 1}</span>
+                    <span className="text-white text-sm font-medium">{t('checkout.attendees.holder', { n: idx + 1 })}</span>
                     {ticket.purchaseType === 'price_lock_deposit' && (
                       <span className="rounded-full border border-[#D4AC5B]/50 bg-[#D4AC5B]/10 px-2 py-0.5 text-[10px] font-semibold text-[#F0D38A]">Price Lock</span>
                     )}
@@ -675,48 +684,48 @@ function StepAttendees({ eventTickets, attendees, onUpdateAttendee, onUseMyInfo,
                     onClick={() => onUseMyInfo(idx)}
                     className="text-xs px-3 py-1.5 bg-gray-700 hover:bg-[#B8913D] text-gray-300 hover:text-white rounded-lg transition-all"
                   >
-                    Mes informations
+                    {t('checkout.attendees.useMine')}
                   </button>
                 </div>
 
                   <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs text-gray-400 mb-1.5">Prénom <span className="text-red-400">*</span></label>
+                    <label className="block text-xs text-gray-400 mb-1.5">{t('checkout.attendees.firstName')} <span className="text-red-400">*</span></label>
                     <input
                       type="text"
                       value={attendee.firstName}
                       onChange={(e) => onUpdateAttendee(idx, 'firstName', e.target.value)}
-                      placeholder="Prénom"
+                      placeholder={t('checkout.attendees.firstName')}
                       className="w-full px-3 py-2.5 bg-gray-800 border border-gray-600 rounded-lg text-white text-sm focus:ring-2 focus:ring-[#B8913D] focus:border-[#B8913D] outline-none"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs text-gray-400 mb-1.5">Nom <span className="text-red-400">*</span></label>
+                    <label className="block text-xs text-gray-400 mb-1.5">{t('checkout.attendees.lastName')} <span className="text-red-400">*</span></label>
                     <input
                       type="text"
                       value={attendee.lastName}
                       onChange={(e) => onUpdateAttendee(idx, 'lastName', e.target.value)}
-                      placeholder="Nom"
+                      placeholder={t('checkout.attendees.lastName')}
                       className="w-full px-3 py-2.5 bg-gray-800 border border-gray-600 rounded-lg text-white text-sm focus:ring-2 focus:ring-[#B8913D] focus:border-[#B8913D] outline-none"
                     />
                   </div>
                   <div className="col-span-2">
-                    <label className="block text-xs text-gray-400 mb-1.5">Email <span className="text-red-400">*</span></label>
+                    <label className="block text-xs text-gray-400 mb-1.5">{t('checkout.attendees.email')} <span className="text-red-400">*</span></label>
                     <input
                       type="email"
                       value={attendee.email}
                       onChange={(e) => onUpdateAttendee(idx, 'email', e.target.value)}
-                      placeholder="email@exemple.com"
+                      placeholder={t('checkout.attendees.emailPlaceholder')}
                       className="w-full px-3 py-2.5 bg-gray-800 border border-gray-600 rounded-lg text-white text-sm focus:ring-2 focus:ring-[#B8913D] focus:border-[#B8913D] outline-none"
                     />
                   </div>
                   <div className="col-span-2">
-                    <label className="block text-xs text-gray-400 mb-1.5">Téléphone</label>
+                    <label className="block text-xs text-gray-400 mb-1.5">{t('checkout.attendees.phone')}</label>
                     <input
                       type="tel"
                       value={attendee.phone}
                       onChange={(e) => onUpdateAttendee(idx, 'phone', e.target.value)}
-                      placeholder="Téléphone (optionnel)"
+                      placeholder={t('checkout.attendees.phoneOptional')}
                       className="w-full px-3 py-2.5 bg-gray-800 border border-gray-600 rounded-lg text-white text-sm focus:ring-2 focus:ring-[#B8913D] focus:border-[#B8913D] outline-none"
                     />
                   </div>
@@ -733,13 +742,13 @@ function StepAttendees({ eventTickets, attendees, onUpdateAttendee, onUseMyInfo,
           className="flex items-center gap-2 px-5 py-3 border border-gray-600 text-gray-300 rounded-lg hover:bg-gray-800 transition-all"
         >
           <ArrowLeft className="w-4 h-4" />
-          <span>Retour</span>
+          <span>{t('checkout.back')}</span>
         </button>
         <button
           onClick={onNext}
           className="flex-1 py-3 bg-gradient-to-r from-[#B8913D] to-[#A07F35] text-white rounded-lg hover:shadow-lg hover:shadow-[#B8913D]/30 transition-all font-medium flex items-center justify-center gap-2"
         >
-          <span>Continuer</span>
+          <span>{t('checkout.continue')}</span>
           <ChevronRight className="w-5 h-5" />
         </button>
       </div>
@@ -764,33 +773,33 @@ function StepContact({ cart, eventTickets, getItemPrice, total, shippingInfo, se
       <div className="bg-gray-900 bg-opacity-60 rounded-xl border border-gray-700/50 p-5">
         <h3 className="text-white font-medium mb-4 flex items-center gap-2">
           <User className="w-4 h-4 text-[#B8913D]" />
-          Vos coordonnées
+          {t('checkout.contact.title')}
         </h3>
         <div className="space-y-3">
           <input
             type="text"
-            placeholder="Nom complet *"
+            placeholder={t('checkout.contact.fullName')}
             value={shippingInfo.name}
             onChange={(e) => setShippingInfo({ ...shippingInfo, name: e.target.value })}
             className="w-full px-4 py-3 bg-gray-800 border border-gray-600 rounded-lg text-white text-sm focus:ring-2 focus:ring-[#B8913D] focus:border-[#B8913D] outline-none"
           />
           <input
             type="email"
-            placeholder="Email *"
+            placeholder={t('checkout.contact.email')}
             value={shippingInfo.email}
             onChange={(e) => setShippingInfo({ ...shippingInfo, email: e.target.value })}
             className="w-full px-4 py-3 bg-gray-800 border border-gray-600 rounded-lg text-white text-sm focus:ring-2 focus:ring-[#B8913D] focus:border-[#B8913D] outline-none"
           />
           <input
             type="tel"
-            placeholder="Téléphone"
+            placeholder={t('checkout.attendees.phone')}
             value={shippingInfo.phone}
             onChange={(e) => setShippingInfo({ ...shippingInfo, phone: e.target.value })}
             className="w-full px-4 py-3 bg-gray-800 border border-gray-600 rounded-lg text-white text-sm focus:ring-2 focus:ring-[#B8913D] focus:border-[#B8913D] outline-none"
           />
           {requiresShipping && (
             <textarea
-              placeholder="Adresse de livraison *"
+              placeholder={t('checkout.contact.address')}
               value={shippingInfo.address}
               onChange={(e) => setShippingInfo({ ...shippingInfo, address: e.target.value })}
               rows={3}
@@ -798,7 +807,7 @@ function StepContact({ cart, eventTickets, getItemPrice, total, shippingInfo, se
             />
           )}
           <textarea
-            placeholder="Notes (optionnel)"
+            placeholder={t('checkout.contact.notes')}
             value={shippingInfo.notes}
             onChange={(e) => setShippingInfo({ ...shippingInfo, notes: e.target.value })}
             rows={2}
@@ -808,23 +817,23 @@ function StepContact({ cart, eventTickets, getItemPrice, total, shippingInfo, se
       </div>
 
       <div className="bg-gray-900 bg-opacity-60 rounded-xl border border-gray-700/50 p-5">
-        <h3 className="text-white font-medium mb-4">Récapitulatif</h3>
+        <h3 className="text-white font-medium mb-4">{t('checkout.summary.title')}</h3>
         <div className="space-y-2 text-sm">
           {cart.length > 0 && (
             <div className="flex justify-between text-gray-400">
-              <span>Produits ({cart.reduce((s: number, i: any) => s + i.quantity, 0)} articles)</span>
-              <span>{productsSubtotal.toFixed(2)}€</span>
+              <span>{t('checkout.summary.products', { count: cart.reduce((s: number, i: any) => s + i.quantity, 0) })}</span>
+              <span>{formatPrice(productsSubtotal)}</span>
             </div>
           )}
           {eventTickets.length > 0 && (
             <div className="flex justify-between text-gray-400">
-              <span>Pass ({eventTickets.reduce((s: number, t: any) => s + t.quantity, 0)} billets)</span>
-              <span>{ticketsSubtotal.toFixed(2)}€</span>
+              <span>{t('checkout.summary.passes', { count: eventTickets.reduce((s: number, ticket: any) => s + ticket.quantity, 0) })}</span>
+              <span>{formatPrice(ticketsSubtotal)}</span>
             </div>
           )}
           <div className="flex justify-between text-white font-bold text-base pt-2 border-t border-gray-700">
-            <span>Total</span>
-            <span className="text-[#B8913D]">{total.toFixed(2)}€</span>
+            <span>{t('checkout.total')}</span>
+            <span className="text-[#B8913D]">{formatPrice(total)}</span>
           </div>
         </div>
       </div>
@@ -835,7 +844,7 @@ function StepContact({ cart, eventTickets, getItemPrice, total, shippingInfo, se
           className="flex items-center gap-2 px-5 py-3 border border-gray-600 text-gray-300 rounded-lg hover:bg-gray-800 transition-all"
         >
           <ArrowLeft className="w-4 h-4" />
-          <span>Retour</span>
+          <span>{t('checkout.back')}</span>
         </button>
         <button
           onClick={onCheckout}
@@ -843,11 +852,11 @@ function StepContact({ cart, eventTickets, getItemPrice, total, shippingInfo, se
           className="flex-1 py-3 bg-gradient-to-r from-[#B8913D] to-[#A07F35] text-white rounded-lg hover:shadow-lg hover:shadow-[#B8913D]/30 transition-all font-medium flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {loading ? (
-            <span>Traitement...</span>
+            <span>{t('checkout.processing')}</span>
           ) : (
             <>
               <CreditCard className="w-4 h-4" />
-              <span>Payer {total.toFixed(2)}€</span>
+              <span>{t('checkout.pay', { amount: formatPrice(total) })}</span>
             </>
           )}
         </button>

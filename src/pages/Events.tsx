@@ -5,7 +5,9 @@ import { BackgroundDecor } from '../components/BackgroundDecor';
 import { Database } from '../lib/database.types';
 import { minEventPrice, minNextEventPrice, EttWithPricing } from '../lib/tierPricing';
 import { Calendar, MapPin, ChevronRight, Clock, Bell } from 'lucide-react';
-import { getActiveLocale } from '../lib/locale';
+import { formatDate, formatTime } from '../lib/locale';
+import { formatPrice } from '../lib/formatEuro';
+import { localized } from '../lib/localized';
 
 type Event = Database['public']['Tables']['events']['Row'];
 type TicketType = Database['public']['Tables']['ticket_types']['Row'];
@@ -22,7 +24,7 @@ interface EventsProps {
 }
 
 export function Events({ onNavigate }: EventsProps) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [events, setEvents] = useState<EventWithTickets[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
@@ -91,12 +93,12 @@ export function Events({ onNavigate }: EventsProps) {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
         <div className="mb-6 sm:mb-8 lg:mb-6 text-center">
           <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-3xl xl:text-4xl font-light text-white mb-3 lg:mb-2">
-            Événements <span className="text-[#B8913D]">Kizomba</span>
+            {t('events.title')} <span className="text-[#B8913D]">Kizomba</span>
           </h1>
           <div className="flex justify-center mb-3 sm:mb-4 lg:mb-3">
             <div className="w-16 sm:w-20 lg:w-16 h-1 bg-gradient-to-r from-transparent via-[#B8913D] to-transparent rounded-full"></div>
           </div>
-          <p className="text-gray-400 text-sm sm:text-base md:text-lg lg:text-sm xl:text-base px-2">Découvrez nos événements et réservez vos places</p>
+          <p className="text-gray-400 text-sm sm:text-base md:text-lg lg:text-sm xl:text-base px-2">{t('events.subtitle')}</p>
         </div>
 
         {loading ? (
@@ -106,8 +108,8 @@ export function Events({ onNavigate }: EventsProps) {
         ) : events.length === 0 ? (
           <div className="text-center py-10 sm:py-14 lg:py-10 bg-gray-900 bg-opacity-60 backdrop-blur-sm rounded-xl sm:rounded-2xl border border-[#B8913D] border-opacity-30">
             <Calendar className="w-14 h-14 sm:w-18 sm:h-18 lg:w-14 lg:h-14 text-[#B8913D] opacity-50 mx-auto mb-4 lg:mb-3" />
-            <p className="text-gray-300 text-base sm:text-lg lg:text-base px-2">Aucun événement disponible pour le moment</p>
-            <p className="text-gray-500 mt-2 text-sm lg:text-xs px-2">Revenez bientôt pour découvrir nos prochains événements</p>
+            <p className="text-gray-300 text-base sm:text-lg lg:text-base px-2">{t('events.empty')}</p>
+            <p className="text-gray-500 mt-2 text-sm lg:text-xs px-2">{t('events.emptyHint')}</p>
           </div>
         ) : (
           <>
@@ -140,7 +142,7 @@ export function Events({ onNavigate }: EventsProps) {
                           <div className="absolute inset-0 bg-gradient-to-t from-gray-900 via-transparent to-transparent"></div>
                           {isAlmostFull && (
                             <div className="absolute top-4 right-4 px-4 py-2 bg-red-600 bg-opacity-90 text-white text-sm font-bold rounded-full shadow-lg">
-                              Places limitées
+                              {t('events.limited')}
                             </div>
                           )}
                         </div>
@@ -150,14 +152,14 @@ export function Events({ onNavigate }: EventsProps) {
                             {event.title}
                           </h3>
                           <p className="text-gray-300 text-xs sm:text-sm lg:text-xs mb-3 sm:mb-4 lg:mb-3 line-clamp-2">
-                            {event.description}
+                            {localized(event.description, event.description_en, language)}
                           </p>
 
                           <div className="space-y-2 sm:space-y-3 lg:space-y-2 mb-4 sm:mb-6 lg:mb-4">
                             <div className="flex items-center space-x-3 text-gray-300">
                               <Calendar className="w-5 h-5 text-[#B8913D] flex-shrink-0" />
                               <span className="text-sm">
-                                {eventDate.toLocaleDateString(getActiveLocale(), {
+                                {formatDate(eventDate, {
                                   weekday: 'long',
                                   year: 'numeric',
                                   month: 'long',
@@ -168,7 +170,7 @@ export function Events({ onNavigate }: EventsProps) {
                             <div className="flex items-center space-x-3 text-gray-300">
                               <Clock className="w-5 h-5 text-[#B8913D] flex-shrink-0" />
                               <span className="text-sm">
-                                {eventDate.toLocaleTimeString(getActiveLocale(), { hour: '2-digit', minute: '2-digit' })}
+                                {formatTime(eventDate, { hour: '2-digit', minute: '2-digit' })}
                               </span>
                             </div>
                             {event.location && (
@@ -183,18 +185,18 @@ export function Events({ onNavigate }: EventsProps) {
                             <div>
                               {minPrice !== null ? (
                                 <div className="flex items-baseline space-x-2">
-                                  <span className="text-sm text-gray-400">À partir de</span>
-                                  <span className="text-2xl font-bold text-[#B8913D]">{minPrice.toFixed(2)}€</span>
+                                  <span className="text-sm text-gray-400">{t('events.from')}</span>
+                                  <span className="text-2xl font-bold text-[#B8913D]">{formatPrice(minPrice)}</span>
                                 </div>
                               ) : (
-                                <span className="text-gray-400">Prix à venir</span>
+                                <span className="text-gray-400">{t('events.priceTbc')}</span>
                               )}
                               {(() => {
                                 const next = getNextPrice(event);
                                 if (!next) return null;
                                 return (
                                   <p className="text-xs text-gray-400 mt-1">
-                                    Prochain tarif à partir de {next.price.toFixed(0)} € le {next.changeAt.toLocaleDateString(getActiveLocale())}
+                                    {t('events.nextPrice', { price: formatPrice(next.price), date: formatDate(next.changeAt) })}
                                   </p>
                                 );
                               })()}
@@ -209,7 +211,7 @@ export function Events({ onNavigate }: EventsProps) {
                                   : 'bg-gradient-to-r from-[#B8913D] to-[#A07F35] text-white hover:shadow-lg hover:shadow-[#B8913D]/50 hover:scale-105'
                               }`}
                             >
-                              <span>{availableTickets === 0 ? 'Complet' : 'Réserver'}</span>
+                              <span>{availableTickets === 0 ? t('events.soldOut') : t('events.reserve')}</span>
                               {availableTickets > 0 && <ChevronRight className="w-4 h-4" />}
                             </button>
                           </div>
@@ -226,15 +228,15 @@ export function Events({ onNavigate }: EventsProps) {
                       disabled={currentPage === 1}
                       className="px-6 py-3 rounded-full bg-gray-900 bg-opacity-60 backdrop-blur-sm border border-[#B8913D] border-opacity-30 text-white disabled:opacity-50 disabled:cursor-not-allowed hover:bg-opacity-80 transition-all"
                     >
-                      Précédent
+                      {t('events.previous')}
                     </button>
-                    <span className="text-white px-4">Page {currentPage} sur {totalPages}</span>
+                    <span className="text-white px-4">{t('events.page', { page: currentPage, total: totalPages })}</span>
                     <button
                       onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
                       disabled={currentPage === totalPages}
                       className="px-6 py-3 rounded-full bg-gradient-to-r from-[#B8913D] to-[#A07F35] text-white disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-lg transition-all"
                     >
-                      Suivant
+                      {t('events.next')}
                     </button>
                   </div>
                 )}
@@ -248,7 +250,7 @@ export function Events({ onNavigate }: EventsProps) {
                     <div className="flex-1 h-px bg-gray-800"></div>
                     <div className="flex items-center space-x-2 text-gray-400">
                       <Bell className="w-4 h-4 text-[#B8913D]" />
-                      <span className="text-sm font-medium uppercase tracking-widest">Bientôt disponibles</span>
+                      <span className="text-sm font-medium uppercase tracking-widest">{t('events.upcoming')}</span>
                     </div>
                     <div className="flex-1 h-px bg-gray-800"></div>
                   </div>
@@ -257,7 +259,7 @@ export function Events({ onNavigate }: EventsProps) {
                 {!publishedEvents.length && (
                   <div className="mb-6 flex items-center space-x-2 text-gray-400">
                     <Bell className="w-4 h-4 text-[#B8913D]" />
-                    <span className="text-sm font-medium uppercase tracking-widest">Bientôt disponibles</span>
+                    <span className="text-sm font-medium uppercase tracking-widest">{t('events.upcoming')}</span>
                   </div>
                 )}
 
@@ -272,7 +274,7 @@ export function Events({ onNavigate }: EventsProps) {
                         <div className="absolute inset-0 pointer-events-none z-10">
                           <div className="absolute top-4 left-4 flex items-center space-x-2 bg-gray-950 bg-opacity-80 backdrop-blur-sm border border-[#B8913D] border-opacity-40 text-[#B8913D] text-xs font-semibold px-3 py-1.5 rounded-full">
                             <Bell className="w-3 h-3" />
-                            <span>Bientôt disponible</span>
+                            <span>{t('events.upcomingBadge')}</span>
                           </div>
                         </div>
 
@@ -296,14 +298,14 @@ export function Events({ onNavigate }: EventsProps) {
                             {event.title}
                           </h3>
                           <p className="text-gray-400 text-xs sm:text-sm lg:text-xs mb-3 sm:mb-4 lg:mb-3 line-clamp-2">
-                            {event.description}
+                            {localized(event.description, event.description_en, language)}
                           </p>
 
                           <div className="space-y-2 sm:space-y-3 lg:space-y-2 mb-4 sm:mb-6 lg:mb-4">
                             <div className="flex items-center space-x-3 text-gray-400">
                               <Calendar className="w-5 h-5 text-[#B8913D] flex-shrink-0 opacity-70" />
                               <span className="text-sm">
-                                {eventDate.toLocaleDateString(getActiveLocale(), {
+                                {formatDate(eventDate, {
                                   weekday: 'long',
                                   year: 'numeric',
                                   month: 'long',
@@ -314,7 +316,7 @@ export function Events({ onNavigate }: EventsProps) {
                             <div className="flex items-center space-x-3 text-gray-400">
                               <Clock className="w-5 h-5 text-[#B8913D] flex-shrink-0 opacity-70" />
                               <span className="text-sm">
-                                {eventDate.toLocaleTimeString(getActiveLocale(), { hour: '2-digit', minute: '2-digit' })}
+                                {formatTime(eventDate, { hour: '2-digit', minute: '2-digit' })}
                               </span>
                             </div>
                             {event.location && (
@@ -326,12 +328,12 @@ export function Events({ onNavigate }: EventsProps) {
                           </div>
 
                           <div className="flex items-center justify-between pt-4 border-t border-gray-800">
-                            <p className="text-sm text-gray-500 italic">Prix non encore disponibles</p>
+                            <p className="text-sm text-gray-500 italic">{t('events.pricesNotYet')}</p>
                             <button
                               onClick={() => onNavigate('event-detail', event.id)}
                               className="px-5 py-2.5 rounded-lg font-medium transition-all flex items-center space-x-2 border border-gray-600 text-gray-300 hover:border-[#B8913D] hover:text-[#B8913D] text-sm"
                             >
-                              <span>Voir le descriptif</span>
+                              <span>{t('events.viewDetails')}</span>
                               <ChevronRight className="w-4 h-4" />
                             </button>
                           </div>
