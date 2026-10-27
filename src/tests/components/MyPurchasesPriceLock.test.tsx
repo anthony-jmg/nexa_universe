@@ -345,7 +345,7 @@ describe('Mes Pass', () => {
       expect(screen.queryByRole('button', { name: /Acheter au prix actuel|Payer le/ })).not.toBeInTheDocument();
     });
 
-    it('event_cancelled : traitement séparé, montant non déclaré perdu, aucun bouton', async () => {
+    it('event_cancelled : sommes encaissées remboursées, sans automatisation ni délai annoncés, aucun bouton', async () => {
       // Événement annulé : masqué au client par RLS, le titre vient du devis serveur
       data.price_locks = [{ ...expiredLock('x5'), events: null }];
       quotes.x5 = { ...quote('x5', 'event_cancelled', 95, null), event_title: 'Festival annulé' };
@@ -353,10 +353,11 @@ describe('Mes Pass', () => {
 
       expect(await screen.findByText('Festival annulé')).toBeInTheDocument();
       expect(
-        screen.getByText('Cet événement a été annulé. Ton versement est en cours de traitement selon les conditions applicables.')
+        screen.getByText('Cet événement a été annulé. Les sommes encaissées par Nexa pour ce pass te seront remboursées.')
       ).toBeInTheDocument();
       expect(screen.queryByText(/n’est plus utilisable/)).not.toBeInTheDocument();
       expect(screen.queryByText(/restent déductibles/)).not.toBeInTheDocument();
+      expect(document.body.textContent).not.toMatch(/automatiquement|sous \d+|\d+\s*(jours|jours ouvrés|semaines)/i);
       expect(screen.queryByRole('button', { name: /Acheter au prix actuel|Payer le/ })).not.toBeInTheDocument();
     });
 

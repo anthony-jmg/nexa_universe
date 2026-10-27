@@ -337,7 +337,10 @@ describe('10 à 15 — Mes Pass', () => {
     cleanup();
     db.quote = { status: 'event_cancelled', credit: 20 };
     await renderPasses('en');
-    expect(screen.getByText('This event has been cancelled. Your payment is being processed in accordance with the applicable terms.')).toBeInTheDocument();
+    expect(screen.getByText('This event has been cancelled. Amounts collected by Nexa for this pass will be refunded to you.')).toBeInTheDocument();
+    // Aucune promesse d'automatisation ni de délai, aucun bouton d'achat
+    expect(text()).not.toMatch(/automatic(ally)? refund|refunded automatically|within \d+|\d+\s*(days|business days|weeks)/i);
+    expect(screen.queryByRole('button', { name: /Buy at the current price/ })).not.toBeInTheDocument();
   });
 
   it('13 — statuts des billets (paiement du solde, émission, annulé, utilisé)', async () => {
