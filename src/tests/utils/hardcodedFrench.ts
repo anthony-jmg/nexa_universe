@@ -1,7 +1,7 @@
 // Détecteur de textes français codés en dur dans le code d'un écran (tests i18n).
 // Ignore les commentaires, les clés t('…') et les classes CSS ; signale les
 // textes JSX et les chaînes contenant des accents ou des mots français courants.
-export const FRENCH = /[À-ÿ’]|\b(Voir|Aucun|Retour|Réserver|Prix|Payer|Annuler|Fermer|Paiement|Billet|billets?|Complet|Suivant|Précédent|le|la|les|du|des|pour|avec|sur|ton|ta|tes|votre|vos)\b/;
+export const FRENCH = /[À-ÖØ-öø-ÿ’]|\b(Voir|Aucun|Retour|Réserver|Prix|Payer|Annuler|Fermer|Paiement|Billet|billets?|Complet|Suivant|Précédent|le|la|les|du|des|pour|avec|sur|ton|ta|tes|votre|vos)\b/;
 
 export const frenchStrings = (code: string): string[] => {
   const lines = code

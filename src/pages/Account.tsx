@@ -8,7 +8,8 @@ import { useToast } from '../contexts/ToastContext';
 import { useSubscription } from '../hooks/useSubscription';
 import { AvatarUpload, getAvatarUrl } from '../components/AvatarUpload';
 import CancellationModal from '../components/CancellationModal';
-import { getActiveLocale } from '../lib/locale';
+import { formatDate as formatLocaleDate } from '../lib/locale';
+import { formatPrice } from '../lib/formatEuro';
 
 interface ProfessorSubscription {
   id: string;
@@ -36,8 +37,9 @@ interface BillingRecord {
   currency: string;
   status: string;
   date: string;
-  description: string;
-  items?: { name: string; quantity?: number; price: number }[];
+  /** Libellé saisi (titre du produit…) ; null → libellé générique traduit à l'affichage. */
+  description: string | null;
+  items?: { name: string | null; quantity?: number; price: number }[];
   payment_intent_id?: string;
 }
 
@@ -55,6 +57,8 @@ export function Account({ onNavigate }: AccountProps) {
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
+  // Couleur du message selon le résultat (et non selon le texte, qui dépend de la langue).
+  const [messageOk, setMessageOk] = useState(false);
   const [professorSubscriptions, setProfessorSubscriptions] = useState<ProfessorSubscription[]>([]);
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [cancelTarget, setCancelTarget] = useState<{ type: 'professor'; id?: string; name?: string } | null>(null);
@@ -67,6 +71,7 @@ export function Account({ onNavigate }: AccountProps) {
   const [professorVideoUrl, setProfessorVideoUrl] = useState('');
   const [savingProfessorInfo, setSavingProfessorInfo] = useState(false);
   const [professorMessage, setProfessorMessage] = useState('');
+  const [professorMessageOk, setProfessorMessageOk] = useState(false);
 
   const [billingRecords, setBillingRecords] = useState<BillingRecord[]>([]);
   const [billingLoading, setBillingLoading] = useState(false);
@@ -124,10 +129,10 @@ export function Account({ onNavigate }: AccountProps) {
       .eq('id', profile.id);
 
     if (error) {
-      showToast('Erreur lors de l\'envoi de la demande', 'error');
+      showToast(t('account.request.error'), 'error');
     } else {
       setProfessorRequestStatus('pending');
-      showToast('Demande envoyee avec succes !', 'success');
+      showToast(t('account.request.sent'), 'success');
     }
     setProfessorRequestSaving(false);
   };
@@ -176,7 +181,7 @@ export function Account({ onNavigate }: AccountProps) {
     if (orders) {
       for (const order of orders) {
         const items = (order.order_items || []).map((item: any) => ({
-          name: item.product?.name || item.video?.title || item.program?.title || 'Article',
+          name: item.product?.name || item.video?.title || item.program?.title || null,
           quantity: item.quantity,
           price: item.unit_price,
         }));
@@ -187,7 +192,7 @@ export function Account({ onNavigate }: AccountProps) {
           currency: 'EUR',
           status: order.status,
           date: order.created_at,
-          description: items.length === 1 ? items[0].name : `Commande (${items.length} article${items.length > 1 ? 's' : ''})`,
+          description: items.length === 1 ? items[0].name : null,
           items,
           payment_intent_id: order.stripe_payment_intent_id,
         });
@@ -210,8 +215,8 @@ export function Account({ onNavigate }: AccountProps) {
           currency: 'EUR',
           status: vp.status,
           date: vp.purchased_at,
-          description: (vp.video as any)?.title || 'Vidéo',
-          items: [{ name: (vp.video as any)?.title || 'Vidéo', price: vp.amount_paid }],
+          description: (vp.video as any)?.title || null,
+          items: [{ name: (vp.video as any)?.title || null, price: vp.amount_paid }],
         });
       }
     }
@@ -232,8 +237,8 @@ export function Account({ onNavigate }: AccountProps) {
           currency: 'EUR',
           status: pp.status,
           date: pp.purchased_at,
-          description: (pp.program as any)?.title || 'Programme',
-          items: [{ name: (pp.program as any)?.title || 'Programme', price: pp.price_paid }],
+          description: (pp.program as any)?.title || null,
+          items: [{ name: (pp.program as any)?.title || null, price: pp.price_paid }],
         });
       }
     }
@@ -255,8 +260,8 @@ export function Account({ onNavigate }: AccountProps) {
           currency: (sub.currency || 'EUR').toUpperCase(),
           status: sub.status,
           date: sub.created_at,
-          description: 'Abonnement',
-          items: [{ name: 'Abonnement Nexa', price: sub.amount / 100 }],
+          description: null,
+          items: [{ name: null, price: sub.amount / 100 }],
         });
       }
     }
@@ -277,8 +282,10 @@ export function Account({ onNavigate }: AccountProps) {
       .eq('id', profile?.id);
 
     if (error) {
+      setMessageOk(false);
       setMessage(t('account.profile.errorUpdate'));
     } else {
+      setMessageOk(true);
       setMessage(t('account.profile.successUpdate'));
       await refreshProfile();
     }
@@ -335,11 +342,13 @@ export function Account({ onNavigate }: AccountProps) {
 
     if (error) {
       console.error('Error updating professor info:', error);
-      setProfessorMessage('Error updating professor information');
-      showToast('Error updating professor information', 'error');
+      setProfessorMessageOk(false);
+      setProfessorMessage(t('account.professor.saveError'));
+      showToast(t('account.professor.saveError'), 'error');
     } else {
-      setProfessorMessage('Professor information updated successfully');
-      showToast('Professor information updated successfully', 'success');
+      setProfessorMessageOk(true);
+      setProfessorMessage(t('account.professor.saved'));
+      showToast(t('account.professor.saved'), 'success');
     }
 
     setSavingProfessorInfo(false);
@@ -527,7 +536,7 @@ export function Account({ onNavigate }: AccountProps) {
 
                   {message && (
                     <div className={`p-4 rounded-lg ${
-                      message.includes('success')
+                      messageOk
                         ? 'bg-green-50 text-green-800'
                         : 'bg-red-50 text-red-800'
                     }`}>
@@ -550,7 +559,7 @@ export function Account({ onNavigate }: AccountProps) {
                       <div className="w-10 h-10 bg-gradient-to-br from-[#B8913D] to-[#A07F35] rounded-lg flex items-center justify-center">
                         <GraduationCap className="w-6 h-6 text-white" />
                       </div>
-                      <h2 className="text-xl font-medium text-white">Devenir Professeur</h2>
+                      <h2 className="text-xl font-medium text-white">{t('account.request.title')}</h2>
                     </div>
 
                     {professorRequestStatus === 'pending' ? (
@@ -558,9 +567,9 @@ export function Account({ onNavigate }: AccountProps) {
                         <div className="flex items-start gap-3">
                           <AlertTriangle className="w-5 h-5 text-yellow-400 flex-shrink-0 mt-0.5" />
                           <div>
-                            <p className="font-medium text-yellow-300">Demande en cours d'examen</p>
+                            <p className="font-medium text-yellow-300">{t('account.request.pendingTitle')}</p>
                             <p className="text-sm text-yellow-200/80 mt-1">
-                              Votre demande pour devenir professeur est en cours de traitement. Vous serez notifie une fois qu'elle sera traitee par l'administration.
+                              {t('account.request.pendingText')}
                             </p>
                           </div>
                         </div>
@@ -570,15 +579,15 @@ export function Account({ onNavigate }: AccountProps) {
                         <div className="flex items-start gap-3">
                           <XCircle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
                           <div>
-                            <p className="font-medium text-red-300">Demande refusee</p>
+                            <p className="font-medium text-red-300">{t('account.request.rejectedTitle')}</p>
                             <p className="text-sm text-red-200/80 mt-1">
-                              Votre demande a ete refusee. Vous pouvez soumettre une nouvelle demande si vous le souhaitez.
+                              {t('account.request.rejectedText')}
                             </p>
                             <button
                               onClick={() => setProfessorRequestStatus(null)}
                               className="mt-3 text-sm text-[#B8913D] hover:text-[#d4a94e] transition-colors"
                             >
-                              Soumettre une nouvelle demande
+                              {t('account.request.resubmit')}
                             </button>
                           </div>
                         </div>
@@ -586,18 +595,18 @@ export function Account({ onNavigate }: AccountProps) {
                     ) : (
                       <div className="space-y-4">
                         <p className="text-gray-300 text-sm">
-                          Vous souhaitez partager vos connaissances en tant que professeur sur la plateforme ? Envoyez une demande et notre equipe l'examinera.
+                          {t('account.request.intro')}
                         </p>
                         <div>
                           <label className="block text-sm font-medium text-gray-300 mb-2">
-                            Message de motivation (optionnel)
+                            {t('account.request.messageLabel')}
                           </label>
                           <textarea
                             value={professorRequestMessage}
                             onChange={(e) => setProfessorRequestMessage(e.target.value)}
                             rows={3}
                             className="w-full px-4 py-3 bg-gray-900/50 border border-gray-600 rounded-xl text-white placeholder-gray-500 focus:ring-2 focus:ring-[#B8913D] focus:border-[#B8913D] outline-none transition-all resize-none"
-                            placeholder="Decrivez votre experience, vos specialites..."
+                            placeholder={t('account.request.messagePlaceholder')}
                           />
                         </div>
                         <button
@@ -605,7 +614,7 @@ export function Account({ onNavigate }: AccountProps) {
                           disabled={professorRequestSaving}
                           className="px-6 py-3 bg-gradient-to-r from-[#B8913D] to-[#A07F35] text-white font-medium rounded-lg hover:shadow-xl transition-all hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
                         >
-                          {professorRequestSaving ? 'Envoi en cours...' : 'Envoyer ma demande'}
+                          {professorRequestSaving ? t('account.request.sending') : t('account.request.send')}
                         </button>
                       </div>
                     )}
@@ -618,26 +627,26 @@ export function Account({ onNavigate }: AccountProps) {
                       <div className="w-10 h-10 bg-gradient-to-br from-[#B8913D] to-[#A07F35] rounded-lg flex items-center justify-center">
                         <GraduationCap className="w-6 h-6 text-white" />
                       </div>
-                      <h2 className="text-xl font-medium text-white">Professor Information</h2>
+                      <h2 className="text-xl font-medium text-white">{t('account.professor.title')}</h2>
                     </div>
 
                     <form onSubmit={handleUpdateProfessorInfo} className="space-y-6">
                       <div>
                         <label className="block text-sm font-medium text-gray-300 mb-2">
-                          Biography
+                          {t('account.professor.bio')}
                         </label>
                         <textarea
                           value={professorBio}
                           onChange={(e) => setProfessorBio(e.target.value)}
                           rows={6}
-                          placeholder="Tell students about yourself, your experience, and teaching style..."
+                          placeholder={t('account.professor.bioPlaceholder')}
                           className="w-full px-4 py-3 bg-gray-800/50 border border-gray-700 text-white rounded-lg focus:ring-2 focus:ring-[#B8913D] focus:border-transparent outline-none transition-all resize-none"
                         />
                       </div>
 
                       <div>
                         <label className="block text-sm font-medium text-gray-300 mb-2">
-                          Specialties
+                          {t('account.professor.specialties')}
                         </label>
                         <div className="flex space-x-2 mb-3">
                           <input
@@ -650,12 +659,13 @@ export function Account({ onNavigate }: AccountProps) {
                                 handleAddSpecialty();
                               }
                             }}
-                            placeholder="Add a specialty (e.g., Kizomba, Semba)"
+                            placeholder={t('account.professor.specialtyPlaceholder')}
                             className="flex-1 px-4 py-3 bg-gray-800/50 border border-gray-700 text-white rounded-lg focus:ring-2 focus:ring-[#B8913D] focus:border-transparent outline-none transition-all"
                           />
                           <button
                             type="button"
                             onClick={handleAddSpecialty}
+                            aria-label={t('account.professor.addSpecialty')}
                             className="px-4 py-3 bg-[#B8913D] text-white rounded-lg hover:bg-[#A07F35] transition-colors"
                           >
                             <Plus className="w-5 h-5" />
@@ -672,6 +682,7 @@ export function Account({ onNavigate }: AccountProps) {
                                 <button
                                   type="button"
                                   onClick={() => handleRemoveSpecialty(specialty)}
+                                  aria-label={t('account.professor.removeSpecialty', { name: specialty })}
                                   className="hover:text-white transition-colors"
                                 >
                                   <X className="w-4 h-4" />
@@ -684,7 +695,7 @@ export function Account({ onNavigate }: AccountProps) {
 
                       <div>
                         <label className="block text-sm font-medium text-gray-300 mb-2">
-                          Years of Experience
+                          {t('account.professor.experience')}
                         </label>
                         <input
                           type="number"
@@ -698,23 +709,23 @@ export function Account({ onNavigate }: AccountProps) {
 
                       <div>
                         <label className="block text-sm font-medium text-gray-300 mb-2">
-                          Profile Video URL (Optional)
+                          {t('account.professor.videoUrl')}
                         </label>
                         <input
                           type="url"
                           value={professorVideoUrl}
                           onChange={(e) => setProfessorVideoUrl(e.target.value)}
-                          placeholder="https://example.com/my-intro-video"
+                          placeholder={t('account.professor.videoPlaceholder')}
                           className="w-full px-4 py-3 bg-gray-800/50 border border-gray-700 text-white rounded-lg focus:ring-2 focus:ring-[#B8913D] focus:border-transparent outline-none transition-all"
                         />
                         <p className="text-xs text-gray-400 mt-1">
-                          Add a video introducing yourself to potential students
+                          {t('account.professor.videoHint')}
                         </p>
                       </div>
 
                       {professorMessage && (
                         <div className={`p-4 rounded-lg ${
-                          professorMessage.includes('success')
+                          professorMessageOk
                             ? 'bg-green-900/30 text-green-400 border border-green-500/50'
                             : 'bg-red-900/30 text-red-400 border border-red-500/50'
                         }`}>
@@ -727,7 +738,7 @@ export function Account({ onNavigate }: AccountProps) {
                         disabled={savingProfessorInfo}
                         className="px-6 py-3 bg-gradient-to-r from-[#B8913D] to-[#A07F35] text-white font-medium rounded-lg hover:shadow-lg hover:shadow-[#B8913D]/50 transition-all disabled:opacity-50"
                       >
-                        {savingProfessorInfo ? 'Saving...' : 'Save Professor Information'}
+                        {savingProfessorInfo ? t('account.profile.saving') : t('account.professor.save')}
                       </button>
                     </form>
                   </div>
@@ -876,7 +887,7 @@ export function Account({ onNavigate }: AccountProps) {
                 ) : billingRecords.length === 0 ? (
                   <div className="bg-gray-800/50 backdrop-blur-sm rounded-xl p-10 text-center border border-gray-700/50">
                     <Receipt className="w-12 h-12 text-gray-600 mx-auto mb-4" />
-                    <p className="text-gray-400 text-sm">Aucune transaction trouvée</p>
+                    <p className="text-gray-400 text-sm">{t('account.billing.empty')}</p>
                   </div>
                 ) : (
                   <div className="space-y-3">
@@ -889,18 +900,20 @@ export function Account({ onNavigate }: AccountProps) {
                           : record.type === 'program'
                             ? <BookOpen className="w-4 h-4" />
                             : <CreditCard className="w-4 h-4" />;
-                      const typeLabel = record.type === 'order' ? 'Commande'
-                        : record.type === 'video' ? 'Vidéo'
-                          : record.type === 'program' ? 'Programme'
-                            : 'Abonnement';
+                      const typeLabel = t(`account.billing.type.${record.type}`);
                       const statusColor = record.status === 'completed' || record.status === 'succeeded' || record.status === 'paid' || record.status === 'shipped' || record.status === 'delivered'
                         ? 'text-green-400 bg-green-400/10'
                         : 'text-yellow-400 bg-yellow-400/10';
-                      const statusLabel = record.status === 'completed' || record.status === 'succeeded' ? 'Payé'
-                        : record.status === 'paid' ? 'Payé'
-                          : record.status === 'shipped' ? 'Expédié'
-                            : record.status === 'delivered' ? 'Livré'
-                              : record.status;
+                      const statusLabel = record.status === 'completed' || record.status === 'succeeded' || record.status === 'paid' ? t('account.billing.status.paid')
+                        : record.status === 'shipped' ? t('account.billing.status.shipped')
+                          : record.status === 'delivered' ? t('account.billing.status.delivered')
+                            : record.status;
+                      // Libellé générique quand aucun titre n'est enregistré
+                      const itemFallback = record.type === 'subscription' ? t('account.billing.subscriptionItem') : record.type === 'order' ? t('account.billing.orderItem') : typeLabel;
+                      const description = record.description
+                        ?? (record.type === 'order'
+                          ? t((record.items?.length ?? 0) > 1 ? 'account.billing.orderMany' : 'account.billing.orderOne', { count: record.items?.length ?? 0 })
+                          : typeLabel);
 
                       return (
                         <div key={record.id} className="bg-gray-800/50 backdrop-blur-sm rounded-xl border border-gray-700/50 overflow-hidden">
@@ -913,19 +926,19 @@ export function Account({ onNavigate }: AccountProps) {
                                 {typeIcon}
                               </div>
                               <div className="min-w-0">
-                                <p className="text-white font-medium text-sm truncate">{record.description}</p>
+                                <p className="text-white font-medium text-sm truncate">{description}</p>
                                 <div className="flex items-center gap-2 mt-0.5">
                                   <span className="text-xs text-gray-500">{typeLabel}</span>
                                   <span className="text-xs text-gray-600">•</span>
                                   <span className="text-xs text-gray-500">
-                                    {new Date(record.date).toLocaleDateString(getActiveLocale(), { day: '2-digit', month: 'short', year: 'numeric' })}
+                                    {formatLocaleDate(record.date, { day: '2-digit', month: 'short', year: 'numeric' })}
                                   </span>
                                 </div>
                               </div>
                             </div>
                             <div className="flex items-center gap-3 flex-shrink-0 ml-4">
                               <div className="text-right">
-                                <p className="text-[#B8913D] font-semibold text-sm">{record.amount.toFixed(2)}€</p>
+                                <p className="text-[#B8913D] font-semibold text-sm">{formatPrice(record.amount)}</p>
                                 <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusColor}`}>
                                   {statusLabel}
                                 </span>
@@ -941,23 +954,23 @@ export function Account({ onNavigate }: AccountProps) {
                             <div className="border-t border-gray-700/50 px-4 pb-4 pt-3 space-y-3">
                               {record.items && record.items.length > 0 && (
                                 <div className="space-y-1.5">
-                                  <p className="text-xs text-gray-500 uppercase tracking-wide font-medium mb-2">Détail</p>
+                                  <p className="text-xs text-gray-500 uppercase tracking-wide font-medium mb-2">{t('account.billing.detail')}</p>
                                   {record.items.map((item, i) => (
                                     <div key={i} className="flex justify-between text-sm">
                                       <span className="text-gray-300">
-                                        {item.name}{item.quantity && item.quantity > 1 ? ` × ${item.quantity}` : ''}
+                                        {item.name ?? itemFallback}{item.quantity && item.quantity > 1 ? ` × ${item.quantity}` : ''}
                                       </span>
-                                      <span className="text-gray-400">{item.price.toFixed(2)}€</span>
+                                      <span className="text-gray-400">{formatPrice(item.price)}</span>
                                     </div>
                                   ))}
                                 </div>
                               )}
                               <div className="border-t border-gray-700/50 pt-2 flex justify-between font-medium text-sm">
-                                <span className="text-gray-300">Total payé</span>
-                                <span className="text-[#B8913D]">{record.amount.toFixed(2)}€</span>
+                                <span className="text-gray-300">{t('account.billing.totalPaid')}</span>
+                                <span className="text-[#B8913D]">{formatPrice(record.amount)}</span>
                               </div>
                               {record.payment_intent_id && (
-                                <p className="text-xs text-gray-600 font-mono truncate">Réf: {record.payment_intent_id}</p>
+                                <p className="text-xs text-gray-600 font-mono truncate">{t('account.billing.reference', { ref: record.payment_intent_id })}</p>
                               )}
                             </div>
                           )}

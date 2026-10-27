@@ -32,12 +32,12 @@ export function AvatarUpload({ userId, currentAvatarUrl, onAvatarUpdate }: Avata
       if (!file) return;
 
       if (!file.type.startsWith('image/')) {
-        showToast(t.common?.error || 'Error', t.account?.invalidImageType || 'Please select an image file', 'error');
+        showToast(t('account.avatar.invalidType'), 'error');
         return;
       }
 
       if (file.size > 5 * 1024 * 1024) {
-        showToast(t.common?.error || 'Error', t.account?.imageTooLarge || 'Image must be less than 5MB', 'error');
+        showToast(t('account.avatar.tooLarge'), 'error');
         return;
       }
 
@@ -75,10 +75,10 @@ export function AvatarUpload({ userId, currentAvatarUrl, onAvatarUpdate }: Avata
 
       setAvatarUrl(urlWithTimestamp);
       onAvatarUpdate(urlWithTimestamp);
-      showToast(t.common?.success || 'Success', t.account?.avatarUpdated || 'Profile picture updated successfully', 'success');
+      showToast(t('account.avatar.updated'), 'success');
     } catch (error) {
       console.error('Error uploading avatar:', error);
-      showToast(t.common?.error || 'Error', t.account?.avatarUploadError || 'Failed to upload profile picture', 'error');
+      showToast(t('account.avatar.uploadError'), 'error');
     } finally {
       setUploading(false);
       if (fileInputRef.current) {
@@ -94,7 +94,7 @@ export function AvatarUpload({ userId, currentAvatarUrl, onAvatarUpdate }: Avata
           {avatarUrl ? (
             <img
               src={avatarUrl}
-              alt="Profile"
+              alt={t('account.avatar.alt')}
               className="w-full h-full object-cover"
             />
           ) : (
@@ -106,7 +106,8 @@ export function AvatarUpload({ userId, currentAvatarUrl, onAvatarUpdate }: Avata
           onClick={() => fileInputRef.current?.click()}
           disabled={uploading}
           className="absolute bottom-0 right-0 w-10 h-10 bg-white rounded-full shadow-lg flex items-center justify-center border-2 border-gray-200 hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          title={t.account?.changeAvatar || 'Change profile picture'}
+          title={t('account.avatar.change')}
+          aria-label={t('account.avatar.change')}
         >
           {uploading ? (
             <Loader2 className="w-5 h-5 text-gray-600 animate-spin" />
@@ -125,7 +126,7 @@ export function AvatarUpload({ userId, currentAvatarUrl, onAvatarUpdate }: Avata
       />
 
       <p className="text-sm text-gray-500 text-center">
-        {t.account?.avatarRequirements || 'JPG, PNG, WEBP or GIF. Max 5MB.'}
+        {t('account.avatar.requirements')}
       </p>
     </div>
   );

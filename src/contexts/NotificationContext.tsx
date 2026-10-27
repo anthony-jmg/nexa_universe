@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useEffect, ReactNode } from 'react
 import { supabase } from '../lib/supabase';
 import { useAuth } from './AuthContext';
 import { useToast } from './ToastContext';
+import { useLanguage } from './LanguageContext';
 
 export interface Notification {
   id: string;
@@ -30,6 +31,7 @@ const NotificationContext = createContext<NotificationContextType | undefined>(u
 export function NotificationProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const { showToast } = useToast();
+  const { t } = useLanguage();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -108,7 +110,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       setNotifications(prev =>
         prev.map(n => n.id === notificationId ? { ...n, is_read: false } : n)
       );
-      showToast('Erreur lors de la mise à jour', 'error');
+      showToast(t('notifications.toast.updateError'), 'error');
     }
   };
 
@@ -124,11 +126,11 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
         .eq('is_read', false);
 
       if (error) throw error;
-      showToast('Toutes les notifications sont marquées comme lues', 'success');
+      showToast(t('notifications.toast.allRead'), 'success');
     } catch (error) {
       console.error('Error marking all as read:', error);
       setNotifications(previous);
-      showToast('Erreur lors de la mise à jour', 'error');
+      showToast(t('notifications.toast.updateError'), 'error');
     }
   };
 
@@ -144,11 +146,11 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
         .eq('user_id', user?.id);
 
       if (error) throw error;
-      showToast('Notification supprimée', 'success');
+      showToast(t('notifications.toast.deleted'), 'success');
     } catch (error) {
       console.error('Error deleting notification:', error);
       setNotifications(previous);
-      showToast('Erreur lors de la suppression', 'error');
+      showToast(t('notifications.toast.deleteError'), 'error');
     }
   };
 
@@ -164,11 +166,11 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
         .eq('is_read', true);
 
       if (error) throw error;
-      showToast('Notifications lues supprimées', 'success');
+      showToast(t('notifications.toast.readDeleted'), 'success');
     } catch (error) {
       console.error('Error deleting read notifications:', error);
       setNotifications(previous);
-      showToast('Erreur lors de la suppression', 'error');
+      showToast(t('notifications.toast.deleteError'), 'error');
     }
   };
 

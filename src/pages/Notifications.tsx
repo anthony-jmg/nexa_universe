@@ -4,7 +4,8 @@ import { useAuth } from '../contexts/AuthContext';
 import { useNotifications } from '../contexts/NotificationContext';
 import type { Notification } from '../contexts/NotificationContext';
 import PageTransition from '../components/PageTransition';
-import { getActiveLocale } from '../lib/locale';
+import { useLanguage } from '../contexts/LanguageContext';
+import { formatRelativeTime } from '../lib/relativeTime';
 
 interface NotificationsPageProps {
   onNavigate: (page: string) => void;
@@ -12,6 +13,7 @@ interface NotificationsPageProps {
 
 export default function NotificationsPage({ onNavigate }: NotificationsPageProps) {
   const { user } = useAuth();
+  const { t } = useLanguage();
   const { notifications, loading, markAsRead, markAllAsRead, deleteNotification, deleteAllRead } = useNotifications();
   const [filter, setFilter] = useState<'all' | 'unread'>('all');
 
@@ -22,23 +24,13 @@ export default function NotificationsPage({ onNavigate }: NotificationsPageProps
     window.location.href = notification.link;
   }
 
+  // Au-delà de 7 jours : date longue, année affichée seulement si différente.
   function formatDate(dateString: string) {
     const date = new Date(dateString);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMs / 3600000);
-    const diffDays = Math.floor(diffMs / 86400000);
-
-    if (diffMins < 1) return "À l'instant";
-    if (diffMins < 60) return `Il y a ${diffMins} min`;
-    if (diffHours < 24) return `Il y a ${diffHours}h`;
-    if (diffDays < 7) return `Il y a ${diffDays}j`;
-
-    return date.toLocaleDateString(getActiveLocale(), {
+    return formatRelativeTime(date, t, {
       day: 'numeric',
       month: 'long',
-      year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined
+      year: date.getFullYear() !== new Date().getFullYear() ? 'numeric' : undefined
     });
   }
 
@@ -53,12 +45,12 @@ export default function NotificationsPage({ onNavigate }: NotificationsPageProps
       <PageTransition>
         <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 pt-24 px-4">
           <div className="max-w-4xl mx-auto text-center">
-            <p className="text-white">Vous devez être connecté pour voir vos notifications</p>
+            <p className="text-white">{t('notifications.signInRequired')}</p>
             <button
               onClick={() => onNavigate('signin')}
               className="mt-4 px-6 py-3 bg-gradient-to-r from-[#B8913D] to-[#D4AC5B] text-white rounded-xl hover:shadow-glow transition-all"
             >
-              Se connecter
+              {t('nav.signIn')}
             </button>
           </div>
         </div>
@@ -75,7 +67,7 @@ export default function NotificationsPage({ onNavigate }: NotificationsPageProps
             className="mb-6 flex items-center gap-2 text-gray-400 hover:text-white transition-colors"
           >
             <ArrowLeft className="w-5 h-5" />
-            Retour
+            {t('common.back')}
           </button>
 
           <div className="bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10 shadow-2xl overflow-hidden">
@@ -86,9 +78,9 @@ export default function NotificationsPage({ onNavigate }: NotificationsPageProps
                     <Bell className="w-6 h-6 text-white" />
                   </div>
                   <div>
-                    <h1 className="text-2xl font-bold text-white">Notifications</h1>
+                    <h1 className="text-2xl font-bold text-white">{t('notifications.title')}</h1>
                     <p className="text-sm text-gray-400">
-                      {unreadCount > 0 ? `${unreadCount} non lue${unreadCount > 1 ? 's' : ''}` : 'Tout est lu'}
+                      {unreadCount > 0 ? t(unreadCount > 1 ? 'notifications.unread.other' : 'notifications.unread.one', { count: unreadCount }) : t('notifications.allRead')}
                     </p>
                   </div>
                 </div>
@@ -100,7 +92,7 @@ export default function NotificationsPage({ onNavigate }: NotificationsPageProps
                       className="flex items-center gap-2 px-4 py-2 bg-blue-500/10 text-blue-400 rounded-lg hover:bg-blue-500/20 transition-colors"
                     >
                       <CheckCheck className="w-4 h-4" />
-                      <span className="hidden sm:inline">Tout marquer comme lu</span>
+                      <span className="hidden sm:inline">{t('notifications.markAllRead')}</span>
                     </button>
                   )}
                   {notifications.some(n => n.is_read) && (
@@ -109,7 +101,7 @@ export default function NotificationsPage({ onNavigate }: NotificationsPageProps
                       className="flex items-center gap-2 px-4 py-2 bg-red-500/10 text-red-400 rounded-lg hover:bg-red-500/20 transition-colors"
                     >
                       <Trash2 className="w-4 h-4" />
-                      <span className="hidden sm:inline">Supprimer lues</span>
+                      <span className="hidden sm:inline">{t('notifications.deleteRead')}</span>
                     </button>
                   )}
                 </div>
@@ -124,7 +116,7 @@ export default function NotificationsPage({ onNavigate }: NotificationsPageProps
                       : 'text-gray-400 hover:text-white'
                   }`}
                 >
-                  Toutes ({notifications.length})
+                  {t('notifications.filterAll', { count: notifications.length })}
                 </button>
                 <button
                   onClick={() => setFilter('unread')}
@@ -134,7 +126,7 @@ export default function NotificationsPage({ onNavigate }: NotificationsPageProps
                       : 'text-gray-400 hover:text-white'
                   }`}
                 >
-                  Non lues ({unreadCount})
+                  {t('notifications.filterUnread', { count: unreadCount })}
                 </button>
               </div>
             </div>
@@ -143,16 +135,16 @@ export default function NotificationsPage({ onNavigate }: NotificationsPageProps
               {loading ? (
                 <div className="p-12 text-center">
                   <div className="inline-block w-8 h-8 border-4 border-[#B8913D]/30 border-t-[#B8913D] rounded-full animate-spin" />
-                  <p className="text-gray-400 mt-4">Chargement...</p>
+                  <p className="text-gray-400 mt-4">{t('notifications.loading')}</p>
                 </div>
               ) : filteredNotifications.length === 0 ? (
                 <div className="p-12 text-center">
                   <Bell className="w-16 h-16 mx-auto mb-4 text-gray-600" />
                   <p className="text-gray-400 text-lg font-medium mb-2">
-                    {filter === 'unread' ? 'Aucune notification non lue' : 'Aucune notification'}
+                    {filter === 'unread' ? t('notifications.emptyUnread') : t('notifications.empty')}
                   </p>
                   <p className="text-gray-500 text-sm">
-                    Ajoutez des professeurs en favoris pour recevoir des notifications
+                    {t('notifications.emptyHint')}
                   </p>
                 </div>
               ) : (
@@ -246,7 +238,7 @@ export default function NotificationsPage({ onNavigate }: NotificationsPageProps
                               markAsRead(notification.id);
                             }}
                             className="p-2 text-gray-400 hover:text-blue-400 hover:bg-blue-500/10 rounded-lg transition-colors"
-                            title="Marquer comme lu"
+                            title={t('notifications.markRead')}
                           >
                             <Check className="w-5 h-5" />
                           </button>
@@ -257,7 +249,7 @@ export default function NotificationsPage({ onNavigate }: NotificationsPageProps
                             deleteNotification(notification.id);
                           }}
                           className="p-2 text-gray-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
-                          title="Supprimer"
+                          title={t('notifications.delete')}
                         >
                           <Trash2 className="w-5 h-5" />
                         </button>

@@ -2,9 +2,12 @@ import { useState, useEffect, useRef } from 'react';
 import { Bell, Check, Trash2, X } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useNotifications } from '../contexts/NotificationContext';
+import { useLanguage } from '../contexts/LanguageContext';
+import { formatRelativeTime } from '../lib/relativeTime';
 
 export default function NotificationDropdown() {
   const { user } = useAuth();
+  const { t } = useLanguage();
   const { notifications, unreadCount, loading, markAsRead, markAllAsRead, deleteNotification } = useNotifications();
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -28,25 +31,6 @@ export default function NotificationDropdown() {
     setIsOpen(false);
   }
 
-  function formatDate(dateString: string) {
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMs / 3600000);
-    const diffDays = Math.floor(diffMs / 86400000);
-
-    if (diffMins < 1) return "À l'instant";
-    if (diffMins < 60) return `Il y a ${diffMins} min`;
-    if (diffHours < 24) return `Il y a ${diffHours}h`;
-    if (diffDays < 7) return `Il y a ${diffDays}j`;
-
-    return date.toLocaleDateString('fr-FR', {
-      day: 'numeric',
-      month: 'short'
-    });
-  }
-
   if (!user) return null;
 
   const previewNotifications = notifications.slice(0, 20);
@@ -56,7 +40,7 @@ export default function NotificationDropdown() {
       <button
         onClick={() => setIsOpen(!isOpen)}
         className="relative p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
-        aria-label="Notifications"
+        aria-label={t('notifications.title')}
       >
         <Bell className="w-6 h-6" />
         {unreadCount > 0 && (
@@ -69,21 +53,22 @@ export default function NotificationDropdown() {
       {isOpen && (
         <div className="absolute right-0 mt-2 w-96 bg-white rounded-lg shadow-xl border border-gray-200 z-50 max-h-[600px] flex flex-col">
           <div className="p-4 border-b border-gray-200 flex items-center justify-between">
-            <h3 className="text-lg font-semibold text-gray-900">Notifications</h3>
+            <h3 className="text-lg font-semibold text-gray-900">{t('notifications.title')}</h3>
             <div className="flex items-center gap-2">
               {unreadCount > 0 && (
                 <button
                   onClick={markAllAsRead}
                   className="text-sm text-blue-600 hover:text-blue-700 flex items-center gap-1"
-                  title="Tout marquer comme lu"
+                  title={t('notifications.markAllRead')}
                 >
                   <Check className="w-4 h-4" />
-                  Tout lire
+                  {t('notifications.readAll')}
                 </button>
               )}
               <button
                 onClick={() => setIsOpen(false)}
                 className="text-gray-400 hover:text-gray-600"
+                aria-label={t('notifications.close')}
               >
                 <X className="w-5 h-5" />
               </button>
@@ -93,14 +78,14 @@ export default function NotificationDropdown() {
           <div className="overflow-y-auto flex-1">
             {loading ? (
               <div className="p-8 text-center text-gray-500">
-                Chargement...
+                {t('notifications.loading')}
               </div>
             ) : previewNotifications.length === 0 ? (
               <div className="p-8 text-center text-gray-500">
                 <Bell className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-                <p>Aucune notification</p>
+                <p>{t('notifications.empty')}</p>
                 <p className="text-sm mt-1">
-                  Ajoutez des professeurs en favoris pour recevoir des notifications
+                  {t('notifications.emptyHint')}
                 </p>
               </div>
             ) : (
@@ -133,7 +118,7 @@ export default function NotificationDropdown() {
                             {notification.message}
                           </p>
                           <p className="text-xs text-gray-500 mt-1">
-                            {formatDate(notification.created_at)}
+                            {formatRelativeTime(notification.created_at, t)}
                           </p>
                         </button>
                       </div>
@@ -146,7 +131,7 @@ export default function NotificationDropdown() {
                               markAsRead(notification.id);
                             }}
                             className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded"
-                            title="Marquer comme lu"
+                            title={t('notifications.markRead')}
                           >
                             <Check className="w-4 h-4" />
                           </button>
@@ -157,7 +142,7 @@ export default function NotificationDropdown() {
                             deleteNotification(notification.id);
                           }}
                           className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded"
-                          title="Supprimer"
+                          title={t('notifications.delete')}
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -176,7 +161,7 @@ export default function NotificationDropdown() {
                 className="text-sm text-blue-600 hover:text-blue-700 font-medium"
                 onClick={() => setIsOpen(false)}
               >
-                Voir toutes les notifications
+                {t('notifications.viewAll')}
               </a>
             </div>
           )}
