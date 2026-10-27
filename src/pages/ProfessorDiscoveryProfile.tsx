@@ -76,12 +76,12 @@ export function ProfessorDiscoveryProfile({ professorId, onNavigate, onBack }: P
         <BackgroundDecor />
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           <div className="text-center py-12">
-            <p className="text-gray-400">Professeur introuvable.</p>
+            <p className="text-gray-400">{t('academy.profile.notFound')}</p>
             <button
               onClick={() => onBack ? onBack() : onNavigate('academy')}
               className="mt-4 px-6 py-2 bg-gradient-to-r from-[#B8913D] to-[#D4AC5B] text-white rounded-full hover:shadow-lg transition-all"
             >
-              Retour
+              {t('academy.profile.back')}
             </button>
           </div>
         </div>
@@ -89,7 +89,7 @@ export function ProfessorDiscoveryProfile({ professorId, onNavigate, onBack }: P
     );
   }
 
-  const fullName = professor.full_name || 'Professeur';
+  const fullName = professor.full_name || t('academy.instructorFallback');
   const avatarUrl = getAvatarUrl(professor.avatar_url ?? null);
   const specialties = (professor.specialties ?? []).filter(Boolean);
   const bio = localized(professor.bio, professor.bio_en, language).trim();
@@ -109,7 +109,7 @@ export function ProfessorDiscoveryProfile({ professorId, onNavigate, onBack }: P
           className="flex items-center text-gray-400 hover:text-[#B8913D] transition-colors mb-6 ml-1"
         >
           <ArrowLeft className="w-5 h-5 mr-2" />
-          <span className="text-sm sm:text-base">Retour</span>
+          <span className="text-sm sm:text-base">{t('academy.profile.back')}</span>
         </button>
 
         {/* Cover */}
@@ -143,7 +143,7 @@ export function ProfessorDiscoveryProfile({ professorId, onNavigate, onBack }: P
               {experienceYears > 0 && (
                 <div className="flex items-center justify-center sm:justify-start gap-1.5 mt-1.5 text-sm text-gray-400">
                   <Award className="w-4 h-4 text-[#B8913D] flex-shrink-0" />
-                  <span>{experienceYears} ans d'expérience</span>
+                  <span>{t(experienceYears === 1 ? 'academy.profile.experience.one' : 'academy.profile.experience.other', { count: experienceYears })}</span>
                 </div>
               )}
             </div>
@@ -166,7 +166,7 @@ export function ProfessorDiscoveryProfile({ professorId, onNavigate, onBack }: P
         {/* Bio */}
         {bio && (
           <div className="mt-8 px-2 sm:px-6">
-            <h2 className="text-sm font-semibold text-gold-400 uppercase tracking-wider mb-3">Biographie</h2>
+            <h2 className="text-sm font-semibold text-gold-400 uppercase tracking-wider mb-3">{t('academy.profile.bio')}</h2>
             <p className="text-gray-300 leading-relaxed text-sm sm:text-base whitespace-pre-line">{bio}</p>
           </div>
         )}
@@ -174,7 +174,7 @@ export function ProfessorDiscoveryProfile({ professorId, onNavigate, onBack }: P
         {/* Videos */}
         {parsedVideos.length > 0 && (
           <div className="mt-10 px-2 sm:px-6">
-            <h2 className="text-sm font-semibold text-gold-400 uppercase tracking-wider mb-4">En vidéo</h2>
+            <h2 className="text-sm font-semibold text-gold-400 uppercase tracking-wider mb-4">{t('academy.profile.videos')}</h2>
             <div className="space-y-5">
               {parsedVideos.map((video, i) => (
                 <VideoEmbed key={i} video={video} />
@@ -191,7 +191,7 @@ export function ProfessorDiscoveryProfile({ professorId, onNavigate, onBack }: P
               className="inline-flex items-center gap-2 px-8 py-3.5 rounded-xl bg-gradient-to-r from-[#B8913D] to-[#D4AC5B] text-white text-sm font-semibold hover:shadow-lg hover:shadow-[#B8913D]/30 transition-all hover:scale-[1.02] active:scale-95"
             >
               <ExternalLink className="w-4 h-4" />
-              Visiter le site
+              {t('academy.visitWebsite')}
             </button>
           </div>
         )}
@@ -201,12 +201,13 @@ export function ProfessorDiscoveryProfile({ professorId, onNavigate, onBack }: P
 }
 
 function VideoEmbed({ video }: { video: ReturnType<typeof parseVideoUrl> }) {
+  const { t } = useLanguage();
   if (video.source === 'youtube' && video.embedUrl) {
     return (
       <div className="relative w-full overflow-hidden rounded-xl border border-white/[0.08] bg-black" style={{ paddingBottom: '56.25%' }}>
         <iframe
           src={video.embedUrl}
-          title="Vidéo de présentation"
+          title={t('academy.profile.videoTitle')}
           className="absolute inset-0 w-full h-full"
           frameBorder="0"
           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
@@ -228,7 +229,7 @@ function VideoEmbed({ video }: { video: ReturnType<typeof parseVideoUrl> }) {
           <PlayCircle className="w-6 h-6 text-white" />
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold text-white">Voir la vidéo sur Instagram</p>
+          <p className="text-sm font-semibold text-white">{t('academy.profile.instagram')}</p>
           <p className="text-xs text-gray-400 mt-0.5 truncate">{video.originalUrl}</p>
         </div>
         <ExternalLink className="w-4 h-4 text-gray-500 group-hover:text-[#D4AC5B] transition-colors flex-shrink-0" />

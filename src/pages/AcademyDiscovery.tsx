@@ -10,6 +10,7 @@ import { getAvatarUrl } from '../components/AvatarUpload';
 import { BackgroundDecor } from '../components/BackgroundDecor';
 import { useLanguage } from '../contexts/LanguageContext';
 import { specialtyLabel } from '../lib/specialties';
+import { translate } from '../i18n/translations';
 import {
   DISCOVERY_PROFESSOR_COLUMNS,
   DiscoveryProfessor,
@@ -17,10 +18,13 @@ import {
   trackAcademyClick,
 } from '../lib/academyDiscovery';
 
+const sortName = (p: { fullName: string }) => p.fullName || translate('fr', 'academy.instructorFallback');
+
 interface ProfessorInfo {
   id: string;
   website_url: string;
   website_cover_image: string | null;
+  /** Nom saisi par l'admin ; vide → libellé « Professeur » traduit à l'affichage. */
   fullName: string;
   avatarUrl: string | null;
   specialties: string[];
@@ -60,13 +64,14 @@ export default function AcademyDiscovery({
         id: p.id,
         website_url: p.website_url as string,
         website_cover_image: p.website_cover_image || null,
-        fullName: p.full_name || 'Professeur',
+        fullName: p.full_name || '',
         avatarUrl: p.avatar_url ?? null,
         specialties: (p.specialties ?? []).filter(Boolean),
         isFeatured: Boolean(p.is_featured),
       }))
+      // Tri inchangé : une fiche sans nom est classée comme « Professeur », quelle que soit la langue.
       .sort((a: ProfessorInfo, b: ProfessorInfo) =>
-        Number(b.isFeatured) - Number(a.isFeatured) || a.fullName.localeCompare(b.fullName)
+        Number(b.isFeatured) - Number(a.isFeatured) || sortName(a).localeCompare(sortName(b))
       );
 
     setProfessors(eligible);
@@ -112,18 +117,18 @@ export default function AcademyDiscovery({
                   NEXA ACADEMY
                 </span>
                 <span className="text-[10px] sm:text-[11px] font-semibold tracking-[0.2em] text-gold-500/60 uppercase ml-2">
-                  — APPRENDS AUPRES DES ARTISTES
+                  — {t('academy.hero.tagline')}
                 </span>
               </div>
 
               <h1 className="text-[2.75rem] sm:text-5xl md:text-6xl lg:text-[3.5rem] xl:text-6xl font-black text-white mb-5 sm:mb-6 leading-[1.05] animate-hero-rise delay-100">
-                Progresse avec les artistes
+                {t('academy.hero.title1')}
                 <br />
-                <span className="text-gradient">qui font vivre la danse.</span>
+                <span className="text-gradient">{t('academy.hero.title2')}</span>
               </h1>
 
               <p className="text-lg sm:text-xl text-white/90 font-semibold mb-2 animate-hero-rise delay-200">
-                Découvre leurs formations et accède directement à leur univers.
+                {t('academy.hero.subtitle')}
               </p>
 
               <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 animate-hero-rise delay-400">
@@ -133,7 +138,7 @@ export default function AcademyDiscovery({
                 >
                   <div className="absolute inset-0 bg-gradient-to-r from-[#D4AC5B] to-[#B8913D] opacity-0 group-hover:opacity-100 transition-opacity" />
                   <GraduationCap className="w-4 h-4 mr-2 relative z-10" />
-                  <span className="relative z-10">Découvrir les formations</span>
+                  <span className="relative z-10">{t('academy.discover')}</span>
                   <ArrowRight className="w-4 h-4 ml-2 relative z-10 group-hover:translate-x-1 transition-transform" />
                 </button>
               </div>
@@ -168,10 +173,10 @@ export default function AcademyDiscovery({
               <div className="rounded-[20px] border border-white/[0.08] bg-[#0c1424]/95 px-6 py-16 text-center">
                 <GraduationCap className="w-10 h-10 text-gold-500/40 mx-auto mb-4" />
                 <p className="text-sm sm:text-base text-gray-300 font-medium">
-                  Les prochaines formations arrivent bientôt.
+                  {t('academy.empty.title')}
                 </p>
                 <p className="text-xs text-gray-500 mt-1.5">
-                  Reviens prochainement pour découvrir les premiers professeurs partenaires.
+                  {t('academy.empty.text')}
                 </p>
               </div>
             ) : (
@@ -185,7 +190,7 @@ export default function AcademyDiscovery({
                       {professor.website_cover_image ? (
                         <img
                           src={professor.website_cover_image}
-                          alt={professor.fullName}
+                          alt={professor.fullName || t('academy.instructorFallback')}
                           className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-[1.04]"
                         />
                       ) : (
@@ -203,18 +208,18 @@ export default function AcademyDiscovery({
                           {getAvatarUrl(professor.avatarUrl) ? (
                             <img
                               src={getAvatarUrl(professor.avatarUrl)!}
-                              alt={professor.fullName}
+                              alt={professor.fullName || t('academy.instructorFallback')}
                               className="h-full w-full object-cover"
                             />
                           ) : (
                             <span className="text-base font-bold text-gray-950">
-                              {professor.fullName.charAt(0).toUpperCase()}
+                              {(professor.fullName || t('academy.instructorFallback')).charAt(0).toUpperCase()}
                             </span>
                           )}
                         </div>
                         <div className="min-w-0">
                           <h2 className="text-lg font-bold text-white truncate leading-tight">
-                            {professor.fullName}
+                            {professor.fullName || t('academy.instructorFallback')}
                           </h2>
                           {professor.specialties.length > 0 && (
                             <p className="mt-0.5 text-xs text-gold-400/90 truncate">
@@ -230,14 +235,14 @@ export default function AcademyDiscovery({
                           className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-white/[0.06] border border-white/15 px-4 py-3 text-sm font-semibold text-white transition-all hover:bg-white/10 hover:border-white/25 active:scale-95"
                         >
                           <User className="w-4 h-4" />
-                          Voir le profil
+                          {t('academy.viewProfile')}
                         </button>
                         <button
                           onClick={() => visitWebsite(professor)}
                           className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-[#B8913D] to-[#D4AC5B] px-4 py-3 text-sm font-semibold text-white transition-all hover:shadow-glow hover:brightness-105 active:scale-95"
                         >
                           <ExternalLink className="w-4 h-4" />
-                          Visiter le site
+                          {t('academy.visitWebsite')}
                         </button>
                       </div>
                     </div>
@@ -252,16 +257,16 @@ export default function AcademyDiscovery({
           <section className="px-4 sm:px-6 lg:px-8 pb-24">
             <div className="mx-auto max-w-3xl rounded-[20px] border border-[#B8913D]/20 bg-[#B8913D]/5 p-8 text-center">
               <h2 className="text-lg font-semibold text-white sm:text-xl">
-                Prêt à passer au niveau supérieur ?
+                {t('academy.cta.title')}
               </h2>
               <p className="mt-2 text-sm text-gray-300" style={{ lineHeight: '150%' }}>
-                Rejoins les formations des artistes qui font vivre la danse au quotidien.
+                {t('academy.cta.text')}
               </p>
               <button
                 onClick={scrollToProfessors}
                 className="mt-6 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#B8913D] to-[#D4AC5B] px-6 py-3 text-sm font-semibold text-white transition-all hover:shadow-glow hover:brightness-105 active:scale-95"
               >
-                Découvrir les formations
+                {t('academy.discover')}
                 <ArrowRight className="h-4 w-4" />
               </button>
             </div>
@@ -270,7 +275,7 @@ export default function AcademyDiscovery({
       </main>
 
       <footer className="relative border-t border-white/[0.06] bg-[#070d18] px-4 py-8 text-center">
-        <p className="text-xs text-gray-500">© {new Date().getFullYear()} Nexa — Tous droits réservés</p>
+        <p className="text-xs text-gray-500">{t('academy.footer.copyright', { year: new Date().getFullYear() })}</p>
       </footer>
     </div>
   );
