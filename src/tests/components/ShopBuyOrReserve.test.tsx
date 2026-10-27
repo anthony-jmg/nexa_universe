@@ -35,7 +35,7 @@ const testEvent = {
       price_lock_deposit_amount: 0.5,
       price_lock_guarantee_days: 1,
       price_lock_opens_at: null,
-      ticket_type: { id: 'tt-test', name: 'Full Pass Test' },
+      ticket_type: { id: 'tt-test', name: 'Full Pass Test', description: 'Accès à toutes les soirées', description_en: null as string | null },
       price_tiers: [
         { label: 'Test early', price: 1, starts_at: new Date(now - DAY).toISOString(), ends_at: new Date(now + 5 * DAY).toISOString() },
         { label: 'Test regular', price: 2, starts_at: new Date(now + 5 * DAY).toISOString(), ends_at: null },
@@ -52,8 +52,9 @@ vi.mock('../../contexts/AuthContext', () => ({
 vi.mock('../../contexts/CartContext', () => ({
   useCart: () => ({ addToCart: vi.fn(), addEventTicketToCart, getCartCount: () => 0 }),
 }));
+const lang = vi.hoisted(() => ({ current: 'fr' }));
 vi.mock('../../contexts/LanguageContext', () => ({
-  useLanguage: () => ({ t: (key: string) => key }),
+  useLanguage: () => ({ t: (key: string) => key, language: lang.current }),
 }));
 vi.mock('../../lib/supabase', () => {
   const result = (table: string) =>
@@ -87,6 +88,8 @@ import { Shop } from '../../pages/Shop';
 describe('Shop — CTA « Acheter ou réserver »', () => {
   beforeEach(() => {
     addEventTicketToCart.mockClear();
+    lang.current = 'fr';
+    testEvent.event_ticket_types[0].ticket_type.description_en = null;
   });
 
   it('ouvre la modale de choix sans rien ajouter au panier, puis Price Lock avec minimum 0,50 €', async () => {
@@ -114,5 +117,33 @@ describe('Shop — CTA « Acheter ou réserver »', () => {
 
     // Toujours rien dans le panier tant que l'utilisateur n'a pas validé
     await waitFor(() => expect(addEventTicketToCart).not.toHaveBeenCalled());
+  });
+});
+
+describe('Shop — description du billet selon la langue', () => {
+  beforeEach(() => {
+    lang.current = 'fr';
+    testEvent.event_ticket_types[0].ticket_type.description_en = null;
+  });
+
+  const openChoice = async () => {
+    render(<Shop onNavigate={vi.fn()} />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Acheter ou réserver' }));
+    await screen.findByText('Comment souhaites-tu réserver ton pass ?');
+  };
+
+  it('EN renseigné : description anglaise ; nom commercial inchangé', async () => {
+    lang.current = 'en';
+    testEvent.event_ticket_types[0].ticket_type.description_en = 'Access to all parties';
+    await openChoice();
+    expect(screen.getAllByText('Access to all parties').length).toBeGreaterThan(0);
+    expect(screen.queryByText('Accès à toutes les soirées')).not.toBeInTheDocument();
+    expect(screen.getAllByText('Full Pass Test').length).toBeGreaterThan(0);
+  });
+
+  it('EN absent : repli sur la description française', async () => {
+    lang.current = 'en';
+    await openChoice();
+    expect(screen.getAllByText('Accès à toutes les soirées').length).toBeGreaterThan(0);
   });
 });

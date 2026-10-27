@@ -39,7 +39,7 @@ const professor = (extra: Record<string, unknown> = {}) => ({
   full_name: 'Ana Silva',
   avatar_url: null,
   bio: 'Bio',
-  specialties: ['Kizomba'],
+  specialties: ['kizomba'],
   experience_years: 10,
   website_url: 'https://ana.example.com',
   website_cover_image: null,
@@ -174,6 +174,41 @@ describe('Admin — Professeurs Discovery', () => {
     expect(calls[0].payload).toMatchObject({ bio: 'Nouvelle bio', full_name: 'Ana Silva' });
   });
 
+  it('biographie FR / EN : onglets, indicateur et EN vide enregistré à NULL', async () => {
+    const { onRefresh } = setup();
+    fireEvent.click(screen.getByTitle('Modifier'));
+    // Formulaire en français, onglet Français par défaut ; EN vide → orange
+    expect(screen.getAllByText('🟠 Traduction EN manquante').length).toBeGreaterThan(0);
+    fireEvent.click(screen.getByRole('tab', { name: 'English' }));
+    fill('Professor introduction (English)...', 'English bio');
+    expect(screen.getByText('🟢 FR + EN complet')).toBeInTheDocument();
+    fireEvent.click(screen.getByText('Enregistrer'));
+    await waitFor(() => expect(onRefresh).toHaveBeenCalled());
+    expect(calls[0].payload).toMatchObject({ bio: 'Bio', bio_en: 'English bio' });
+
+    calls.length = 0;
+    fireEvent.click(screen.getByTitle('Modifier'));
+    fireEvent.click(screen.getByText('Enregistrer'));
+    await waitFor(() => expect(calls).toHaveLength(1));
+    // Traduction manquante : jamais bloquant, enregistrée à NULL (repli FR)
+    expect(calls[0].payload).toMatchObject({ bio: 'Bio', bio_en: null });
+  });
+
+  it('spécialités : cases à cocher, codes système enregistrés dans l’ordre de la liste', async () => {
+    const { onRefresh } = setup([professor({ specialties: ['zouk', 'Kuduro'] })]);
+    fireEvent.click(screen.getByTitle('Modifier'));
+    expect(screen.queryByPlaceholderText(/Ajouter une spécialité/)).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Zouk')).toBeChecked();
+    // Ancienne valeur libre conservée et signalée, retirable
+    expect(screen.getByText(/Anciennes valeurs hors liste/)).toBeInTheDocument();
+    fireEvent.click(screen.getByLabelText('Retirer Kuduro'));
+    fireEvent.click(screen.getByLabelText('Urban Kiz'));
+    fireEvent.click(screen.getByLabelText('Kizomba'));
+    fireEvent.click(screen.getByText('Enregistrer'));
+    await waitFor(() => expect(onRefresh).toHaveBeenCalled());
+    expect((calls[0].payload as { specialties: string[] }).specialties).toEqual(['kizomba', 'urban_kiz', 'zouk']);
+  });
+
   it('désactive puis réactive une fiche, sans bouton de suppression', async () => {
     const { onRefresh } = setup([professor(), professor({ id: 'p2', full_name: 'Off', is_active: false })]);
 
@@ -201,7 +236,7 @@ describe('Admin — Professeurs Discovery', () => {
       fill('Prénom Nom', 'Carla Semba');
       fill('Présentation du professeur...', 'Bio en cours');
       fill('https://monsiteprof.com', 'https://carla.example.com');
-      fill('Ajouter une spécialité (ex: Kizomba)', 'Semba');
+      fireEvent.click(screen.getByLabelText('Semba'));
       fireEvent.click(screen.getByText('Ajouter une vidéo'));
       fill(/youtube\.com\/watch/, 'https://youtu.be/dQw4w9WgXcQ');
       fireEvent.click(screen.getByLabelText(/Mettre en avant/));
@@ -219,7 +254,8 @@ describe('Admin — Professeurs Discovery', () => {
       expect(screen.getByPlaceholderText(/youtube\.com\/watch/)).toHaveValue('https://youtu.be/dQw4w9WgXcQ');
       expect(screen.getByLabelText(/Mettre en avant/)).toBeChecked();
       expect(calls).toHaveLength(0); // rien n'est enregistré en base
-      expect(latestDraft).toMatchObject({ full_name: 'Carla Semba', is_active: true, is_featured: true });
+      expect(latestDraft).toMatchObject({ full_name: 'Carla Semba', is_active: true, is_featured: true, specialties: ['semba'] });
+      expect(screen.getByLabelText('Semba')).toBeChecked();
     });
 
     it('Annuler demande confirmation et garde le brouillon si l’on refuse', () => {

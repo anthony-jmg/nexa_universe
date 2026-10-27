@@ -447,6 +447,7 @@ export type Database = {
           created_at: string | null
           created_by: string | null
           description: string | null
+          description_en: string | null
           end_date: string | null
           event_status: string | null
           id: string
@@ -462,6 +463,7 @@ export type Database = {
           created_at?: string | null
           created_by?: string | null
           description?: string | null
+          description_en?: string | null
           end_date?: string | null
           event_status?: string | null
           id?: string
@@ -477,6 +479,7 @@ export type Database = {
           created_at?: string | null
           created_by?: string | null
           description?: string | null
+          description_en?: string | null
           end_date?: string | null
           event_status?: string | null
           id?: string
@@ -1422,6 +1425,7 @@ export type Database = {
           avatar_url: string | null
           badge_type: string | null
           bio: string | null
+          bio_en: string | null
           created_at: string | null
           experience_years: number | null
           full_name: string
@@ -1448,6 +1452,7 @@ export type Database = {
           avatar_url?: string | null
           badge_type?: string | null
           bio?: string | null
+          bio_en?: string | null
           created_at?: string | null
           experience_years?: number | null
           full_name?: string
@@ -1474,6 +1479,7 @@ export type Database = {
           avatar_url?: string | null
           badge_type?: string | null
           bio?: string | null
+          bio_en?: string | null
           created_at?: string | null
           experience_years?: number | null
           full_name?: string
@@ -2058,18 +2064,21 @@ export type Database = {
         Row: {
           created_at: string | null
           description: string | null
+          description_en: string | null
           id: string
           name: string
         }
         Insert: {
           created_at?: string | null
           description?: string | null
+          description_en?: string | null
           id?: string
           name: string
         }
         Update: {
           created_at?: string | null
           description?: string | null
+          description_en?: string | null
           id?: string
           name?: string
         }

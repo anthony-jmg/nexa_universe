@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useCart } from '../contexts/CartContext';
 import { useLanguage } from '../contexts/LanguageContext';
+import { localized } from '../lib/localized';
 import { useDebounce } from '../hooks/useDebounce';
 import { supabase } from '../lib/supabase';
 import { BackgroundDecor } from '../components/BackgroundDecor';
@@ -46,7 +47,7 @@ interface ShopProps {
 export function Shop({ onNavigate, initialProductId }: ShopProps) {
   const { user, profile } = useAuth();
   const { addToCart, addEventTicketToCart, getCartCount } = useCart();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [products, setProducts] = useState<Product[]>([]);
   const [productSizesMap, setProductSizesMap] = useState<Record<string, ProductSize[]>>({});
   const [productImagesMap, setProductImagesMap] = useState<Record<string, ProductImage[]>>({});
@@ -230,7 +231,7 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
       .gte('start_date', new Date().toISOString());
 
     if (debouncedSearchQuery.trim()) {
-      query = query.or(`title.ilike.%${debouncedSearchQuery}%,description.ilike.%${debouncedSearchQuery}%`);
+      query = query.or(`title.ilike.%${debouncedSearchQuery}%,description.ilike.%${debouncedSearchQuery}%,description_en.ilike.%${debouncedSearchQuery}%`);
     }
 
     const startIndex = (currentPage - 1) * itemsPerPage;
@@ -1098,10 +1099,10 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
                 </div>
               </div>
 
-              {detailEvent.description && (
+              {localized(detailEvent.description, detailEvent.description_en, language) && (
                 <div className="mb-5">
                   <h4 className="text-xs font-semibold text-[#B8913D] uppercase tracking-wider mb-2">Description</h4>
-                  <p className="text-sm text-gray-300 leading-relaxed whitespace-pre-line">{detailEvent.description}</p>
+                  <p className="text-sm text-gray-300 leading-relaxed whitespace-pre-line">{localized(detailEvent.description, detailEvent.description_en, language)}</p>
                 </div>
               )}
 
@@ -1115,8 +1116,8 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
                         <div key={ett.id} className="flex items-center justify-between px-3 py-2 bg-gray-800 bg-opacity-60 rounded-lg">
                           <div>
                             <span className="text-sm text-white font-medium">{ett.ticket_type.name}</span>
-                            {ett.ticket_type.description && (
-                              <p className="text-xs text-gray-400 mt-0.5">{ett.ticket_type.description}</p>
+                            {localized(ett.ticket_type.description, ett.ticket_type.description_en, language) && (
+                              <p className="text-xs text-gray-400 mt-0.5">{localized(ett.ticket_type.description, ett.ticket_type.description_en, language)}</p>
                             )}
                             {ticketsLeft !== null && ticketsLeft < 10 && ticketsLeft > 0 && (
                               <p className="text-xs text-red-400 mt-0.5">Plus que {ticketsLeft} disponibles</p>
@@ -1301,8 +1302,8 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
                     <div className="flex items-start justify-between gap-3 mb-2.5">
                       <div className="flex-1">
                         <div className="font-semibold text-white text-base sm:text-lg leading-snug">{ett.ticket_type.name}</div>
-                        {ett.ticket_type.description && (
-                          <div className="text-[10px] sm:text-xs text-gray-400 mt-0.5 sm:mt-1">{ett.ticket_type.description}</div>
+                        {localized(ett.ticket_type.description, ett.ticket_type.description_en, language) && (
+                          <div className="text-[10px] sm:text-xs text-gray-400 mt-0.5 sm:mt-1">{localized(ett.ticket_type.description, ett.ticket_type.description_en, language)}</div>
                         )}
                         {ticketsLeft < 10 && ticketsLeft > 0 && (
                           <div className="text-[10px] sm:text-xs text-red-400 mt-0.5 sm:mt-1">
@@ -2001,8 +2002,8 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
                       >
                         <div>
                           <p className="text-sm font-semibold text-white">{ett.ticket_type.name}</p>
-                          {ett.ticket_type.description && (
-                            <p className="mt-0.5 text-xs text-gray-400 line-clamp-1">{ett.ticket_type.description}</p>
+                          {localized(ett.ticket_type.description, ett.ticket_type.description_en, language) && (
+                            <p className="mt-0.5 text-xs text-gray-400 line-clamp-1">{localized(ett.ticket_type.description, ett.ticket_type.description_en, language)}</p>
                           )}
                           <p className="mt-0.5 text-[11px] text-gray-500">
                             {changeAt ? `Hausse le ${changeAt.toLocaleDateString(getActiveLocale(), { day: 'numeric', month: 'long' })}` : ''}

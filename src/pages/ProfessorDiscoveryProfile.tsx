@@ -3,6 +3,9 @@ import { ArrowLeft, Award, ExternalLink, GraduationCap, PlayCircle } from 'lucid
 import { supabase } from '../lib/supabase';
 import { getAvatarUrl } from '../components/AvatarUpload';
 import { BackgroundDecor } from '../components/BackgroundDecor';
+import { useLanguage } from '../contexts/LanguageContext';
+import { localized } from '../lib/localized';
+import { specialtyLabel } from '../lib/specialties';
 import { parseVideoUrl } from '../lib/videoUrl';
 import {
   DISCOVERY_PROFESSOR_COLUMNS,
@@ -18,6 +21,7 @@ interface ProfessorDiscoveryProfileProps {
 }
 
 export function ProfessorDiscoveryProfile({ professorId, onNavigate, onBack }: ProfessorDiscoveryProfileProps) {
+  const { language, t } = useLanguage();
   const [professor, setProfessor] = useState<DiscoveryProfessor | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -88,7 +92,7 @@ export function ProfessorDiscoveryProfile({ professorId, onNavigate, onBack }: P
   const fullName = professor.full_name || 'Professeur';
   const avatarUrl = getAvatarUrl(professor.avatar_url ?? null);
   const specialties = (professor.specialties ?? []).filter(Boolean);
-  const bio = professor.bio?.trim();
+  const bio = localized(professor.bio, professor.bio_en, language).trim();
   const experienceYears = professor.experience_years ?? 0;
   const videoUrls = (professor.profile_video_urls ?? [])
     .filter(Boolean)
@@ -152,7 +156,7 @@ export function ProfessorDiscoveryProfile({ professorId, onNavigate, onBack }: P
                   key={i}
                   className="px-3 py-1 bg-[#B8913D]/15 text-[#D4AC5B] text-xs font-medium rounded-full border border-[#B8913D]/30"
                 >
-                  {s}
+                  {specialtyLabel(s, t)}
                 </span>
               ))}
             </div>

@@ -2,12 +2,15 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { Database } from '../lib/database.types';
 import { Ticket, Plus, Edit2, Trash2, X, Check, AlertCircle } from 'lucide-react';
+import { BilingualTextField } from './BilingualTextField';
+import { optionalText, translationStatus } from '../lib/localized';
 
 type TicketType = Database['public']['Tables']['ticket_types']['Row'];
 
 interface TicketTypeFormData {
   name: string;
   description: string;
+  description_en: string;
 }
 
 export function TicketTypesManagement() {
@@ -21,6 +24,7 @@ export function TicketTypesManagement() {
   const [form, setForm] = useState<TicketTypeFormData>({
     name: '',
     description: '',
+    description_en: '',
   });
 
   useEffect(() => {
@@ -48,6 +52,7 @@ export function TicketTypesManagement() {
     setForm({
       name: '',
       description: '',
+      description_en: '',
     });
     setShowForm(true);
   };
@@ -57,6 +62,7 @@ export function TicketTypesManagement() {
     setForm({
       name: ticketType.name,
       description: ticketType.description || '',
+      description_en: ticketType.description_en || '',
     });
     setShowForm(true);
   };
@@ -85,11 +91,17 @@ export function TicketTypesManagement() {
     setError('');
     setSuccess('');
 
+    const payload = {
+      name: form.name,
+      description: form.description,
+      description_en: optionalText(form.description_en),
+    };
+
     try {
       if (editingTicketType) {
         const { error: updateError } = await supabase
           .from('ticket_types')
-          .update(form)
+          .update(payload)
           .eq('id', editingTicketType.id);
 
         if (updateError) throw updateError;
@@ -97,7 +109,7 @@ export function TicketTypesManagement() {
       } else {
         const { error: insertError } = await supabase
           .from('ticket_types')
-          .insert(form);
+          .insert(payload);
 
         if (insertError) throw insertError;
         setSuccess('Type de billet créé avec succès');
@@ -175,18 +187,16 @@ export function TicketTypesManagement() {
               />
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
-                Description
-              </label>
-              <textarea
-                value={form.description}
-                onChange={(e) => setForm({ ...form, description: e.target.value })}
-                rows={3}
-                placeholder="Description du type de billet..."
-                className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-[#B8913D] focus:border-[#B8913D] outline-none"
-              />
-            </div>
+            <BilingualTextField
+              label="Description"
+              fr={form.description}
+              en={form.description_en}
+              onChangeFr={(value) => setForm({ ...form, description: value })}
+              onChangeEn={(value) => setForm({ ...form, description_en: value })}
+              rows={3}
+              placeholderFr="Description du type de billet..."
+              placeholderEn="Ticket type description (English)..."
+            />
 
             <div className="flex justify-end space-x-4">
               <button
@@ -221,6 +231,9 @@ export function TicketTypesManagement() {
                 <div>
                   <h3 className="text-lg font-medium text-white">{ticketType.name}</h3>
                   <p className="text-sm text-gray-400 mt-1">{ticketType.description}</p>
+                  {translationStatus(ticketType.description, ticketType.description_en) === 'missing_en' && (
+                    <p className="text-xs text-orange-400 mt-1">🟠 Traduction EN manquante</p>
+                  )}
                 </div>
               </div>
               <div className="flex items-center space-x-2">

@@ -6,6 +6,8 @@ import { Calendar, Plus, CreditCard as Edit2, Trash2, X, Check, AlertCircle, Tic
 import { EventSalesStats } from './EventSalesStats';
 import { PriceLocksList } from './PriceLocksList';
 import { checkEventForPublication } from '../lib/eventPublishChecks';
+import { BilingualTextField } from './BilingualTextField';
+import { optionalText, translationStatus } from '../lib/localized';
 
 type Event = Database['public']['Tables']['events']['Row'];
 type TicketType = Database['public']['Tables']['ticket_types']['Row'];
@@ -20,6 +22,7 @@ interface EventWithTickets extends Event {
 interface EventFormData {
   title: string;
   description: string;
+  description_en: string;
   start_date: string;
   end_date: string;
   location: string;
@@ -111,6 +114,9 @@ const validateTiers = (tiers: TicketTierFormData[]): string[] => {
   return errors;
 };
 
+// Traduction anglaise facultative : vide → NULL (le site affiche le français).
+const toEventPayload = (form: EventFormData) => ({ ...form, description_en: optionalText(form.description_en) });
+
 export function EventsManagement() {
   const [events, setEvents] = useState<EventWithTickets[]>([]);
   const [ticketTypes, setTicketTypes] = useState<TicketType[]>([]);
@@ -127,6 +133,7 @@ export function EventsManagement() {
   const [eventForm, setEventForm] = useState<EventFormData>({
     title: '',
     description: '',
+    description_en: '',
     start_date: '',
     end_date: '',
     location: '',
@@ -148,7 +155,7 @@ export function EventsManagement() {
         const { eventForm: savedEventForm, eventTicketTypes: savedTickets, timestamp } = JSON.parse(savedDraft);
         const dayInMs = 24 * 60 * 60 * 1000;
         if (Date.now() - timestamp < dayInMs) {
-          setEventForm(savedEventForm);
+          setEventForm({ description_en: '', ...savedEventForm });
           setEventTicketTypes(savedTickets);
           setShowEventForm(true);
         } else {
@@ -216,6 +223,7 @@ export function EventsManagement() {
     setEventForm({
       title: '',
       description: '',
+      description_en: '',
       start_date: '',
       end_date: '',
       location: '',
@@ -243,6 +251,7 @@ export function EventsManagement() {
     setEventForm({
       title: event.title,
       description: event.description || '',
+      description_en: event.description_en || '',
       start_date: toDatetimeLocal(event.start_date),
       end_date: toDatetimeLocal(event.end_date),
       location: event.location || '',
@@ -438,7 +447,7 @@ export function EventsManagement() {
 
         const { error: updateError } = await supabase
           .from('events')
-          .update(eventForm)
+          .update(toEventPayload(eventForm))
           .eq('id', editingEvent.id);
 
         if (updateError) throw updateError;
@@ -470,7 +479,7 @@ export function EventsManagement() {
       } else {
         const { data: newEvent, error: insertError } = await supabase
           .from('events')
-          .insert(eventForm)
+          .insert(toEventPayload(eventForm))
           .select()
           .single();
 
@@ -620,14 +629,12 @@ export function EventsManagement() {
               </div>
 
               <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Description
-                </label>
-                <textarea
-                  value={eventForm.description}
-                  onChange={(e) => setEventForm({ ...eventForm, description: e.target.value })}
-                  rows={4}
-                  className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-[#B8913D] focus:border-[#B8913D] outline-none"
+                <BilingualTextField
+                  label="Description"
+                  fr={eventForm.description}
+                  en={eventForm.description_en}
+                  onChangeFr={(value) => setEventForm({ ...eventForm, description: value })}
+                  onChangeEn={(value) => setEventForm({ ...eventForm, description_en: value })}
                 />
               </div>
 
@@ -1038,6 +1045,11 @@ export function EventsManagement() {
                   {event.is_test && (
                     <span className="px-3 py-1 rounded-full text-xs font-medium bg-amber-900 bg-opacity-40 text-amber-300 border border-amber-600 border-opacity-40">
                       Test
+                    </span>
+                  )}
+                  {translationStatus(event.description, event.description_en) === 'missing_en' && (
+                    <span className="px-3 py-1 rounded-full text-xs font-medium text-orange-300 border border-orange-600 border-opacity-40">
+                      🟠 Traduction EN manquante
                     </span>
                   )}
                 </div>

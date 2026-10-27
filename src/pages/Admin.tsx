@@ -13,15 +13,20 @@ import { getPresentationVideoUrlError } from '../lib/videoUrl';
 import { isValidHttpUrl } from '../lib/academyDiscovery';
 import { ProfessorDraft, isProfessorDraftDirty } from '../lib/professorDraft';
 import { Database } from '../lib/database.types';
+import { BilingualTextField } from '../components/BilingualTextField';
+import { optionalText, translationStatus } from '../lib/localized';
+import { SPECIALTY_CODES, SpecialtyCode, isSpecialtyCode, specialtyLabel } from '../lib/specialties';
+import { translate } from '../i18n/translations';
 import { Video, Users, Plus, CreditCard as Edit2, Trash2, X, Check, AlertCircle, ShoppingBag, Package, Search, Filter, Tag, Calendar, Ticket, DollarSign, GraduationCap, Globe } from 'lucide-react';
 
 type Video = Database['public']['Tables']['videos']['Row'];
+
 type Profile = Database['public']['Tables']['profiles']['Row'];
 // Fiche professeur : colonnes lisibles côté client (sans Stripe Connect).
 // profiles n'existe que pour un ancien professeur lié à un compte.
 type Professor = Pick<
   Database['public']['Tables']['professors']['Row'],
-  'id' | 'bio' | 'specialties' | 'experience_years' | 'is_featured' | 'is_founder' | 'website_url' | 'website_cover_image' | 'profile_video_urls'
+  'id' | 'bio' | 'bio_en' | 'specialties' | 'experience_years' | 'is_featured' | 'is_founder' | 'website_url' | 'website_cover_image' | 'profile_video_urls'
 > & {
   profile_id: string | null;
   full_name: string;
@@ -34,6 +39,9 @@ type ProductType = Database['public']['Tables']['product_types']['Row'];
 type Order = Database['public']['Tables']['orders']['Row'] & {
   profiles?: Pick<Profile, 'full_name' | 'email'>;
 };
+
+// L'Admin reste en français, quelle que soit la langue du site.
+const frenchSpecialtyLabel = (value: string) => specialtyLabel(value, (key) => translate('fr', key));
 
 interface VideoFormData {
   title: string;
@@ -209,7 +217,7 @@ export function Admin({ onNavigate }: AdminProps) {
   const loadProfessors = async () => {
     const { data, error } = await supabase
       .from('professors')
-      .select('id, profile_id, full_name, avatar_url, bio, specialties, experience_years, website_url, website_cover_image, profile_video_urls, is_featured, is_founder, is_active, profiles(full_name)')
+      .select('id, profile_id, full_name, avatar_url, bio, bio_en, specialties, experience_years, website_url, website_cover_image, profile_video_urls, is_featured, is_founder, is_active, profiles(full_name)')
       .order('created_at', { ascending: false });
 
     if (!error && data) {
@@ -1877,8 +1885,8 @@ export function ProfessorDiscoveryManagement({
   const [websiteUrl, setWebsiteUrl] = useState(createDraft?.website_url ?? '');
   const [coverImage, setCoverImage] = useState(createDraft?.website_cover_image ?? '');
   const [bio, setBio] = useState(createDraft?.bio ?? '');
+  const [bioEn, setBioEn] = useState(createDraft?.bio_en ?? '');
   const [specialties, setSpecialties] = useState<string[]>(createDraft?.specialties ?? []);
-  const [newSpecialty, setNewSpecialty] = useState('');
   const [experienceYears, setExperienceYears] = useState(createDraft?.experience_years ?? 0);
   const [videoUrls, setVideoUrls] = useState<string[]>(createDraft?.profile_video_urls ?? []);
   const [isFeatured, setIsFeatured] = useState(createDraft?.is_featured ?? false);
@@ -1911,6 +1919,7 @@ export function ProfessorDiscoveryManagement({
       full_name: fullName,
       avatar_url: avatarUrl,
       bio,
+      bio_en: bioEn,
       specialties,
       experience_years: experienceYears,
       website_url: websiteUrl,
@@ -1921,7 +1930,7 @@ export function ProfessorDiscoveryManagement({
     });
     // onCreateDraftChange : setter stable du parent
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [editingId, fullName, avatarUrl, bio, specialties, experienceYears, websiteUrl, coverImage, videoUrls, isFeatured, isActive]);
+  }, [editingId, fullName, avatarUrl, bio, bioEn, specialties, experienceYears, websiteUrl, coverImage, videoUrls, isFeatured, isActive]);
 
   const displayName = (prof: Professor) => prof.full_name || prof.profiles?.full_name || 'Professeur';
 
@@ -1931,8 +1940,8 @@ export function ProfessorDiscoveryManagement({
     setWebsiteUrl('');
     setCoverImage('');
     setBio('');
+    setBioEn('');
     setSpecialties([]);
-    setNewSpecialty('');
     setExperienceYears(0);
     setVideoUrls([]);
     setIsFeatured(false);
@@ -1945,8 +1954,8 @@ export function ProfessorDiscoveryManagement({
     setWebsiteUrl(draft.website_url);
     setCoverImage(draft.website_cover_image);
     setBio(draft.bio);
+    setBioEn(draft.bio_en);
     setSpecialties(draft.specialties);
-    setNewSpecialty('');
     setExperienceYears(draft.experience_years);
     setVideoUrls(draft.profile_video_urls);
     setIsFeatured(draft.is_featured);
@@ -1984,8 +1993,8 @@ export function ProfessorDiscoveryManagement({
     setWebsiteUrl(prof.website_url || '');
     setCoverImage(prof.website_cover_image || '');
     setBio(prof.bio || '');
+    setBioEn(prof.bio_en || '');
     setSpecialties((prof.specialties ?? []).filter(Boolean));
-    setNewSpecialty('');
     setExperienceYears(prof.experience_years ?? 0);
     setVideoUrls((prof.profile_video_urls ?? []).filter(Boolean));
     setIsFeatured(Boolean(prof.is_featured));
@@ -2002,12 +2011,14 @@ export function ProfessorDiscoveryManagement({
     discardDraft();
   };
 
-  const addSpecialty = () => {
-    const trimmed = newSpecialty.trim();
-    if (trimmed && !specialties.includes(trimmed)) {
-      setSpecialties([...specialties, trimmed]);
-      setNewSpecialty('');
-    }
+  // Codes système cochés, dans l'ordre de la liste ; une ancienne valeur libre
+  // est conservée jusqu'à ce que l'admin la retire.
+  const toggleSpecialty = (code: SpecialtyCode) => {
+    const next = specialties.includes(code) ? specialties.filter((x) => x !== code) : [...specialties, code];
+    setSpecialties([
+      ...SPECIALTY_CODES.filter((c) => next.includes(c)),
+      ...next.filter((x) => !isSpecialtyCode(x)),
+    ]);
   };
 
   const removeSpecialty = (s: string) => {
@@ -2059,6 +2070,7 @@ export function ProfessorDiscoveryManagement({
       website_url: trimmedUrl || null,
       website_cover_image: coverImage || null,
       bio: bio.trim(),
+      bio_en: optionalText(bioEn.trim()),
       specialties: specialties,
       experience_years: experienceYears,
       profile_video_urls: cleanedVideoUrls,
@@ -2126,44 +2138,48 @@ export function ProfessorDiscoveryManagement({
       />
 
       {/* Bio */}
-      <div>
-        <label className="block text-sm font-medium text-gray-300 mb-2">Biographie</label>
-        <textarea
-          value={bio}
-          onChange={(e) => setBio(e.target.value)}
-          rows={4}
-          placeholder="Présentation du professeur..."
-          className="w-full px-4 py-3 bg-gray-900/50 border border-gray-600 text-white rounded-lg focus:ring-2 focus:ring-[#B8913D] focus:border-transparent outline-none transition-all resize-y"
-        />
-      </div>
+      <BilingualTextField
+        label="Biographie"
+        fr={bio}
+        en={bioEn}
+        onChangeFr={setBio}
+        onChangeEn={setBioEn}
+        placeholderFr="Présentation du professeur..."
+        placeholderEn="Professor introduction (English)..."
+      />
 
-      {/* Specialties */}
-      <div>
-        <label className="block text-sm font-medium text-gray-300 mb-2">Spécialités</label>
-        <div className="flex flex-wrap gap-2 mb-2">
-          {specialties.map((s) => (
-            <span key={s} className="inline-flex items-center gap-1.5 px-3 py-1 bg-[#B8913D]/20 text-[#D4AC5B] text-xs font-medium rounded-full border border-[#B8913D]/30">
-              {s}
-              <button type="button" onClick={() => removeSpecialty(s)} className="hover:text-white transition-colors">
-                <X className="w-3 h-3" />
-              </button>
-            </span>
+      {/* Specialties : codes système, libellés traduits sur le site */}
+      <fieldset>
+        <legend className="block text-sm font-medium text-gray-300 mb-2">Spécialités</legend>
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+          {SPECIALTY_CODES.map((code) => (
+            <label key={code} className="flex items-center gap-2 px-3 py-2 bg-gray-900/50 border border-gray-600 rounded-lg text-sm text-gray-200 cursor-pointer hover:border-[#B8913D]/60">
+              <input
+                type="checkbox"
+                checked={specialties.includes(code)}
+                onChange={() => toggleSpecialty(code)}
+                className="w-4 h-4 accent-[#B8913D]"
+              />
+              {frenchSpecialtyLabel(code)}
+            </label>
           ))}
         </div>
-        <div className="flex gap-2">
-          <input
-            type="text"
-            value={newSpecialty}
-            onChange={(e) => setNewSpecialty(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addSpecialty(); } }}
-            placeholder="Ajouter une spécialité (ex: Kizomba)"
-            className="flex-1 px-4 py-2.5 bg-gray-900/50 border border-gray-600 text-white rounded-lg focus:ring-2 focus:ring-[#B8913D] focus:border-transparent outline-none text-sm"
-          />
-          <button type="button" onClick={addSpecialty} className="px-4 py-2.5 bg-[#B8913D]/20 text-[#D4AC5B] rounded-lg hover:bg-[#B8913D]/30 transition-all text-sm font-medium">
-            <Plus className="w-4 h-4" />
-          </button>
-        </div>
-      </div>
+        {specialties.some((x) => !isSpecialtyCode(x)) && (
+          <div className="mt-3">
+            <p className="text-xs text-orange-400 mb-2">Anciennes valeurs hors liste (non traduites) : à retirer et remplacer par une case ci-dessus.</p>
+            <div className="flex flex-wrap gap-2">
+              {specialties.filter((x) => !isSpecialtyCode(x)).map((s) => (
+                <span key={s} className="inline-flex items-center gap-1.5 px-3 py-1 bg-orange-500/10 text-orange-300 text-xs font-medium rounded-full border border-orange-500/30">
+                  {s}
+                  <button type="button" onClick={() => removeSpecialty(s)} aria-label={`Retirer ${s}`} className="hover:text-white transition-colors">
+                    <X className="w-3 h-3" />
+                  </button>
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+      </fieldset>
 
       {/* Experience years */}
       <div>
@@ -2319,7 +2335,7 @@ export function ProfessorDiscoveryManagement({
                       {(prof.specialties ?? []).length > 0 && (
                         <div className="flex flex-wrap gap-1.5 mt-1">
                           {(prof.specialties ?? []).slice(0, 4).map((s) => (
-                            <span key={s} className="px-2 py-0.5 bg-[#B8913D]/20 text-[#D4AC5B] text-[11px] font-medium rounded-full border border-[#B8913D]/30">{s}</span>
+                            <span key={s} className="px-2 py-0.5 bg-[#B8913D]/20 text-[#D4AC5B] text-[11px] font-medium rounded-full border border-[#B8913D]/30">{frenchSpecialtyLabel(s)}</span>
                           ))}
                         </div>
                       )}
@@ -2339,6 +2355,11 @@ export function ProfessorDiscoveryManagement({
                         {prof.is_featured && (
                           <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-[#B8913D]/20 text-[#D4AC5B] border border-[#B8913D]/30">
                             Mis en avant
+                          </span>
+                        )}
+                        {translationStatus(prof.bio, prof.bio_en) === 'missing_en' && (
+                          <span className="px-2 py-0.5 rounded-full text-xs font-medium text-orange-300 border border-orange-500/30">
+                            🟠 Traduction EN manquante
                           </span>
                         )}
                         {(prof.profile_video_urls ?? []).length > 0 && (

@@ -6,6 +6,7 @@ export interface ProfessorDraft {
   full_name: string;
   avatar_url: string;
   bio: string;
+  bio_en: string;
   specialties: string[];
   experience_years: number;
   website_url: string;
@@ -18,7 +19,7 @@ export interface ProfessorDraft {
 export function isProfessorDraftDirty(draft: ProfessorDraft | null): boolean {
   if (!draft) return false;
   return Boolean(
-    draft.full_name.trim() || draft.avatar_url || draft.bio.trim() || draft.website_url.trim() ||
+    draft.full_name.trim() || draft.avatar_url || draft.bio.trim() || draft.bio_en.trim() || draft.website_url.trim() ||
     draft.website_cover_image || draft.specialties.length || draft.experience_years ||
     draft.profile_video_urls.some((v) => v.trim()) || draft.is_featured || !draft.is_active
   );

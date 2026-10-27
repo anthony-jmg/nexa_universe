@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 
 type Row = Record<string, unknown>;
@@ -8,7 +8,7 @@ const fiche = (id: string, fullName: string, extra: Row = {}): Row => ({
   full_name: fullName,
   avatar_url: null,
   bio: 'Danseur et pédagogue.',
-  specialties: ['Kizomba', 'Urban Kiz'],
+  specialties: ['kizomba', 'urban_kiz'],
   experience_years: 12,
   website_url: `https://${id}.example.com`,
   website_cover_image: null,
@@ -66,6 +66,15 @@ vi.mock('../../lib/supabase', () => {
 
 import AcademyDiscovery from '../../pages/AcademyDiscovery';
 import { ProfessorDiscoveryProfile } from '../../pages/ProfessorDiscoveryProfile';
+import { LanguageProvider } from '../../contexts/LanguageContext';
+import type { ReactElement } from 'react';
+
+const renderWithLanguage = (ui: ReactElement) => render(ui, { wrapper: LanguageProvider });
+
+// Langue mémorisée lue par LanguageProvider au montage (FR par défaut).
+const useSavedLanguage = (language: 'fr' | 'en') =>
+  vi.mocked(localStorage.getItem).mockImplementation((key: string) => (key === 'language' ? language : null));
+afterEach(() => vi.mocked(localStorage.getItem).mockReset());
 
 const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
 
@@ -88,7 +97,7 @@ describe('AcademyDiscovery — liste', () => {
       fiche('diego', 'Diego Urban', { is_active: false }),
       fiche('eva', 'Eva Featured', { is_featured: true }),
     ];
-    render(<AcademyDiscovery onNavigate={vi.fn()} />);
+    renderWithLanguage(<AcademyDiscovery onNavigate={vi.fn()} />);
 
     expect(await screen.findByText('Ana Silva')).toBeInTheDocument();
     expect(screen.getByText('Eva Featured')).toBeInTheDocument();
@@ -103,7 +112,7 @@ describe('AcademyDiscovery — liste', () => {
 
   it('ne rend pas son propre Header (déjà rendu par App)', async () => {
     db.professors = [fiche('ana', 'Ana Silva')];
-    const { container } = render(<AcademyDiscovery onNavigate={vi.fn()} />);
+    const { container } = renderWithLanguage(<AcademyDiscovery onNavigate={vi.fn()} />);
     await screen.findByText('Ana Silva');
     expect(container.querySelectorAll('header')).toHaveLength(0);
   });
@@ -111,7 +120,7 @@ describe('AcademyDiscovery — liste', () => {
   it('« Voir le profil » ouvre le profil Discovery et enregistre academy_profile_click', async () => {
     db.professors = [fiche('ana', 'Ana Silva')];
     const onNavigate = vi.fn();
-    render(<AcademyDiscovery onNavigate={onNavigate} />);
+    renderWithLanguage(<AcademyDiscovery onNavigate={onNavigate} />);
 
     fireEvent.click(await screen.findByText('Voir le profil'));
 
@@ -123,7 +132,7 @@ describe('AcademyDiscovery — liste', () => {
 
   it('« Visiter le site » ouvre le site et enregistre academy_website_click', async () => {
     db.professors = [fiche('ana', 'Ana Silva')];
-    render(<AcademyDiscovery onNavigate={vi.fn()} />);
+    renderWithLanguage(<AcademyDiscovery onNavigate={vi.fn()} />);
 
     fireEvent.click(await screen.findByText('Visiter le site'));
 
@@ -138,7 +147,7 @@ describe('AcademyDiscovery — liste', () => {
     db.insertMode = mode;
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const onNavigate = vi.fn();
-    render(<AcademyDiscovery onNavigate={onNavigate} />);
+    renderWithLanguage(<AcademyDiscovery onNavigate={onNavigate} />);
 
     fireEvent.click(await screen.findByText('Voir le profil'));
     fireEvent.click(screen.getByText('Visiter le site'));
@@ -151,7 +160,7 @@ describe('AcademyDiscovery — liste', () => {
 
 describe('ProfessorDiscoveryProfile', () => {
   const renderProfile = async (id = 'ana') => {
-    render(<ProfessorDiscoveryProfile professorId={id} onNavigate={vi.fn()} />);
+    renderWithLanguage(<ProfessorDiscoveryProfile professorId={id} onNavigate={vi.fn()} />);
     await waitFor(() => expect(document.querySelector('.animate-spin')).toBeNull());
   };
 
@@ -223,5 +232,50 @@ describe('ProfessorDiscoveryProfile', () => {
     await renderProfile();
     expect(screen.queryByText('Voir la vidéo sur Instagram')).not.toBeInTheDocument();
     expect(screen.queryByText('En vidéo')).not.toBeInTheDocument();
+  });
+});
+
+describe('Academy Discovery — contenus bilingues', () => {
+  const renderProfile = async () => {
+    renderWithLanguage(<ProfessorDiscoveryProfile professorId="ana" onNavigate={vi.fn()} />);
+    expect(await screen.findByText('Ana Silva')).toBeInTheDocument();
+  };
+
+  it('FR : biographie française et libellés de spécialités', async () => {
+    db.professors = [fiche('ana', 'Ana Silva', { bio_en: 'Dancer and teacher.' })];
+    await renderProfile();
+    expect(screen.getByText('Danseur et pédagogue.')).toBeInTheDocument();
+    expect(screen.queryByText('Dancer and teacher.')).not.toBeInTheDocument();
+    expect(screen.getByText('Kizomba')).toBeInTheDocument();
+    expect(screen.getByText('Urban Kiz')).toBeInTheDocument();
+    expect(screen.queryByText('urban_kiz')).not.toBeInTheDocument();
+  });
+
+  it('EN renseigné : biographie anglaise', async () => {
+    useSavedLanguage('en');
+    db.professors = [fiche('ana', 'Ana Silva', { bio_en: 'Dancer and teacher.' })];
+    await renderProfile();
+    expect(screen.getByText('Dancer and teacher.')).toBeInTheDocument();
+    expect(screen.queryByText('Danseur et pédagogue.')).not.toBeInTheDocument();
+  });
+
+  it('EN absent ou vide : repli sur la biographie française', async () => {
+    useSavedLanguage('en');
+    db.professors = [fiche('ana', 'Ana Silva', { bio_en: '   ' })];
+    await renderProfile();
+    expect(screen.getByText('Danseur et pédagogue.')).toBeInTheDocument();
+  });
+
+  it('la liste affiche les libellés des spécialités, jamais les codes', async () => {
+    useSavedLanguage('en');
+    db.professors = [fiche('ana', 'Ana Silva', { specialties: ['afro_house', 'semba'] })];
+    renderWithLanguage(<AcademyDiscovery onNavigate={vi.fn()} />);
+    expect(await screen.findByText('Afro House · Semba')).toBeInTheDocument();
+  });
+
+  it('une ancienne spécialité libre (hors codes) reste affichée telle quelle', async () => {
+    db.professors = [fiche('ana', 'Ana Silva', { specialties: ['Kuduro'] })];
+    await renderProfile();
+    expect(screen.getByText('Kuduro')).toBeInTheDocument();
   });
 });

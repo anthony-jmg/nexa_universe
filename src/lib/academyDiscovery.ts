@@ -10,6 +10,7 @@ export interface DiscoveryProfessor {
   full_name: string;
   avatar_url: string | null;
   bio: string | null;
+  bio_en: string | null;
   specialties: string[] | null;
   experience_years: number | null;
   website_url: string | null;
@@ -19,7 +20,7 @@ export interface DiscoveryProfessor {
 }
 
 export const DISCOVERY_PROFESSOR_COLUMNS =
-  'id, full_name, avatar_url, bio, specialties, experience_years, website_url, website_cover_image, profile_video_urls, is_featured';
+  'id, full_name, avatar_url, bio, bio_en, specialties, experience_years, website_url, website_cover_image, profile_video_urls, is_featured';
 
 export function isValidHttpUrl(value: string | null | undefined): boolean {
   if (!value) return false;

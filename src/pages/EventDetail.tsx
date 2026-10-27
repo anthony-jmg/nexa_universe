@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useCart } from '../contexts/CartContext';
 import { useLanguage } from '../contexts/LanguageContext';
+import { localized } from '../lib/localized';
 import { supabase } from '../lib/supabase';
 import { BackgroundDecor } from '../components/BackgroundDecor';
 import { Database } from '../lib/database.types';
@@ -43,7 +44,7 @@ const MOCK_LINEUP = ['Marlon & Cindy', 'Tina & Alex', 'Nexa DJs'];
 export function EventDetail({ eventId, onNavigate }: EventDetailProps) {
   const { user } = useAuth();
   const { addEventTicketToCart } = useCart();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [event, setEvent] = useState<EventWithTickets | null>(null);
   const [loading, setLoading] = useState(true);
   const [selections, setSelections] = useState<TicketSelection[]>([]);
@@ -113,9 +114,12 @@ export function EventDetail({ eventId, onNavigate }: EventDetailProps) {
       const deposit = Number(ett?.price_lock_deposit_amount ?? 20);
       return sum + s.quantity * deposit;
     }, 0);
-  };  const descriptionPreview = event?.description && event.description.length > 220
-    ? `${event.description.slice(0, 220).trim()}…`
-    : event?.description;
+  };
+
+  const description = event ? localized(event.description, event.description_en, language) : '';
+  const descriptionPreview = description.length > 220
+    ? `${description.slice(0, 220).trim()}…`
+    : description;
 
   const scrollToPurchase = () => {
     document.getElementById('event-purchase')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -305,7 +309,7 @@ export function EventDetail({ eventId, onNavigate }: EventDetailProps) {
             <div className="border-t border-gray-800/80 pt-6">
               <div className="flex items-center justify-between gap-4">
                 <h2 className="text-xl font-medium text-white">À propos du festival</h2>
-                {event.description && event.description.length > 220 && (
+                {description.length > 220 && (
                   <button
                     type="button"
                     onClick={() => setIsDescriptionExpanded(prev => !prev)}
@@ -316,7 +320,7 @@ export function EventDetail({ eventId, onNavigate }: EventDetailProps) {
                   </button>
                 )}
               </div>
-              <p className="mt-3 text-gray-300 leading-relaxed">{isDescriptionExpanded ? event.description : descriptionPreview}</p>
+              <p className="mt-3 text-gray-300 leading-relaxed">{isDescriptionExpanded ? description : descriptionPreview}</p>
             </div>
           </div>
         </div>
@@ -375,8 +379,8 @@ export function EventDetail({ eventId, onNavigate }: EventDetailProps) {
                         <h3 className="text-lg sm:text-xl font-medium text-white mb-2">
                           {ett.ticket_type.name}
                         </h3>
-                        {ett.ticket_type.description && (
-                          <p className="text-sm text-gray-400 mb-3">{ett.ticket_type.description}</p>
+                        {localized(ett.ticket_type.description, ett.ticket_type.description_en, language) && (
+                          <p className="text-sm text-gray-400 mb-3">{localized(ett.ticket_type.description, ett.ticket_type.description_en, language)}</p>
                         )}
                         {ett.features && Array.isArray(ett.features) && ett.features.length > 0 && (
                           <ul className="space-y-1">

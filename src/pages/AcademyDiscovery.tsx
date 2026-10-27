@@ -8,6 +8,8 @@ import {
 import { supabase } from '../lib/supabase';
 import { getAvatarUrl } from '../components/AvatarUpload';
 import { BackgroundDecor } from '../components/BackgroundDecor';
+import { useLanguage } from '../contexts/LanguageContext';
+import { specialtyLabel } from '../lib/specialties';
 import {
   DISCOVERY_PROFESSOR_COLUMNS,
   DiscoveryProfessor,
@@ -30,6 +32,7 @@ export default function AcademyDiscovery({
 }: {
   onNavigate: (page: string) => void;
 }) {
+  const { t } = useLanguage();
   const [loading, setLoading] = useState(true);
   const [professors, setProfessors] = useState<ProfessorInfo[]>([]);
   const listRef = useRef<HTMLDivElement>(null);
@@ -215,7 +218,7 @@ export default function AcademyDiscovery({
                           </h2>
                           {professor.specialties.length > 0 && (
                             <p className="mt-0.5 text-xs text-gold-400/90 truncate">
-                              {professor.specialties.slice(0, 2).join(' · ')}
+                              {professor.specialties.slice(0, 2).map((s) => specialtyLabel(s, t)).join(' · ')}
                             </p>
                           )}
                         </div>
