@@ -113,14 +113,17 @@ describe('1-5 — pages juridiques FR et EN', () => {
     expect(screen.getByRole('heading', { level: 1, name: 'Terms and conditions of sale and use' })).toBeInTheDocument();
   });
 
-  it('3 — mentions légales : informations manquantes signalées, jamais inventées (FR / EN)', () => {
+  it('3 — mentions légales : seules les informations non fournies restent à compléter (FR / EN)', () => {
     renderIn('fr', <LegalNotice onNavigate={vi.fn()} />);
-    expect(screen.getByText('[À COMPLÉTER : numéro d’immatriculation]')).toBeInTheDocument();
+    expect(screen.getByText('[À COMPLÉTER : numéro de téléphone]')).toBeInTheDocument();
     expect(screen.getByText('[À COMPLÉTER : nom et coordonnées du médiateur de la consommation]')).toBeInTheDocument();
-    expect(text()).not.toMatch(/SIREN\s*:?\s*\d|SIRET\s*:?\s*\d|capital social de \d/i);
+    // Aucun numéro RCS inventé, pas de capital social pour un entrepreneur individuel
+    expect(text()).toContain('Non inscrit au Registre du commerce et des sociétés.');
+    expect(text()).not.toMatch(/RCS\s*:?\s*\d|capital social/i);
     cleanup();
     renderIn('en', <LegalNotice onNavigate={vi.fn()} />);
-    expect(screen.getByText('[TO BE COMPLETED: registration number]')).toBeInTheDocument();
+    expect(screen.getByText('[TO BE COMPLETED: phone number]')).toBeInTheDocument();
+    expect(screen.getByText('[TO BE COMPLETED: name and contact details of the consumer mediator]')).toBeInTheDocument();
   });
 
   it('5 — cookies : uniquement le stockage local nécessaire, aucun traceur publicitaire (FR / EN)', () => {
@@ -157,8 +160,8 @@ describe('6-12 — CGV : règles Price Lock du fonctionnement réel', () => {
     expect(t).toContain('Il peut être émis et envoyé via Weezevent');
     expect(t).toContain('Aucun délai d’émission n’est garanti');
     expect(t).toContain('tout autre document ou code fourni par Nexa ne valent pas billet');
-    // annulation : rien d'inventé
-    expect(t).toContain('[À COMPLÉTER : modalités de traitement des versements Price Lock en cas d’annulation]');
+    // annulation définitive : sommes encaissées remboursées, sans mécanisme ni délai inventés
+    expect(t).toContain(CANCEL_FR);
     // 12 — aucun abonnement proposé
     expect(t).toContain('Nexa ne vend aucun abonnement, aucune formation ni aucune vidéo payante sur le Site.');
     expect(t.match(/abonnement/gi)).toHaveLength(1);
@@ -188,6 +191,108 @@ describe('6-12 — CGV : règles Price Lock du fonctionnement réel', () => {
     cleanup();
     renderIn('en', <RefundPolicy onNavigate={vi.fn()} />);
     expect(text()).toContain('The first payment is non-refundable');
+  });
+});
+
+const CANCEL_FR = 'En cas d’annulation définitive de l’événement, les sommes effectivement encaissées par Nexa au titre du pass concerné sont remboursées à l’utilisateur. Le remboursement porte uniquement sur les sommes encaissées par Nexa pour ce pass.';
+const CANCEL_EN = 'In the event of the permanent cancellation of the event, amounts actually collected by Nexa for the relevant pass will be refunded to the user. The refund is limited to amounts collected by Nexa for that pass.';
+
+describe('Finalisation juridique : éditeur, hébergeurs, annulation', () => {
+  const EDITOR_FR = [
+    'Nom de l’exploitant : FOUDA HYACINTHE',
+    'Forme juridique : entrepreneur individuel',
+    'Adresse du siège : 99 route de Bayonne, 40300 Orthevielle, France',
+    'SIREN : 911 789 105',
+    'SIRET du siège : 911 789 105 00010',
+    'Numéro de TVA intracommunautaire : FR16911789105',
+    'Inscrit au Registre national des entreprises depuis le 1er avril 2022.',
+    'Non inscrit au Registre du commerce et des sociétés.',
+    'E-mail : contact@jmgsoft.com',
+  ];
+  const EDITOR_EN = [
+    'Operator name: FOUDA HYACINTHE',
+    'Registered office: 99 route de Bayonne, 40300 Orthevielle, France',
+    'SIREN: 911 789 105',
+    'Head office SIRET: 911 789 105 00010',
+    'EU VAT number: FR16911789105',
+    'Registered with the French National Business Register (RNE) since 1 April 2022.',
+    'Not registered with the French Trade and Companies Register (RCS).',
+    'Email: contact@jmgsoft.com',
+  ];
+
+  it('1-7 — éditeur et directeur de publication (FR / EN)', () => {
+    renderIn('fr', <LegalNotice onNavigate={vi.fn()} />);
+    for (const line of EDITOR_FR) expect(screen.getByText(line)).toBeInTheDocument();
+    expect(screen.getByText('2. Responsable de la publication').parentElement).toHaveTextContent('FOUDA HYACINTHE, entrepreneur individuel.');
+    fireEvent.click(screen.getByRole('button', { name: '🇫🇷' }));
+    fireEvent.click(screen.getByText('English'));
+    for (const line of EDITOR_EN) expect(screen.getByText(line)).toBeInTheDocument();
+    expect(screen.getByText('2. Publication director').parentElement).toHaveTextContent('FOUDA HYACINTHE, sole trader (entrepreneur individuel).');
+  });
+
+  it('8-13 — hébergeur VERCEL FRANCE et infrastructure Supabase (FR / EN)', () => {
+    renderIn('fr', <LegalNotice onNavigate={vi.fn()} />);
+    const fr = text();
+    expect(fr).toContain('hébergés par VERCEL FRANCE, société par actions simplifiée (SAS), dont le siège social est situé 102 Avenue des Champs-Élysées, 75008 Paris, France, immatriculée au RCS de Paris sous le numéro SIREN 828 193 722 (SIRET 828 193 722 00067, TVA intracommunautaire FR92828193722)');
+    expect(fr).toContain('fournies par Supabase Pte. Ltd., dont le siège social est situé 65 Chulia Street, #38-02/03, OCBC Centre, Singapore 049513, Singapour, enregistrée sous le numéro UEN 202005760H');
+    expect(fr).toContain('Supabase intervient en tant que prestataire technique');
+    expect(fr).not.toMatch(/Vercel Inc/);
+    cleanup();
+    renderIn('en', <LegalNotice onNavigate={vi.fn()} />);
+    const en = text();
+    expect(en).toContain('hosted by VERCEL FRANCE');
+    expect(en).toContain('102 Avenue des Champs-Élysées, 75008 Paris, France');
+    expect(en).toContain('SIREN number 828 193 722 (SIRET 828 193 722 00067, EU VAT number FR92828193722)');
+    expect(en).toContain('Supabase Pte. Ltd., whose registered office is at 65 Chulia Street, #38-02/03, OCBC Centre, Singapore 049513, Singapore, registered under UEN 202005760H');
+  });
+
+  it('Supabase présenté comme prestataire, jamais comme responsable du traitement', () => {
+    renderIn('fr', <PrivacyPolicy onNavigate={vi.fn()} />);
+    expect(text()).toContain('Le responsable du traitement est FOUDA HYACINTHE, entrepreneur individuel, 99 route de Bayonne, 40300 Orthevielle, France. Contact pour toute question relative à vos données : contact@jmgsoft.com.');
+    expect(text()).toContain('Supabase Pte. Ltd. : prestataire d’infrastructure technique');
+    expect(text()).not.toMatch(/responsable du traitement est Supabase/i);
+    expect(text()).toContain('Pour exercer ces droits : contact@jmgsoft.com.');
+  });
+
+  it('14-18 — remboursement en cas d’annulation définitive (FR / EN, CGV et remboursement)', () => {
+    for (const Page of [TermsAndConditions, RefundPolicy]) {
+      renderIn('fr', <Page onNavigate={vi.fn()} />);
+      expect(text()).toContain(CANCEL_FR);
+      expect(text()).toContain('un pass acheté au comptant, à un Price Lock partiellement payé (premier versement seul) et à un Price Lock entièrement payé');
+      cleanup();
+      renderIn('en', <Page onNavigate={vi.fn()} />);
+      expect(text()).toContain(CANCEL_EN);
+      expect(text()).toContain('a pass bought in full, to a partially paid Price Lock (first payment only) and to a fully paid Price Lock');
+      cleanup();
+    }
+  });
+
+  it('19 — ni remboursement automatique ni délai annoncés pour l’annulation', () => {
+    for (const lang of ['fr', 'en'] as const) {
+      const d = translations[lang];
+      const legal = Object.entries(d).filter(([key]) => key.startsWith('legal.')).map(([, value]) => value);
+      expect(legal.filter((v) => /rembours\S* automatiquement|automatically refunded|refunded automatically|remboursement automatique de/i.test(v))).toEqual([]);
+      expect(legal.filter((v) => /annulation définitive|permanent cancellation/i.test(v) && /\d+\s*(jours|days|semaines|weeks)/i.test(v))).toEqual([]);
+    }
+  });
+
+  it('20/21 — rien d’inventé : seuls le téléphone, le médiateur et la mention TVA restent à compléter', () => {
+    const placeholders = (lang: 'fr' | 'en') =>
+      [...new Set(Object.entries(translations[lang])
+        .filter(([key]) => key.startsWith('legal.'))
+        .flatMap(([, value]) => [...value.matchAll(/\[\[(.+?)\]\]/g)].map((m) => m[1])))].sort();
+    expect(placeholders('fr')).toEqual([
+      'mention TVA applicable (TTC, TVA non applicable art. 293 B du CGI, etc.)',
+      'nom et coordonnées du médiateur de la consommation',
+      'numéro de téléphone',
+    ]);
+    expect(placeholders('en')).toEqual(['applicable VAT statement', 'name and contact details of the consumer mediator', 'phone number']);
+    // Aucune donnée administrative en dehors de celles fournies
+    const all = Object.entries(translations.fr).filter(([key]) => key.startsWith('legal.')).map(([, v]) => v).join(' ');
+    const numbers = [...all.matchAll(/\b\d{3} \d{3} \d{3}(?: \d{5})?\b|FR\d{11}|\b\d{9}[A-Z]\b/g)].map((m) => m[0]);
+    expect([...new Set(numbers)].sort()).toEqual(
+      ['202005760H', '828 193 722', '828 193 722 00067', '911 789 105', '911 789 105 00010', 'FR16911789105', 'FR92828193722'].sort()
+    );
   });
 });
 

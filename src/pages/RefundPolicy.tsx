@@ -43,8 +43,9 @@ const SECTIONS: LegalSectionDef[] = [
     title: 'legal.refund.s4.title',
     blocks: [
       // À VALIDER (juriste) : répartition des responsabilités Nexa / organisateur.
-      { p: 'legal.refund.s4.b1' },
+      { callout: 'legal.refund.s4.b1' },
       { p: 'legal.refund.s4.b2' },
+      { p: 'legal.refund.s4.b3' },
     ],
   },
   {

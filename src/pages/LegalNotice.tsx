@@ -11,7 +11,7 @@ const SECTIONS: LegalSectionDef[] = [
   {
     title: 'legal.notice.s1.title',
     blocks: [
-      { list: ['legal.notice.s1.b1.i1', 'legal.notice.s1.b1.i2', 'legal.notice.s1.b1.i3', 'legal.notice.s1.b1.i4', 'legal.notice.s1.b1.i5', 'legal.notice.s1.b1.i6', 'legal.notice.s1.b1.i7', 'legal.notice.s1.b1.i8', 'legal.notice.s1.b1.i9'] },
+      { list: ['legal.notice.s1.b1.i1', 'legal.notice.s1.b1.i2', 'legal.notice.s1.b1.i3', 'legal.notice.s1.b1.i4', 'legal.notice.s1.b1.i5', 'legal.notice.s1.b1.i6', 'legal.notice.s1.b1.i7', 'legal.notice.s1.b1.i8', 'legal.notice.s1.b1.i9', 'legal.notice.s1.b1.i10', 'legal.notice.s1.b1.i11'] },
     ],
   },
   {
@@ -23,7 +23,8 @@ const SECTIONS: LegalSectionDef[] = [
   {
     title: 'legal.notice.s3.title',
     blocks: [
-      { list: ['legal.notice.s3.b1.i1', 'legal.notice.s3.b1.i2'] },
+      { p: 'legal.notice.s3.b1' },
+      { p: 'legal.notice.s3.b2' },
     ],
   },
   {

@@ -103,8 +103,9 @@ const SECTIONS: LegalSectionDef[] = [
     title: 'legal.terms.s11.title',
     blocks: [
       // À VALIDER (juriste) : responsabilités respectives de Nexa et de l’organisateur.
-      { p: 'legal.terms.s11.b1' },
+      { callout: 'legal.terms.s11.b1' },
       { p: 'legal.terms.s11.b2' },
+      { p: 'legal.terms.s11.b3' },
     ],
   },
   {
