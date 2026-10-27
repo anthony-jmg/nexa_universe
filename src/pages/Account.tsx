@@ -8,6 +8,7 @@ import { useToast } from '../contexts/ToastContext';
 import { useSubscription } from '../hooks/useSubscription';
 import { AvatarUpload, getAvatarUrl } from '../components/AvatarUpload';
 import CancellationModal from '../components/CancellationModal';
+import { getActiveLocale } from '../lib/locale';
 
 interface ProfessorSubscription {
   id: string;
@@ -917,7 +918,7 @@ export function Account({ onNavigate }: AccountProps) {
                                   <span className="text-xs text-gray-500">{typeLabel}</span>
                                   <span className="text-xs text-gray-600">•</span>
                                   <span className="text-xs text-gray-500">
-                                    {new Date(record.date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                    {new Date(record.date).toLocaleDateString(getActiveLocale(), { day: '2-digit', month: 'short', year: 'numeric' })}
                                   </span>
                                 </div>
                               </div>

@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { getActiveLanguage } from './locale';
 
 export interface CheckoutItem {
   id: string;
@@ -54,6 +55,8 @@ export async function createStripeCheckout(params: CreateCheckoutParams): Promis
       ...params,
       success_url,
       cancel_url,
+      // Langue de la page Stripe Checkout = langue active du site.
+      locale: getActiveLanguage(),
     }),
   });
 

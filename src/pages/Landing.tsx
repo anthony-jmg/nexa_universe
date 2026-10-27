@@ -10,6 +10,7 @@ import { useLanguage } from '../contexts/LanguageContext';
 import { supabase } from '../lib/supabase';
 import { Database } from '../lib/database.types';
 import { priceLockAvailable, minEventPrice, minNextEventPrice, EttWithPricing } from '../lib/tierPricing';
+import { getActiveLocale } from '../lib/locale';
 interface LandingProps {
   onNavigate: (page: string, eventId?: string) => void;
 }
@@ -38,14 +39,14 @@ interface LandingFestival {
 }
 
 const formatDateShort = (date: Date) =>
-  date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
+  date.toLocaleDateString(getActiveLocale(), { day: 'numeric', month: 'short' });
 
 function buildDateRange(start: string | null, end: string | null): string {
   if (!start) return 'Dates à venir';
   const startDate = new Date(start);
   const endDate = end ? new Date(end) : null;
   if (!endDate || startDate.toDateString() === endDate.toDateString()) {
-    return startDate.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' });
+    return startDate.toLocaleDateString(getActiveLocale(), { day: 'numeric', month: 'long' });
   }
   return `${formatDateShort(startDate)} — ${formatDateShort(endDate)}`;
 }

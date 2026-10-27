@@ -1,5 +1,6 @@
 import { supabase } from './supabase';
 import { createStripeCheckout } from './stripe';
+import { getActiveLanguage, getActiveLocale } from './locale';
 
 export interface PriceLockSummary {
   eventId: string;
@@ -33,7 +34,7 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 export const formatPrice = (value: number) => `${Math.round(value)} €`;
 
 export const formatDateFr = (iso: string) =>
-  new Date(iso).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+  new Date(iso).toLocaleDateString(getActiveLocale(), { day: 'numeric', month: 'long', year: 'numeric' });
 
 interface TicketTypeRow {
   id: string;
@@ -262,6 +263,7 @@ export async function startPriceLockBalanceCheckout(lock: PriceLockRecord): Prom
     },
     body: JSON.stringify({
       payment_type: 'price_lock_balance',
+      locale: getActiveLanguage(),
       items: [{
         id: lock.id,
         name: 'Solde Price Lock',
@@ -338,6 +340,7 @@ export async function startPriceLockRepurchaseCheckout(lockId: string, amountDue
     },
     body: JSON.stringify({
       payment_type: 'price_lock_repurchase',
+      locale: getActiveLanguage(),
       items: [{
         id: lockId,
         name: 'Achat au prix actuel',

@@ -22,6 +22,7 @@ import {
   type PriceLockRepurchaseQuote,
 } from '../lib/priceLock';
 import { formatEuro } from '../lib/formatEuro';
+import { getActiveLocale } from '../lib/locale';
 
 interface AttendeeWithDetails {
   id: string;
@@ -405,8 +406,8 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
                     {lock.expires_at && (
                       <p className="text-xs text-gray-400">
                         {isExpired
-                          ? `Expiré le ${new Date(lock.expires_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}`
-                          : `Prix garanti jusqu'au ${new Date(lock.expires_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}`}
+                          ? `Expiré le ${new Date(lock.expires_at).toLocaleDateString(getActiveLocale(), { day: 'numeric', month: 'long', year: 'numeric' })}`
+                          : `Prix garanti jusqu'au ${new Date(lock.expires_at).toLocaleDateString(getActiveLocale(), { day: 'numeric', month: 'long', year: 'numeric' })}`}
                       </p>
                     )}
                     {isExpired && quote?.status === 'credit_lapsed' ? (
@@ -448,7 +449,7 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
                     )}
                     {!isExpired && lock.balance_payment_mode === 'automatic' && !lock.auto_balance_payment_status && lock.auto_balance_payment_at && (
                       <p className="text-xs text-gray-400 mt-2">
-                        Prélèvement automatique du solde prévu le {new Date(lock.auto_balance_payment_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
+                        Prélèvement automatique du solde prévu le {new Date(lock.auto_balance_payment_at).toLocaleDateString(getActiveLocale(), { day: 'numeric', month: 'long', year: 'numeric' })}
                       </p>
                     )}
                     {!isExpired && lock.auto_balance_payment_status === 'failed' && (
@@ -532,7 +533,7 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
                               <div className="flex items-center space-x-2 text-gray-300">
                                 <Calendar className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#B8913D] flex-shrink-0" />
                                 <span className="text-xs sm:text-sm">
-                                  {eventDate.toLocaleDateString('fr-FR', {
+                                  {eventDate.toLocaleDateString(getActiveLocale(), {
                                     weekday: 'long',
                                     year: 'numeric',
                                     month: 'long',
@@ -580,7 +581,7 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
                                   )}
                                   <p className="text-xs text-gray-400 mt-1">
                                     {ticket.purchased_at
-                                      ? `Achete le ${new Date(ticket.purchased_at).toLocaleDateString('fr-FR')}`
+                                      ? `Achete le ${new Date(ticket.purchased_at).toLocaleDateString(getActiveLocale())}`
                                       : ''}
                                   </p>
                                 </div>
@@ -595,7 +596,7 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
                                 <p className="text-xs text-gray-500 mt-2 flex items-center space-x-1">
                                   <Clock className="w-3 h-3 flex-shrink-0" />
                                   <span className="truncate">
-                                    Scanne le {new Date(ticket.checked_in_at).toLocaleDateString('fr-FR', {
+                                    Scanne le {new Date(ticket.checked_in_at).toLocaleDateString(getActiveLocale(), {
                                       day: 'numeric',
                                       month: 'short',
                                       hour: '2-digit',
@@ -726,7 +727,7 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
                 <p className="text-sm sm:text-base text-green-400 font-medium mb-2">Billet deja utilise</p>
                 {selectedTicket.checked_in_at && (
                   <p className="text-xs sm:text-sm text-gray-400">
-                    Scanne le {new Date(selectedTicket.checked_in_at).toLocaleDateString('fr-FR', {
+                    Scanne le {new Date(selectedTicket.checked_in_at).toLocaleDateString(getActiveLocale(), {
                       day: 'numeric',
                       month: 'long',
                       year: 'numeric',

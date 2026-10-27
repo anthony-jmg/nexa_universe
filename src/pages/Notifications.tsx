@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useNotifications } from '../contexts/NotificationContext';
 import type { Notification } from '../contexts/NotificationContext';
 import PageTransition from '../components/PageTransition';
+import { getActiveLocale } from '../lib/locale';
 
 interface NotificationsPageProps {
   onNavigate: (page: string) => void;
@@ -34,7 +35,7 @@ export default function NotificationsPage({ onNavigate }: NotificationsPageProps
     if (diffHours < 24) return `Il y a ${diffHours}h`;
     if (diffDays < 7) return `Il y a ${diffDays}j`;
 
-    return date.toLocaleDateString('fr-FR', {
+    return date.toLocaleDateString(getActiveLocale(), {
       day: 'numeric',
       month: 'long',
       year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined

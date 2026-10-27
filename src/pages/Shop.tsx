@@ -11,6 +11,7 @@ import { PriceLockModal } from '../components/PriceLockModal';
 import { PriceLockExplainer } from '../components/PriceLockExplainer';
 import { fetchPriceLockSummary, fetchUserPriceLock, verifyPriceLockPayment, PriceLockSummary, PriceLockRecord } from '../lib/priceLock';
 import { currentPrice, nextPrice, nextPriceChangeAt, priceLockDeadline, priceLockAvailable, minEventPrice, minNextEventPrice } from '../lib/tierPricing';
+import { getActiveLocale } from '../lib/locale';
 
 const PRICE_LOCK_DEPOSIT = 20;
 const PRICE_INCREASE_STEP = 15;
@@ -22,7 +23,7 @@ const getPriceLockMinimum = (event: EventWithTickets, ticket: EventTicketType): 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 const formatDateShort = (date: Date) =>
-  date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
+  date.toLocaleDateString(getActiveLocale(), { day: 'numeric', month: 'short' });
 
 type Product = Database['public']['Tables']['products']['Row'];
 type ProductSize = Database['public']['Tables']['product_sizes']['Row'];
@@ -727,7 +728,7 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
                       <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-400">
                         <span className="inline-flex items-center gap-1">
                           <Calendar className="w-3.5 h-3.5 text-[#B8913D] flex-shrink-0" />
-                          {eventDate.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
+                          {eventDate.toLocaleDateString(getActiveLocale(), { day: 'numeric', month: 'long', year: 'numeric' })}
                         </span>
                         {event.location && (
                           <span className="inline-flex items-center gap-1 min-w-0">
@@ -1073,12 +1074,12 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
                 <div className="flex items-center space-x-2 text-gray-300">
                   <Calendar className="w-4 h-4 text-[#B8913D] flex-shrink-0" />
                   <span className="text-sm">
-                    {new Date(detailEvent.start_date).toLocaleDateString('fr-FR', {
+                    {new Date(detailEvent.start_date).toLocaleDateString(getActiveLocale(), {
                       weekday: 'long',
                       day: 'numeric',
                       month: 'long',
                       year: 'numeric'
-                    })} à {new Date(detailEvent.start_date).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                    })} à {new Date(detailEvent.start_date).toLocaleTimeString(getActiveLocale(), { hour: '2-digit', minute: '2-digit' })}
                   </span>
                 </div>
                 {detailEvent.location && (
@@ -1354,7 +1355,7 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
                                 <div className="text-[11px] sm:text-xs text-gray-300 leading-snug">
                                   {payDeadline ? (
                                     <>
-                                      Reste à payer avant le {payDeadline.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })} :{' '}
+                                      Reste à payer avant le {payDeadline.toLocaleDateString(getActiveLocale(), { day: 'numeric', month: 'long', year: 'numeric' })} :{' '}
                                       <span className="font-semibold text-[#F0D38A]">{Math.max(0, price - selectedDeposit).toFixed(2)} €</span>
                                     </>
                                   ) : (
@@ -1383,7 +1384,7 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
                       return (
                         <div className="mb-2 sm:mb-3 flex items-center gap-1.5 text-[11px] text-[#F0D38A]">
                           <Lock className="w-3 h-3 flex-shrink-0" />
-                          <span>Ton prix de {price.toFixed(0)} € est garanti jusqu’au {deadline.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}</span>
+                          <span>Ton prix de {price.toFixed(0)} € est garanti jusqu’au {deadline.toLocaleDateString(getActiveLocale(), { day: 'numeric', month: 'long', year: 'numeric' })}</span>
                         </div>
                       );
                     })()}
@@ -1494,7 +1495,7 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
                       Tu pourras régler le montant restant depuis Nexa avant le {(() => {
                         const firstSelected = selectedEvent.event_ticket_types?.find(e => (ticketQuantities[e.id] || 0) > 0);
                         const dl = firstSelected ? priceLockDeadline(firstSelected as any) : null;
-                        return dl ? dl.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }) : 'la date limite';
+                        return dl ? dl.toLocaleDateString(getActiveLocale(), { day: 'numeric', month: 'long', year: 'numeric' }) : 'la date limite';
                       })()}.
                     </p>
                   </button>
@@ -1517,7 +1518,7 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
                       })()} € sera débité automatiquement le {(() => {
                         const firstSelected = selectedEvent.event_ticket_types?.find(e => (ticketQuantities[e.id] || 0) > 0);
                         const dl = firstSelected ? priceLockDeadline(firstSelected as any) : null;
-                        return dl ? dl.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }) : 'la date limite';
+                        return dl ? dl.toLocaleDateString(getActiveLocale(), { day: 'numeric', month: 'long', year: 'numeric' }) : 'la date limite';
                       })()} si tu ne l’as pas réglé avant.
                     </p>
                   </button>
@@ -1825,14 +1826,14 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
                       <p className="text-base sm:text-lg font-semibold text-white">Prix bloqué avec succès</p>
                     </div>
                     <p className="mt-3 text-sm text-gray-300 leading-relaxed">
-                      Ton billet reste à <span className="font-semibold text-white">{lockPrice} €</span> jusqu’au {lock ? new Date(lock.expires_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }) : ''}.
+                      Ton billet reste à <span className="font-semibold text-white">{lockPrice} €</span> jusqu’au {lock ? new Date(lock.expires_at).toLocaleDateString(getActiveLocale(), { day: 'numeric', month: 'long', year: 'numeric' }) : ''}.
                     </p>
                     <div className="mt-5 rounded-xl border border-[#D4AC5B]/25 bg-[#D4AC5B]/[0.05] px-4 py-4 space-y-3">
                       {[
                         ['Déjà payé', `${Math.round(totalPaid)} €`],
                         ['Reste à payer', `${Math.round(remaining)} €`],
                         ['Ton prix bloqué', `${Math.round(lockPrice)} €`],
-                        ['Date limite', lock ? new Date(lock.expires_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }) : ''],
+                        ['Date limite', lock ? new Date(lock.expires_at).toLocaleDateString(getActiveLocale(), { day: 'numeric', month: 'long', year: 'numeric' }) : ''],
                       ].map(([label, value]) => (
                         <div key={label} className="flex items-center justify-between gap-3">
                           <span className="text-xs text-gray-400">{label}</span>
@@ -2004,7 +2005,7 @@ export function Shop({ onNavigate, initialProductId }: ShopProps) {
                             <p className="mt-0.5 text-xs text-gray-400 line-clamp-1">{ett.ticket_type.description}</p>
                           )}
                           <p className="mt-0.5 text-[11px] text-gray-500">
-                            {changeAt ? `Hausse le ${changeAt.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })}` : ''}
+                            {changeAt ? `Hausse le ${changeAt.toLocaleDateString(getActiveLocale(), { day: 'numeric', month: 'long' })}` : ''}
                           </p>
                         </div>
                         <div className="text-right flex-shrink-0">

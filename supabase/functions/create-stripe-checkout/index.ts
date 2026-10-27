@@ -78,6 +78,7 @@ interface CheckoutRequest {
   cancel_url: string;
   metadata?: Record<string, string>;
   price_id?: string;
+  locale?: string;
 }
 
 interface CheckoutItem {
@@ -537,6 +538,9 @@ Deno.serve(async (req: Request) => {
     }
 
     const { payment_type, success_url, cancel_url, metadata = {} } = requestData;
+    // Langue de la page Stripe = langue active du site (FR / EN) ; sinon 'auto'.
+    const checkoutLocale: "fr" | "en" | "auto" =
+      requestData.locale === "fr" || requestData.locale === "en" ? requestData.locale : "auto";
 
     // Tous les montants facturés sont recalculés côté serveur : les prix et
     // price_id envoyés par le client sont ignorés.
@@ -745,6 +749,7 @@ Deno.serve(async (req: Request) => {
           },
         ],
         mode: "subscription",
+        locale: checkoutLocale,
         success_url,
         cancel_url,
         metadata: sessionMetadata,
@@ -791,6 +796,7 @@ Deno.serve(async (req: Request) => {
         customer: stripeCustomerId,
         line_items: lineItems,
         mode: "payment",
+        locale: checkoutLocale,
         success_url,
         cancel_url,
         metadata: sessionMetadata,

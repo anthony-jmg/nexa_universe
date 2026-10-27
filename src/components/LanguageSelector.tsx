@@ -1,18 +1,20 @@
 import { Languages } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import { useLanguage, Language } from '../contexts/LanguageContext';
+import { PUBLIC_LANGUAGES } from '../i18n/translations';
 
 export function LanguageSelector() {
   const { language, setLanguage } = useLanguage();
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
+  // PT / ES conservés mais masqués au lancement : seules les langues publiques sont proposées.
   const languages: { code: Language; name: string; flag: string }[] = [
-    { code: 'fr', name: 'Français', flag: '🇫🇷' },
-    { code: 'en', name: 'English', flag: '🇬🇧' },
-    { code: 'es', name: 'Español', flag: '🇪🇸' },
-    { code: 'pt', name: 'Português', flag: '🇵🇹' },
-  ];
+    { code: 'fr' as Language, name: 'Français', flag: '🇫🇷' },
+    { code: 'en' as Language, name: 'English', flag: '🇬🇧' },
+    { code: 'es' as Language, name: 'Español', flag: '🇪🇸' },
+    { code: 'pt' as Language, name: 'Português', flag: '🇵🇹' },
+  ].filter((l) => PUBLIC_LANGUAGES.includes(l.code));
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {

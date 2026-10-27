@@ -7,6 +7,7 @@ import { BackgroundDecor } from '../components/BackgroundDecor';
 import { Database } from '../lib/database.types';
 import { currentPrice, nextPrice, nextPriceChangeAt, priceLockDeadline, priceLockAvailable, EttWithPricing } from '../lib/tierPricing';
 import { Calendar, MapPin, Clock, ArrowLeft, Check, Minus, Plus, ShoppingCart, Bell, ChevronDown, ChevronUp, Music, ListChecks, Info, Lock } from 'lucide-react';
+import { getActiveLocale } from '../lib/locale';
 
 type Event = Database['public']['Tables']['events']['Row'];
 type TicketType = Database['public']['Tables']['ticket_types']['Row'];
@@ -210,7 +211,7 @@ export function EventDetail({ eventId, onNavigate }: EventDetailProps) {
               <div className="flex items-center space-x-3 text-gray-300">
                 <Calendar className="w-5 h-5 text-[#B8913D]" />
                 <span>
-                  {eventDate.toLocaleDateString('fr-FR', {
+                  {eventDate.toLocaleDateString(getActiveLocale(), {
                     weekday: 'long',
                     year: 'numeric',
                     month: 'long',
@@ -222,7 +223,7 @@ export function EventDetail({ eventId, onNavigate }: EventDetailProps) {
               <div className="flex items-center space-x-3 text-gray-300">
                 <Clock className="w-5 h-5 text-[#B8913D]" />
                 <span>
-                  {eventDate.toLocaleTimeString('fr-FR', {
+                  {eventDate.toLocaleTimeString(getActiveLocale(), {
                     hour: '2-digit',
                     minute: '2-digit'
                   })}
@@ -265,13 +266,13 @@ export function EventDetail({ eventId, onNavigate }: EventDetailProps) {
                       <span className="pb-1 text-sm text-gray-400">tarif actuel</span>
                     </div>
                     {next !== null && nextAt && (
-                      <p className="mt-2 text-sm text-gray-300">Prochain tarif : <span className="font-semibold text-[#F0D38A]">{next.toFixed(0)} € à partir du {nextAt.toLocaleDateString('fr-FR')}</span></p>
+                      <p className="mt-2 text-sm text-gray-300">Prochain tarif : <span className="font-semibold text-[#F0D38A]">{next.toFixed(0)} € à partir du {nextAt.toLocaleDateString(getActiveLocale())}</span></p>
                     )}
                   </div>
                   {lockOk && (
                     <div className="sm:max-w-[240px] sm:text-right">
                       <p className="text-sm font-semibold text-white">Bloque ton tarif actuel avec {lockDeposit.toFixed(0)} €</p>
-                      {deadline && <p className="mt-1 text-xs leading-relaxed text-gray-400">Tarif garanti jusqu’au {deadline.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}</p>}
+                      {deadline && <p className="mt-1 text-xs leading-relaxed text-gray-400">Tarif garanti jusqu’au {deadline.toLocaleDateString(getActiveLocale(), { day: 'numeric', month: 'long', year: 'numeric' })}</p>}
                     </div>
                   )}
                 </div>
@@ -394,7 +395,7 @@ export function EventDetail({ eventId, onNavigate }: EventDetailProps) {
                           <div className="text-xl font-bold text-[#B8913D]">{price.toFixed(2)}€</div>
                           {next !== null && nextAt && (
                             <p className="text-xs text-gray-400 mt-0.5">
-                              → {next.toFixed(2)}€ le {nextAt.toLocaleDateString('fr-FR')}
+                              → {next.toFixed(2)}€ le {nextAt.toLocaleDateString(getActiveLocale())}
                             </p>
                           )}
                           {lockOk && lockDeposit > 0 && (

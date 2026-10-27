@@ -5,6 +5,7 @@ import { BackgroundDecor } from '../components/BackgroundDecor';
 import { Database } from '../lib/database.types';
 import { minEventPrice, minNextEventPrice, EttWithPricing } from '../lib/tierPricing';
 import { Calendar, MapPin, ChevronRight, Clock, Bell } from 'lucide-react';
+import { getActiveLocale } from '../lib/locale';
 
 type Event = Database['public']['Tables']['events']['Row'];
 type TicketType = Database['public']['Tables']['ticket_types']['Row'];
@@ -156,7 +157,7 @@ export function Events({ onNavigate }: EventsProps) {
                             <div className="flex items-center space-x-3 text-gray-300">
                               <Calendar className="w-5 h-5 text-[#B8913D] flex-shrink-0" />
                               <span className="text-sm">
-                                {eventDate.toLocaleDateString('fr-FR', {
+                                {eventDate.toLocaleDateString(getActiveLocale(), {
                                   weekday: 'long',
                                   year: 'numeric',
                                   month: 'long',
@@ -167,7 +168,7 @@ export function Events({ onNavigate }: EventsProps) {
                             <div className="flex items-center space-x-3 text-gray-300">
                               <Clock className="w-5 h-5 text-[#B8913D] flex-shrink-0" />
                               <span className="text-sm">
-                                {eventDate.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                                {eventDate.toLocaleTimeString(getActiveLocale(), { hour: '2-digit', minute: '2-digit' })}
                               </span>
                             </div>
                             {event.location && (
@@ -193,7 +194,7 @@ export function Events({ onNavigate }: EventsProps) {
                                 if (!next) return null;
                                 return (
                                   <p className="text-xs text-gray-400 mt-1">
-                                    Prochain tarif à partir de {next.price.toFixed(0)} € le {next.changeAt.toLocaleDateString('fr-FR')}
+                                    Prochain tarif à partir de {next.price.toFixed(0)} € le {next.changeAt.toLocaleDateString(getActiveLocale())}
                                   </p>
                                 );
                               })()}
@@ -302,7 +303,7 @@ export function Events({ onNavigate }: EventsProps) {
                             <div className="flex items-center space-x-3 text-gray-400">
                               <Calendar className="w-5 h-5 text-[#B8913D] flex-shrink-0 opacity-70" />
                               <span className="text-sm">
-                                {eventDate.toLocaleDateString('fr-FR', {
+                                {eventDate.toLocaleDateString(getActiveLocale(), {
                                   weekday: 'long',
                                   year: 'numeric',
                                   month: 'long',
@@ -313,7 +314,7 @@ export function Events({ onNavigate }: EventsProps) {
                             <div className="flex items-center space-x-3 text-gray-400">
                               <Clock className="w-5 h-5 text-[#B8913D] flex-shrink-0 opacity-70" />
                               <span className="text-sm">
-                                {eventDate.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                                {eventDate.toLocaleTimeString(getActiveLocale(), { hour: '2-digit', minute: '2-digit' })}
                               </span>
                             </div>
                             {event.location && (

@@ -10,6 +10,7 @@ import {
 import { handleOrderCheckout } from '../lib/stripe';
 import { validateAndCreateOrder } from '../lib/orderService';
 import { currentPrice, priceLockDeadline } from '../lib/tierPricing';
+import { getActiveLocale } from '../lib/locale';
 
 interface CartProps {
   onNavigate: (page: string) => void;
@@ -472,7 +473,7 @@ function StepCart({
                   <h3 className="text-base font-medium text-white">{ticket.eventTicketType.event.title}</h3>
                   <p className="text-sm text-gray-400 mt-0.5">{ticket.eventTicketType.ticket_type.name}</p>
                   <p className="text-xs text-gray-500 mt-0.5">
-                    {new Date(ticket.eventTicketType.event.start_date).toLocaleDateString('fr-FR', {
+                    {new Date(ticket.eventTicketType.event.start_date).toLocaleDateString(getActiveLocale(), {
                       weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
                     })}
                   </p>
@@ -485,7 +486,7 @@ function StepCart({
                         const deadline = priceLockDeadline(ticket.eventTicketType);
                         if (!deadline) return null;
                         const mode = ticket.balancePaymentMode === 'automatic' ? 'Automatique' : 'Manuel';
-                        const dateStr = deadline.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+                        const dateStr = deadline.toLocaleDateString(getActiveLocale(), { day: 'numeric', month: 'long', year: 'numeric' });
                         return (
                           <>
                             <p className="text-gray-500">
