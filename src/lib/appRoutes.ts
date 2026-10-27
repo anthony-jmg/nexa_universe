@@ -1,4 +1,4 @@
-export type Page = 'landing' | 'signin' | 'signup' | 'forgot-password' | 'reset-password' | 'academy' | 'video' | 'professors' | 'account' | 'admin' | 'shop' | 'cart' | 'favorites' | 'my-purchases' | 'professor-dashboard' | 'events' | 'event-detail' | 'my-tickets' | 'event-ticket-purchase' | 'notifications' | string;
+export type Page = 'landing' | 'signin' | 'signup' | 'forgot-password' | 'reset-password' | 'academy' | 'video' | 'professors' | 'account' | 'admin' | 'shop' | 'cart' | 'my-purchases' | 'professor-dashboard' | 'events' | 'event-detail' | 'my-tickets' | 'event-ticket-purchase' | 'notifications' | string;
 
 export type NavigationState = {
   page: Page;

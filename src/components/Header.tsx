@@ -1,8 +1,7 @@
-import { Menu, X, User, Shield, ShoppingCart, LayoutDashboard, Heart, Package, ChevronDown, GraduationCap, MapPin, Bell, LogOut, LogIn, UserPlus } from 'lucide-react';
+import { Menu, X, User, Shield, ShoppingCart, LayoutDashboard, Package, ChevronDown, GraduationCap, MapPin, Bell, LogOut, LogIn, UserPlus } from 'lucide-react';
 import { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useCart } from '../contexts/CartContext';
-import { useFavorites } from '../contexts/FavoritesContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { LanguageSelector } from './LanguageSelector';
 import NotificationDropdown from './NotificationDropdown';
@@ -18,7 +17,6 @@ export function Header({ onNavigate, currentPage }: HeaderProps) {
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const { user, profile, signOut } = useAuth();
   const { getCartCount } = useCart();
-  const { favorites } = useFavorites();
   const { t } = useLanguage();
 
   const handleSignOut = async () => {
@@ -80,21 +78,6 @@ export function Header({ onNavigate, currentPage }: HeaderProps) {
                       {getCartCount() > 0 && (
                         <span className="absolute -top-1 -right-1 w-4 h-4 lg:w-5 lg:h-5 bg-gradient-to-br from-[#B8913D] to-[#D4AC5B] text-white text-[10px] lg:text-xs rounded-full flex items-center justify-center font-bold shadow-glow">
                           {getCartCount()}
-                        </span>
-                      )}
-                    </button>
-                    <button
-                      onClick={() => onNavigate('favorites')}
-                      className={`relative flex items-center px-3 py-1.5 lg:px-3 lg:py-1.5 text-xs lg:text-sm font-medium rounded-lg transition-all ${
-                        currentPage === 'favorites'
-                          ? 'bg-gold-500/20 text-gold-400'
-                          : 'text-gray-300 hover:text-white hover:bg-white/5'
-                      }`}
-                    >
-                      <Heart className="w-3.5 h-3.5 lg:w-4 lg:h-4" />
-                      {favorites.length > 0 && (
-                        <span className="absolute -top-1 -right-1 w-4 h-4 lg:w-5 lg:h-5 bg-gradient-to-br from-red-500 to-pink-500 text-white text-[10px] lg:text-xs rounded-full flex items-center justify-center font-bold shadow-glow">
-                          {favorites.length}
                         </span>
                       )}
                     </button>
@@ -279,25 +262,6 @@ export function Header({ onNavigate, currentPage }: HeaderProps) {
                         {getCartCount() > 0 && (
                           <span className="ml-2 px-2 py-1 bg-gradient-to-br from-[#B8913D] to-[#D4AC5B] text-white text-xs rounded-full font-bold">
                             {getCartCount()}
-                          </span>
-                        )}
-                      </span>
-                    </button>
-                    <button
-                      onClick={() => {
-                        onNavigate('favorites');
-                        setMobileMenuOpen(false);
-                      }}
-                      className="block w-full text-left px-4 py-3 text-sm font-medium text-gray-300 hover:text-white hover:bg-white/5 rounded-xl transition-all relative"
-                    >
-                      <span className="flex items-center justify-between">
-                        <span className="flex items-center space-x-3">
-                          <Heart className="w-5 h-5 text-red-400" />
-                          <span>{t('nav.favorites')}</span>
-                        </span>
-                        {favorites.length > 0 && (
-                          <span className="ml-2 px-2 py-1 bg-gradient-to-br from-red-500 to-pink-500 text-white text-xs rounded-full font-bold">
-                            {favorites.length}
                           </span>
                         )}
                       </span>

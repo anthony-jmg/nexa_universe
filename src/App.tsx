@@ -28,7 +28,6 @@ const Account = lazy(() => import('./pages/Account').then(m => ({ default: m.Acc
 const Admin = lazy(() => import('./pages/Admin').then(m => ({ default: m.Admin })));
 const Shop = lazy(() => import('./pages/Shop').then(m => ({ default: m.Shop })));
 const Cart = lazy(() => import('./pages/Cart').then(m => ({ default: m.Cart })));
-const Favorites = lazy(() => import('./pages/Favorites').then(m => ({ default: m.Favorites })));
 const MyPurchases = lazy(() => import('./pages/MyPurchases').then(m => ({ default: m.MyPurchases })));
 const Events = lazy(() => import('./pages/Events').then(m => ({ default: m.Events })));
 const EventDetail = lazy(() => import('./pages/EventDetail').then(m => ({ default: m.EventDetail })));
@@ -242,7 +241,7 @@ function AppContent() {
   }
 
   const renderPage = () => {
-    if (!user && ['video', 'account', 'admin', 'cart', 'favorites', 'my-purchases', 'professor-dashboard', 'program-detail', 'my-tickets', 'event-ticket-purchase', 'notifications'].includes(currentPage)) {
+    if (!user && ['video', 'account', 'admin', 'cart', 'my-purchases', 'professor-dashboard', 'program-detail', 'my-tickets', 'event-ticket-purchase', 'notifications'].includes(currentPage)) {
       return <SignIn onNavigate={handleNavigate} />;
     }
 
@@ -281,8 +280,6 @@ function AppContent() {
         return <Shop onNavigate={handleNavigate} initialProductId={currentProductId || undefined} />;
       case 'cart':
         return <Cart onNavigate={handleNavigate} />;
-      case 'favorites':
-        return <Favorites onNavigate={handleNavigate} />;
       case 'my-purchases':
         return <MyPurchases onNavigate={handleNavigate} />;
       case 'events':
