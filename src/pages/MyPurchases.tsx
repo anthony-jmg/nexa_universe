@@ -61,6 +61,7 @@ interface AttendeeWithDetails {
 
 interface PriceLockWithEvent {
   id: string;
+  event_id: string;
   locked_price: number;
   deposit_amount: number;
   total_paid: number;
@@ -78,12 +79,30 @@ interface PriceLockWithEvent {
     id: string;
     title: string;
     start_date: string;
-  };
+  } | null;
+}
+
+// Événement d'un pass renvoyé par get_my_pass_events : reste lisible quand il
+// est annulé (la RLS publique le masque), avec le montant réellement payé par
+// billet (attendee_amounts, clé = id du billet).
+interface PassEvent {
+  event_id: string;
+  title: string;
+  location: string | null;
+  start_date: string;
+  end_date: string | null;
+  thumbnail_url: string | null;
+  event_status: string;
+  is_active: boolean;
+  attendee_amounts: Record<string, number | string> | null;
 }
 
 // Expiré dès la date limite dépassée, même avant le passage du cron serveur.
 const isLockExpired = (lock: PriceLockWithEvent) =>
   lock.status === 'expired' || (lock.expires_at != null && new Date(lock.expires_at).getTime() <= Date.now());
+
+const CANCELLED_BADGE = 'bg-red-900 bg-opacity-40 text-red-400 border-red-600 border-opacity-40';
+const REFUND_NOTICE = 'mt-3 rounded-lg border border-red-600/40 bg-red-900/20 px-3 py-2 text-xs sm:text-sm text-red-200';
 
 // Clés du dictionnaire par statut d'offre de rachat (aucun bouton d'achat).
 const REPURCHASE_MESSAGES: Partial<Record<PriceLockRepurchaseQuote['status'], string>> = {
@@ -102,6 +121,7 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
   const { clearCart } = useCart();
   const [tickets, setTickets] = useState<AttendeeWithDetails[]>([]);
   const [priceLocks, setPriceLocks] = useState<PriceLockWithEvent[]>([]);
+  const [passEvents, setPassEvents] = useState<Record<string, PassEvent>>({});
   const [payingLockId, setPayingLockId] = useState<string | null>(null);
   const [selectedTicket, setSelectedTicket] = useState<AttendeeWithDetails | null>(null);
   const [loading, setLoading] = useState(true);
@@ -192,7 +212,7 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
   const loadTickets = async () => {
     if (!user) return;
 
-    const [{ data, error }, { data: hiddenIds }] = await Promise.all([
+    const [{ data, error }, { data: hiddenIds }, { data: passEventRows }] = await Promise.all([
       supabase
         .from('event_attendees')
         .select(`
@@ -217,14 +237,37 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
       // le rachat ou sans valeur pour le client. Masquées ici uniquement
       // (données conservées, visibles côté admin). En cas d'erreur : rien masqué.
       supabase.rpc('get_my_expired_price_lock_reservation_ids'),
+      // Événements de mes pass, y compris annulés. En cas d'erreur : comportement précédent.
+      supabase.rpc('get_my_pass_events'),
     ]);
+
+    const events: Record<string, PassEvent> = {};
+    for (const event of (passEventRows as PassEvent[] | null) ?? []) events[event.event_id] = event;
+    setPassEvents(events);
 
     if (!error && data) {
       const hidden = new Set((hiddenIds as string[] | null) ?? []);
       // Événement dépublié (brouillon) : masqué par RLS, il revient à null.
       // On n'affiche pas ces billets plutôt que de faire planter la page.
+      // Événement annulé : repris de get_my_pass_events, le billet reste visible.
       setTickets(
-        (data as unknown as AttendeeWithDetails[]).filter((ticket) => ticket.events && !hidden.has(ticket.id))
+        (data as unknown as AttendeeWithDetails[])
+          .map((ticket) => {
+            const event = events[ticket.event_id];
+            if (ticket.events || !event) return ticket;
+            return {
+              ...ticket,
+              events: {
+                id: event.event_id,
+                title: event.title,
+                location: event.location ?? '',
+                start_date: event.start_date,
+                end_date: event.end_date,
+                thumbnail_url: event.thumbnail_url,
+              },
+            };
+          })
+          .filter((ticket) => ticket.events && !hidden.has(ticket.id))
       );
     }
   };
@@ -236,6 +279,7 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
       .from('price_locks')
       .select(`
         id,
+        event_id,
         locked_price,
         deposit_amount,
         total_paid,
@@ -308,6 +352,15 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
     }
   };
 
+  // Événement annulé : aucun paiement possible, sommes encaissées remboursées.
+  const isEventCancelled = (eventId: string) => passEvents[eventId]?.event_status === 'cancelled';
+
+  // Montant réellement payé pour ce billet (commande ou Price Lock), jamais le prix actuel.
+  const getAmountPaid = (ticket: AttendeeWithDetails): number | null => {
+    const amount = passEvents[ticket.event_id]?.attendee_amounts?.[ticket.id];
+    return amount == null ? null : Number(amount);
+  };
+
   // Statut lisible du billet : paiement du solde, puis émission du billet
   // officiel (Weezevent). Aucune erreur technique n'est affichée au client.
   const getTicketStatusBadge = (ticket: AttendeeWithDetails) => {
@@ -320,9 +373,12 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
     const gold = 'bg-[#D4AC5B] bg-opacity-20 text-[#F0D38A] border-[#D4AC5B] border-opacity-50';
     const green = 'bg-green-900 bg-opacity-40 text-green-400 border-green-600 border-opacity-40';
 
+    if (isEventCancelled(ticket.event_id)) {
+      return badge(CANCELLED_BADGE, XCircle, t('myPasses.cancelled.badge'));
+    }
     switch (ticket.check_in_status) {
       case 'cancelled':
-        return badge('bg-red-900 bg-opacity-40 text-red-400 border-red-600 border-opacity-40', XCircle, t('myPasses.status.cancelled'));
+        return badge(CANCELLED_BADGE, XCircle, t('myPasses.status.cancelled'));
       case 'checked_in':
         return badge('bg-blue-900 bg-opacity-40 text-blue-400 border-blue-600 border-opacity-40', CheckCircle, t('myPasses.status.used'));
       case 'awaiting_balance':
@@ -382,6 +438,8 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
             {priceLocks.map((lock) => {
               const isExpired = isLockExpired(lock);
               const quote = isExpired ? repurchaseQuotes[lock.id] : undefined;
+              // Événement annulé : visible, sans paiement ni rachat, sommes encaissées remboursées.
+              const cancelled = isEventCancelled(lock.event_id) || quote?.status === 'event_cancelled';
 
               return (
               <div
@@ -394,33 +452,46 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
                       <Lock className="w-4 h-4 text-[#F0D38A] flex-shrink-0" />
                       <h3 className="text-base sm:text-lg font-medium text-white">{isExpired ? t('myPasses.lock.expiredTitle') : 'Price Lock'}</h3>
                       <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${
-                        isExpired
+                        cancelled
+                          ? 'border-red-600/50 bg-red-900/30 text-red-300'
+                          : isExpired
                           ? 'border-gray-500/50 bg-gray-500/10 text-gray-300'
                           : 'border-[#D4AC5B]/50 bg-[#D4AC5B]/10 text-[#F0D38A]'
                       }`}>
-                        {isExpired ? t('myPasses.lock.badgeExpired') : t('myPasses.lock.badgeActive')}
+                        {cancelled
+                          ? t('myPasses.cancelled.badge')
+                          : isExpired ? t('myPasses.lock.badgeExpired') : t('myPasses.lock.badgeActive')}
                       </span>
                     </div>
-                    <p className="text-sm text-gray-300 mb-1">{lock.events?.title ?? quote?.event_title}</p>
+                    <p className="text-sm text-gray-300 mb-1">{lock.events?.title ?? passEvents[lock.event_id]?.title ?? quote?.event_title}</p>
                     {lock.event_ticket_types?.ticket_types?.name && (
                       <p className="text-xs sm:text-sm font-medium text-[#B8913D] mb-1">{lock.event_ticket_types.ticket_types.name}</p>
                     )}
-                    {lock.expires_at && (
+                    {lock.expires_at && !(cancelled && !isExpired) && (
                       <p className="text-xs text-gray-400">
                         {isExpired
                           ? t('myPasses.lock.expiredOn', { date: formatLongDate(lock.expires_at) })
                           : t('myPasses.lock.guaranteedUntil', { date: formatLongDate(lock.expires_at) })}
                       </p>
                     )}
-                    {isExpired && quote?.status === 'credit_lapsed' ? (
+                    {cancelled ? (
+                      <>
+                        <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs sm:text-sm text-gray-400 mt-2">
+                          {!isExpired && (
+                            <span>{t('myPasses.lock.lockedPrice')} <span className="text-white font-medium">{formatPrice(lock.locked_price)}</span></span>
+                          )}
+                          <span>{t('myPasses.lock.alreadyPaid')} <span className="text-white font-medium">{formatPrice(lock.total_paid)}</span></span>
+                          {/* Solde affiché à titre informatif uniquement : plus payable. */}
+                          {!isExpired && Number(lock.remaining_amount) > 0 && (
+                            <span>{t('myPasses.lock.balance')} <span className="text-gray-300 font-medium">{formatPrice(lock.remaining_amount)}</span></span>
+                          )}
+                        </div>
+                        <p className={REFUND_NOTICE}>{t('myPasses.lock.eventCancelled')}</p>
+                      </>
+                    ) : isExpired && quote?.status === 'credit_lapsed' ? (
                       // Fin de validité atteinte : montant définitivement inutilisable.
                       <p className="mt-3 rounded-lg border border-gray-600/50 bg-gray-800/60 px-3 py-2 text-xs sm:text-sm text-gray-300">
                         {t(quote.lapsed_reason === 'sales_closed' ? 'myPasses.lock.lapsedSalesClosed' : 'myPasses.lock.lapsedEventStarted', { amount: formatPrice(lock.total_paid) })}
-                      </p>
-                    ) : isExpired && quote?.status === 'event_cancelled' ? (
-                      // Cas séparé : montant non déclaré perdu, traitement hors de ce parcours.
-                      <p className="mt-3 rounded-lg border border-gray-600/50 bg-gray-800/60 px-3 py-2 text-xs sm:text-sm text-gray-300">
-                        {t('myPasses.lock.eventCancelled')}
                       </p>
                     ) : isExpired ? (
                       <>
@@ -448,19 +519,19 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
                         <span>{t('myPasses.lock.balance')} <span className="text-[#F0D38A] font-semibold">{formatPrice(lock.remaining_amount)}</span></span>
                       </div>
                     )}
-                    {!isExpired && lock.balance_payment_mode === 'automatic' && !lock.auto_balance_payment_status && lock.auto_balance_payment_at && (
+                    {!isExpired && !cancelled && lock.balance_payment_mode === 'automatic' && !lock.auto_balance_payment_status && lock.auto_balance_payment_at && (
                       <p className="text-xs text-gray-400 mt-2">
                         {t('myPasses.lock.autoScheduled', { date: formatLongDate(lock.auto_balance_payment_at) })}
                       </p>
                     )}
-                    {!isExpired && lock.auto_balance_payment_status === 'failed' && (
+                    {!isExpired && !cancelled && lock.auto_balance_payment_status === 'failed' && (
                       // Raison technique (Stripe) volontairement non affichée au client.
                       <p className="mt-3 rounded-lg border border-[#D4AC5B]/40 bg-[#D4AC5B]/10 px-3 py-2 text-xs sm:text-sm text-[#F0D38A]">
                         {t('myPasses.lock.autoFailed')}
                       </p>
                     )}
                   </div>
-                  {isExpired ? (
+                  {cancelled ? null : isExpired ? (
                     quote?.status === 'available' && quote.amount_due != null && (
                       <button
                         onClick={() => handleRepurchase(lock, Number(quote.amount_due))}
@@ -520,6 +591,7 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
                 ).map(({ event, tickets: eventTickets }) => {
                   const eventDate = new Date(event.start_date);
                   const isPast = eventDate < new Date();
+                  const eventCancelled = isEventCancelled(event.id);
 
                   return (
                     <div
@@ -552,12 +624,17 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
                               )}
                             </div>
                           </div>
-                          {isPast && (
+                          {eventCancelled ? (
+                            <span className={`px-2.5 sm:px-3 py-1 rounded-full text-xs sm:text-sm whitespace-nowrap border ${CANCELLED_BADGE}`}>
+                              {t('myPasses.cancelled.badge')}
+                            </span>
+                          ) : isPast && (
                             <span className="px-2.5 sm:px-3 py-1 bg-gray-800 text-gray-400 rounded-full text-xs sm:text-sm whitespace-nowrap">
                               {t('myPasses.tickets.past')}
                             </span>
                           )}
                         </div>
+                        {eventCancelled && <p className={REFUND_NOTICE}>{t('myPasses.lock.eventCancelled')}</p>}
                       </div>
 
                       <div className="p-4 sm:p-6">
@@ -585,6 +662,11 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
                                       ? t('myPasses.tickets.purchasedOn', { date: formatDate(ticket.purchased_at) })
                                       : ''}
                                   </p>
+                                  {eventCancelled && getAmountPaid(ticket) != null && (
+                                    <p className="text-xs text-gray-300 mt-1">
+                                      {t('myPasses.cancelled.amountPaid')} <span className="text-white font-medium">{formatPrice(getAmountPaid(ticket) as number)}</span>
+                                    </p>
+                                  )}
                                 </div>
                                 <Ticket className="w-4 h-4 sm:w-5 sm:h-5 text-[#B8913D] flex-shrink-0 ml-2" />
                               </div>
@@ -673,7 +755,18 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
               )}
             </div>
 
-            {selectedTicket.check_in_status === 'awaiting_balance' && (
+            {isEventCancelled(selectedTicket.event_id) && (
+              <div className="pt-1">
+                {getAmountPaid(selectedTicket) != null && (
+                  <p className="text-sm text-gray-300">
+                    {t('myPasses.cancelled.amountPaid')} <span className="text-white font-medium">{formatPrice(getAmountPaid(selectedTicket) as number)}</span>
+                  </p>
+                )}
+                <p className={REFUND_NOTICE}>{t('myPasses.lock.eventCancelled')}</p>
+              </div>
+            )}
+
+            {!isEventCancelled(selectedTicket.event_id) && selectedTicket.check_in_status === 'awaiting_balance' && (
               <div className="text-center py-2">
                 <AlertCircle className="w-10 h-10 sm:w-12 sm:h-12 text-orange-400 mx-auto mb-3" />
                 <p className="text-sm sm:text-base text-orange-400 font-medium mb-1">{t('myPasses.status.awaitingBalance')}</p>
@@ -684,7 +777,7 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
             {/* Billet officiel = billet Weezevent uniquement : l'ancien PDF importé
                 par l'admin (pass_file_path) n'est plus proposé ici. Données conservées. */}
 
-            {selectedTicket.check_in_status === 'not_checked_in' && (
+            {!isEventCancelled(selectedTicket.event_id) && selectedTicket.check_in_status === 'not_checked_in' && (
               selectedTicket.weezevent_sync_status === 'synced' ? (
                 <div className="text-center py-2">
                   <CheckCircle className="w-10 h-10 sm:w-12 sm:h-12 text-green-400 mx-auto mb-3" />
@@ -716,7 +809,7 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
               )
             )}
 
-            {selectedTicket.check_in_status === 'not_checked_in' && (
+            {!isEventCancelled(selectedTicket.event_id) && selectedTicket.check_in_status === 'not_checked_in' && (
               <button
                 onClick={() => cancelTicket(selectedTicket.id)}
                 className="w-full mt-2 py-2.5 border border-red-600 text-red-400 text-sm sm:text-base rounded-lg hover:bg-red-900 hover:bg-opacity-20 transition-colors"

@@ -50,6 +50,7 @@ const RULES: ErrorRule[] = [
   { match: ["Ce Price Lock n'est plus actif."], key: 'purchaseError.lockNotActive' },
   { match: ["Ce Price Lock a expiré : ton ancien tarif n'est plus garanti."], key: 'purchaseError.lockExpired' },
   { match: ['Le prélèvement automatique de ce solde est en cours. Réessaie dans quelques minutes.'], key: 'purchaseError.autoInProgress' },
+  { match: ['Cet événement a été annulé : le solde ne peut plus être payé.', 'Cet événement a été annulé : aucun paiement ne peut être enregistré'], key: 'purchaseError.eventCancelled' },
   { match: ['Aucun solde restant sur ce Price Lock.'], key: 'purchaseError.noBalance' },
   { match: ["Ce Price Lock n'est pas expiré."], key: 'purchaseError.lockNotExpired' },
   { match: ['Le versement de ce Price Lock a déjà été utilisé.'], key: 'purchaseError.creditConsumed' },

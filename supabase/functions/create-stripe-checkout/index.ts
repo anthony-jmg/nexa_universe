@@ -101,13 +101,22 @@ async function resolvePriceLockBalance(
 
   const { data: lock } = await supabase
     .from('price_locks')
-    .select('id, user_id, status, expires_at, remaining_amount, locked_price, deposit_amount, event_ticket_type_id, auto_balance_payment_status, auto_balance_debit_attempted_at, ticket_type:event_ticket_types(ticket_type:ticket_types(name))')
+    .select('id, user_id, event_id, status, expires_at, remaining_amount, locked_price, deposit_amount, event_ticket_type_id, auto_balance_payment_status, auto_balance_debit_attempted_at, ticket_type:event_ticket_types(ticket_type:ticket_types(name))')
     .eq('id', lockId)
     .maybeSingle();
 
   if (!lock) return { error: 'Price Lock introuvable.' };
   if (lock.user_id !== userId) return { error: 'Ce Price Lock ne vous appartient pas.' };
   if (lock.status !== 'active') return { error: 'Ce Price Lock n\u2019est plus actif.' };
+  // Événement annulé : aucun paiement du solde (record_price_lock_payment refuse aussi).
+  const { data: event } = await supabase
+    .from('events')
+    .select('event_status')
+    .eq('id', lock.event_id)
+    .maybeSingle();
+  if (event?.event_status === 'cancelled') {
+    return { error: 'Cet événement a été annulé : le solde ne peut plus être payé.' };
+  }
   // Date limite dépassée : l'ancien tarif n'est plus garanti, même avant le
   // passage du cron d'expiration (record_price_lock_payment refuse aussi).
   if (lock.expires_at && new Date(lock.expires_at).getTime() <= Date.now()) {

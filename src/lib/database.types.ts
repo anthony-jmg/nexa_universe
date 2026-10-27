@@ -2597,6 +2597,20 @@ export type Database = {
         Args: never
         Returns: string[]
       }
+      get_my_pass_events: {
+        Args: never
+        Returns: {
+          attendee_amounts: Json
+          end_date: string
+          event_id: string
+          event_status: string
+          is_active: boolean
+          location: string
+          start_date: string
+          thumbnail_url: string
+          title: string
+        }[]
+      }
       get_my_profile: {
         Args: never
         Returns: {
