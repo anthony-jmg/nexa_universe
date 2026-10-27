@@ -221,6 +221,39 @@ describe('Mon compte', () => {
   });
 });
 
+describe('Mon compte : onglet Abonnements masqué (ancienne Academy)', () => {
+  it('seuls les onglets Profil et Facturation sont proposés, en FR comme en EN', () => {
+    renderIn('fr', <Account onNavigate={vi.fn()} />);
+    expect(screen.getByRole('button', { name: 'Profil' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Facturation' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Abonnements' })).not.toBeInTheDocument();
+    expect(screen.queryByText('Abonnements Professeurs')).not.toBeInTheDocument();
+    switchToEnglish();
+    expect(screen.queryByRole('button', { name: 'Subscription' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Billing' })).toBeInTheDocument();
+  });
+
+  it('Profil fonctionne toujours (enregistrement)', async () => {
+    renderIn('fr', <Account onNavigate={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Facturation' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Profil' }));
+    fireEvent.change(screen.getByDisplayValue('Ana Ribeiro'), { target: { value: 'Ana R.' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Enregistrer les Modifications' }));
+    expect(await screen.findByText('Profil mis à jour avec succès')).toBeInTheDocument();
+    expect(writes().find((c) => c.table === 'profiles')?.payload).toMatchObject({ full_name: 'Ana R.' });
+  });
+
+  it('Facturation fonctionne toujours (chargement de l’historique)', async () => {
+    renderIn('fr', <Account onNavigate={vi.fn()} />);
+    const before = reads('orders');
+    fireEvent.click(screen.getByRole('button', { name: 'Facturation' }));
+    expect(await screen.findByText('Aucune transaction trouvée')).toBeInTheDocument();
+    expect(reads('orders')).toBe(before + 1);
+    // Aucun chargement d'abonnements déclenché par la navigation entre onglets
+    expect(screen.queryByText(/Résilier/)).not.toBeInTheDocument();
+  });
+});
+
 describe('Notifications', () => {
   const seed = () => {
     db.notifications = [

@@ -43,6 +43,10 @@ interface BillingRecord {
   payment_intent_id?: string;
 }
 
+// Abonnements professeurs (ancienne Academy) : plus proposés dans le modèle
+// actuel. Onglet masqué, code et données conservés.
+const SHOW_SUBSCRIPTIONS_TAB = false;
+
 interface AccountProps {
   onNavigate: (page: string) => void;
 }
@@ -455,17 +459,19 @@ export function Account({ onNavigate }: AccountProps) {
                 <User className="w-3 h-3 sm:w-4 sm:h-4 lg:w-3 lg:h-3 inline mr-1.5 sm:mr-2 lg:mr-1.5" />
                 {t('account.tabs.profile')}
               </button>
-              <button
-                onClick={() => setActiveTab('subscription')}
-                className={`py-3 sm:py-4 lg:py-3 border-b-2 font-medium text-xs sm:text-sm lg:text-xs whitespace-nowrap transition-all ${
-                  activeTab === 'subscription'
-                    ? 'border-[#B8913D] text-[#B8913D]'
-                    : 'border-transparent text-gray-400 hover:text-white hover:border-gray-600'
-                }`}
-              >
-                <Settings className="w-3 h-3 sm:w-4 sm:h-4 lg:w-3 lg:h-3 inline mr-1.5 sm:mr-2 lg:mr-1.5" />
-                {t('account.tabs.subscription')}
-              </button>
+              {SHOW_SUBSCRIPTIONS_TAB && (
+                <button
+                  onClick={() => setActiveTab('subscription')}
+                  className={`py-3 sm:py-4 lg:py-3 border-b-2 font-medium text-xs sm:text-sm lg:text-xs whitespace-nowrap transition-all ${
+                    activeTab === 'subscription'
+                      ? 'border-[#B8913D] text-[#B8913D]'
+                      : 'border-transparent text-gray-400 hover:text-white hover:border-gray-600'
+                  }`}
+                >
+                  <Settings className="w-3 h-3 sm:w-4 sm:h-4 lg:w-3 lg:h-3 inline mr-1.5 sm:mr-2 lg:mr-1.5" />
+                  {t('account.tabs.subscription')}
+                </button>
+              )}
               <button
                 onClick={() => { setActiveTab('billing'); loadBillingHistory(); }}
                 className={`py-3 sm:py-4 lg:py-3 border-b-2 font-medium text-xs sm:text-sm lg:text-xs whitespace-nowrap transition-all ${
