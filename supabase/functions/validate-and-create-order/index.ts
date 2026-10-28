@@ -263,7 +263,7 @@ Deno.serve(async (req: Request) => {
             sale_end_date,
             max_per_order,
             ticket_types (name),
-            events (title)
+            events (title, event_status)
           `
           )
           .eq("id", item.event_ticket_type_id)
@@ -291,6 +291,18 @@ Deno.serve(async (req: Request) => {
         if (eventTicketType.is_active === false) {
           return new Response(
             JSON.stringify({ error: "Ce billet n'est plus disponible à la vente." }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
+        // Événement annulé : aucun nouvel achat ni Price Lock (avant toute commande).
+        if (eventTicketType.events?.event_status === "cancelled") {
+          return new Response(
+            JSON.stringify({
+              error: "Cet événement a été annulé. Aucun nouvel achat ou Price Lock n’est possible.",
+              code: "EVENT_CANCELLED",
+              event_ticket_type_id: eventTicketType.id,
+            }),
             { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
           );
         }

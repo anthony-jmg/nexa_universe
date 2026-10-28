@@ -10,6 +10,9 @@ const corsHeaders = {
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+// Événement annulé : aucun nouvel achat ni Price Lock (traduit côté frontend).
+const EVENT_CANCELLED_ERROR = 'Cet événement a été annulé. Aucun nouvel achat ou Price Lock n’est possible.';
+
 // Durée de vie d'une session Stripe de commande panier (minimum Stripe : 30 min).
 const ORDER_CHECKOUT_TTL_SECONDS = 32 * 60;
 
@@ -207,7 +210,7 @@ async function resolvePriceLockDeposit(
   const [{ data: ett }, { data: pricing, error: pricingError }] = await Promise.all([
     supabase
       .from('event_ticket_types')
-      .select('id, price, price_lock_enabled, price_lock_deposit_amount, price_increase_date, price_lock_opens_at, is_active, event_id, quantity_available, quantity_sold, ticket_type:ticket_types(name)')
+      .select('id, price, price_lock_enabled, price_lock_deposit_amount, price_increase_date, price_lock_opens_at, is_active, event_id, quantity_available, quantity_sold, ticket_type:ticket_types(name), event:events(event_status)')
       .eq('id', ticketTypeId)
       .maybeSingle(),
     supabase
@@ -216,6 +219,8 @@ async function resolvePriceLockDeposit(
   ]);
 
   if (!ett) return { error: 'Billet introuvable pour le Price Lock.' };
+  // Événement annulé : aucun nouveau Price Lock, aucune session Stripe.
+  if (ett.event?.event_status === 'cancelled') return { error: EVENT_CANCELLED_ERROR };
   if (!ett.is_active) return { error: 'Ce billet n’est plus disponible à la vente.' };
   if (!ett.price_lock_enabled) return { error: 'Price Lock non disponible pour ce billet.' };
   if (!ett.price_increase_date) return { error: 'Aucune hausse tarifaire programmée pour ce billet.' };
@@ -334,10 +339,14 @@ async function resolveOrderItems(
     ticketTypeIds.length
       ? supabase
           .from('event_ticket_types')
-          .select('id, ticket_types(name), events(title)')
+          .select('id, ticket_types(name), events(title, event_status)')
           .in('id', ticketTypeIds)
       : Promise.resolve({ data: [] }),
   ]);
+  // Événement annulé depuis la création de la commande : aucune session Stripe.
+  if ((ticketTypes || []).some((t) => t.events?.event_status === 'cancelled')) {
+    return { error: EVENT_CANCELLED_ERROR };
+  }
   const productNames = new Map((products || []).map((p: any) => [p.id, p.name]));
   const ticketNames = new Map(
     (ticketTypes || []).map((t: any) => [

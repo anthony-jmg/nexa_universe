@@ -37,6 +37,7 @@ const RULES: ErrorRule[] = [
   { match: ['Shipping address is required for physical products'], key: 'purchaseError.shippingRequired' },
   { match: /^shipping_info\./, key: 'purchaseError.contactInvalid' },
   { match: ['Failed to reserve stock. Please try again.'], key: 'purchaseError.stockReservationFailed' },
+  { match: ['Cet événement a été annulé. Aucun nouvel achat ou Price Lock n’est possible.'], key: 'purchaseError.eventCancelledNewPurchase' },
   { match: ['Commande introuvable.'], key: 'purchaseError.orderNotFound' },
   { match: ["Cette commande n'est plus en attente de paiement."], key: 'purchaseError.orderNotPending' },
   { match: ['Cette commande a expiré. Recommence ta commande.'], key: 'purchaseError.orderExpired' },
