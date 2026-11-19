@@ -116,6 +116,7 @@ export function EventSalesStats({ eventId, eventTitle, onClose }: EventSalesStat
         quantity_available,
         quantity_sold,
         ticket_type:ticket_types (name),
+        cost:event_ticket_type_costs (nexa_cost),
         price_tiers:event_ticket_price_tiers (label, price, starts_at, ends_at)
       `)
       .eq('event_id', eventId);
@@ -179,7 +180,7 @@ export function EventSalesStats({ eventId, eventTitle, onClose }: EventSalesStat
         next_price_change_at: next ? new Date(next.start).toISOString() : null,
         tier_alert: tierAlert,
         member_price: ett.member_price,
-        nexa_cost: ett.nexa_cost,
+        nexa_cost: ett.cost?.nexa_cost ?? null,
         quantity_available: ett.quantity_available,
         quantity_sold: ett.quantity_sold || confirmedCount,
         confirmed_count: confirmedCount,

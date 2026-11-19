@@ -13,6 +13,8 @@ type Event = Database['public']['Tables']['events']['Row'];
 type TicketType = Database['public']['Tables']['ticket_types']['Row'];
 type EventTicketType = Database['public']['Tables']['event_ticket_types']['Row'] & {
   ticket_type: TicketType;
+  // Coût négocié : table réservée à l'Admin (jamais lisible publiquement).
+  cost: { nexa_cost: number | null } | null;
 };
 
 interface EventWithTickets extends Event {
@@ -74,7 +76,6 @@ const toTicketTypePayload = (ett: TicketTypeFormData) => ({
   max_per_order: ett.max_per_order,
   display_order: ett.display_order,
   is_active: ett.is_active,
-  nexa_cost: ett.nexa_cost,
   sale_end_date: toIsoOrNull(ett.sale_end_date),
   price_lock_enabled: ett.price_lock_enabled,
   price_lock_deposit_amount: ett.price_lock_deposit_amount,
@@ -188,6 +189,7 @@ export function EventsManagement() {
           event_ticket_types (
             *,
             ticket_type:ticket_types (*),
+            cost:event_ticket_type_costs (nexa_cost),
             price_tiers:event_ticket_price_tiers (*)
           )
         `)
@@ -270,7 +272,7 @@ export function EventsManagement() {
         max_per_order: ett.max_per_order,
         display_order: ett.display_order,
         is_active: ett.is_active,
-        nexa_cost: ett.nexa_cost,
+        nexa_cost: ett.cost?.nexa_cost ?? null,
         sale_end_date: toDatetimeLocal((ett as any).sale_end_date),
         price_lock_enabled: ett.price_lock_enabled,
         price_lock_deposit_amount: ett.price_lock_deposit_amount,
@@ -345,6 +347,14 @@ export function EventsManagement() {
     }
     updated[ettIndex] = { ...updated[ettIndex], tiers };
     setEventTicketTypes(updated);
+  };
+
+  // Coût négocié enregistré à part (table réservée à l'Admin).
+  const saveCost = async (eventTicketTypeId: string, nexaCost: number | null) => {
+    const { error } = await supabase
+      .from('event_ticket_type_costs')
+      .upsert({ event_ticket_type_id: eventTicketTypeId, nexa_cost: nexaCost, updated_at: new Date().toISOString() });
+    if (error) throw error;
   };
 
   const saveTiers = async (eventTicketTypeId: string, tiers: TicketTierFormData[]) => {
@@ -472,6 +482,7 @@ export function EventsManagement() {
 
           if (ett.id) {
             await saveTiers(ett.id, ett.tiers);
+            await saveCost(ett.id, ett.nexa_cost);
           }
         }
 
@@ -494,6 +505,7 @@ export function EventsManagement() {
               .single();
             if (ticketError) throw ticketError;
             await saveTiers(inserted.id, ett.tiers);
+            await saveCost(inserted.id, ett.nexa_cost);
           }
         }
 

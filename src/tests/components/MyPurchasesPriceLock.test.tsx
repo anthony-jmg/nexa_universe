@@ -252,6 +252,17 @@ describe('Mes Pass', () => {
     expect(screen.queryByText(/Pass : En attente/)).not.toBeInTheDocument();
   });
 
+  it('le client ne peut plus annuler un billet (ni bouton, ni requête)', async () => {
+    data.event_attendees = [ticket('c', 'Festival envoyé', 'not_checked_in', 'synced')];
+    await renderPage();
+
+    fireEvent.click(screen.getByText('Billet officiel envoyé'));
+    await screen.findByText('Votre billet officiel a été émis et vous a été envoyé.');
+
+    expect(screen.queryByRole('button', { name: 'Annuler' })).not.toBeInTheDocument();
+    expect(queries.filter((q) => q.method === 'update')).toEqual([]);
+  });
+
   it('ignore les billets d’un événement dépublié sans planter', async () => {
     data.event_attendees = [
       { ...ticket('x', 'Festival dépublié', 'not_checked_in', 'pending'), events: null },

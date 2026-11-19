@@ -275,7 +275,8 @@ export async function refundPayment(
   stripe: any,
   paymentIntentId: string,
   idempotencyKey: string,
-  amountCents?: number
+  amountCents?: number,
+  reason = "price_lock_refused_after_payment"
 ): Promise<{ refundId?: string; error?: string }> {
   try {
     const refund = await stripe.refunds.create(
@@ -283,7 +284,7 @@ export async function refundPayment(
         payment_intent: paymentIntentId,
         ...(amountCents != null ? { amount: amountCents } : {}),
         reason: "requested_by_customer",
-        metadata: { reason: "price_lock_refused_after_payment" },
+        metadata: { reason },
       },
       { idempotencyKey }
     );

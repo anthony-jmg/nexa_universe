@@ -15,6 +15,51 @@ export type FulfillOrderResult =
   | { ok: true; status: string; alreadyProcessed?: boolean; refusedLocks?: number }
   | { ok: false; reason: string };
 
+type FulfillArgs = Parameters<typeof fulfillPaidOrder>;
+
+async function refundSoldOutOrder(
+  supabase: FulfillArgs[0],
+  stripe: FulfillArgs[1],
+  session: FulfillArgs[2],
+  orderId: string,
+  userId: string,
+  paymentIntentId: string | null,
+  amountPaid: number
+): Promise<boolean> {
+  if (!paymentIntentId) return false;
+  const refund = await refundPayment(
+    stripe,
+    paymentIntentId,
+    `order-sold-out-refund-${paymentIntentId}`,
+    undefined,
+    "order_sold_out"
+  );
+  if (refund.error) {
+    console.error(`Order ${orderId}: sold-out refund failed: ${refund.error}`);
+  }
+  await supabase.from("stripe_payments").upsert(
+    {
+      user_id: userId,
+      stripe_payment_intent_id: paymentIntentId,
+      stripe_customer_id: session.customer as string,
+      amount: amountPaid,
+      currency: session.currency || "eur",
+      status: refund.error ? "succeeded" : "refunded",
+      payment_type: "order",
+      order_id: orderId,
+      metadata: session.metadata,
+    },
+    { onConflict: "stripe_payment_intent_id", ignoreDuplicates: true }
+  );
+  if (!refund.error) {
+    await supabase
+      .from("stripe_payments")
+      .update({ status: "refunded" })
+      .eq("stripe_payment_intent_id", paymentIntentId);
+  }
+  return !refund.error;
+}
+
 export async function fulfillPaidOrder(
   supabase: any,
   stripe: any,
@@ -37,6 +82,14 @@ export async function fulfillPaidOrder(
   });
   if (claimError) return { ok: false, reason: claimError.message };
   if (claim === "already_processed") return { ok: true, status: claim, alreadyProcessed: true };
+  if (claim === "sold_out" || claim === "already_refunded") {
+    // Plus assez de places au moment du paiement : commande annulée par
+    // claim_paid_order, paiement intégralement remboursé (clé stable : un seul
+    // remboursement, que l'appel vienne du webhook ou de verify-payment).
+    const refunded = await refundSoldOutOrder(supabase, stripe, session, orderId, userId, paymentIntentId, amountPaid);
+    console.error(`Order ${orderId}: sold out at payment, refunded: ${refunded}`);
+    return { ok: false, reason: claim };
+  }
   if (claim !== "processing" && claim !== "completed") {
     console.error(`Order ${orderId}: not fulfilled (${claim}, paid ${amountPaid}, user ${userId})`);
     return { ok: false, reason: claim };

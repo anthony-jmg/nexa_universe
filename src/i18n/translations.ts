@@ -656,7 +656,6 @@ export const translations: Record<Language, Record<string, string>> = {
     'myPasses.repurchase.contactUs': 'Contacte-nous pour finaliser ton pass.',
     'myPasses.repurchase.soldOut': 'Ce pass est complet pour le moment.',
     'myPasses.repurchase.unavailable': 'Ce pass n’est pas disponible à la vente pour le moment.',
-    'myPasses.ticket.cancelConfirm': 'Êtes-vous sûr de vouloir annuler ce billet ? Cette action est irréversible.',
     'myPasses.status.cancelled': 'Annulé',
     'myPasses.status.used': 'Utilisé',
     'myPasses.status.awaitingBalance': 'Paiement du solde en attente',
@@ -705,7 +704,6 @@ export const translations: Record<Language, Record<string, string>> = {
     'myPasses.modal.issueFailedText': 'Votre achat est bien confirmé. Contactez-nous si votre billet officiel ne vous parvient pas.',
     'myPasses.modal.confirmedText': 'Votre achat est confirmé.',
     'myPasses.modal.pendingIssueText': 'Votre achat est confirmé. Votre billet officiel sera émis prochainement.',
-    'myPasses.modal.cancelTicket': 'Annuler',
     'myPasses.modal.used': 'Billet déjà utilisé',
     'myPasses.modal.cancelled': 'Billet annulé',
     // Erreurs Price Lock (LOT 4)
@@ -1684,7 +1682,6 @@ export const translations: Record<Language, Record<string, string>> = {
     'myPasses.repurchase.contactUs': 'Contact us to finalise your pass.',
     'myPasses.repurchase.soldOut': 'This pass is sold out for now.',
     'myPasses.repurchase.unavailable': 'This pass is not on sale at the moment.',
-    'myPasses.ticket.cancelConfirm': 'Are you sure you want to cancel this ticket? This cannot be undone.',
     'myPasses.status.cancelled': 'Cancelled',
     'myPasses.status.used': 'Used',
     'myPasses.status.awaitingBalance': 'Balance payment pending',
@@ -1733,7 +1730,6 @@ export const translations: Record<Language, Record<string, string>> = {
     'myPasses.modal.issueFailedText': 'Your purchase is confirmed. Contact us if you do not receive your official ticket.',
     'myPasses.modal.confirmedText': 'Your purchase is confirmed.',
     'myPasses.modal.pendingIssueText': 'Your purchase is confirmed. Your official ticket will be issued soon.',
-    'myPasses.modal.cancelTicket': 'Cancel',
     'myPasses.modal.used': 'Ticket already used',
     'myPasses.modal.cancelled': 'Ticket cancelled',
     // Erreurs Price Lock (LOT 4)

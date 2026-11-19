@@ -335,23 +335,6 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
     }
   };
 
-  const cancelTicket = async (ticketId: string) => {
-    if (!confirm(t('myPasses.ticket.cancelConfirm'))) {
-      return;
-    }
-
-    const { error } = await supabase
-      .from('event_attendees')
-      .update({ check_in_status: 'cancelled' })
-      .eq('id', ticketId)
-      .eq('check_in_status', 'not_checked_in');
-
-    if (!error) {
-      loadTickets();
-      setSelectedTicket(null);
-    }
-  };
-
   // Événement annulé : aucun paiement possible, sommes encaissées remboursées.
   const isEventCancelled = (eventId: string) => passEvents[eventId]?.event_status === 'cancelled';
 
@@ -807,15 +790,6 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
                   </p>
                 </div>
               )
-            )}
-
-            {!isEventCancelled(selectedTicket.event_id) && selectedTicket.check_in_status === 'not_checked_in' && (
-              <button
-                onClick={() => cancelTicket(selectedTicket.id)}
-                className="w-full mt-2 py-2.5 border border-red-600 text-red-400 text-sm sm:text-base rounded-lg hover:bg-red-900 hover:bg-opacity-20 transition-colors"
-              >
-                {t('myPasses.modal.cancelTicket')}
-              </button>
             )}
 
             {selectedTicket.check_in_status === 'checked_in' && (

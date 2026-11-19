@@ -3,6 +3,7 @@ import Stripe from "npm:stripe@17.6.0";
 import { createClient } from "npm:@supabase/supabase-js@2.57.4";
 import { applyBalancePayment, applyRepurchasePayment, createPriceLockAfterPayment, refundPayment } from "../_shared/price-lock.ts";
 import { fulfillPaidOrder } from "../_shared/order-fulfillment.ts";
+import { handleChargeRefunded } from "../_shared/refunds.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -62,6 +63,12 @@ Deno.serve(async (req: Request) => {
       case "payment_intent.payment_failed": {
         const paymentIntent = event.data.object as Stripe.PaymentIntent;
         await handlePaymentFailed(supabase, paymentIntent);
+        break;
+      }
+
+      case "charge.refunded": {
+        const charge = event.data.object as Stripe.Charge;
+        await handleChargeRefunded(supabase, charge);
         break;
       }
 

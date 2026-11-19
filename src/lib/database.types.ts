@@ -304,6 +304,32 @@ export type Database = {
           },
         ]
       }
+      event_ticket_type_costs: {
+        Row: {
+          event_ticket_type_id: string
+          nexa_cost: number | null
+          updated_at: string
+        }
+        Insert: {
+          event_ticket_type_id: string
+          nexa_cost?: number | null
+          updated_at?: string
+        }
+        Update: {
+          event_ticket_type_id?: string
+          nexa_cost?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_ticket_type_costs_event_ticket_type_id_fkey"
+            columns: ["event_ticket_type_id"]
+            isOneToOne: true
+            referencedRelation: "event_ticket_types"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       event_ticket_price_tiers: {
         Row: {
           created_at: string
@@ -365,7 +391,6 @@ export type Database = {
           is_active: boolean | null
           max_per_order: number | null
           member_price: number | null
-          nexa_cost: number | null
           next_price: number | null
           price: number
           price_increase_date: string | null
@@ -388,7 +413,6 @@ export type Database = {
           is_active?: boolean | null
           max_per_order?: number | null
           member_price?: number | null
-          nexa_cost?: number | null
           next_price?: number | null
           price?: number
           price_increase_date?: string | null
@@ -411,7 +435,6 @@ export type Database = {
           is_active?: boolean | null
           max_per_order?: number | null
           member_price?: number | null
-          nexa_cost?: number | null
           next_price?: number | null
           price?: number
           price_increase_date?: string | null
@@ -2421,6 +2444,10 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      apply_full_stripe_refund: {
+        Args: { p_payment_intent_id: string }
+        Returns: Json
+      }
       apply_price_increase: {
         Args: { p_event_ticket_type_id: string }
         Returns: {
@@ -2432,7 +2459,6 @@ export type Database = {
           is_active: boolean | null
           max_per_order: number | null
           member_price: number | null
-          nexa_cost: number | null
           next_price: number | null
           price: number
           price_increase_date: string | null
