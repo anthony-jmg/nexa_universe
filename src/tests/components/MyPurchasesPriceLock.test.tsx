@@ -55,6 +55,7 @@ const ticket = (
   check_in_status: checkInStatus,
   weezevent_sync_status: weezeventStatus,
   pass_status: passStatus,
+  pass_file_path: passStatus === 'available' ? `user-1/${id}/pass.pdf` : null,
   events: festival(`evt-${id}`, title),
 });
 
@@ -205,59 +206,51 @@ describe('Mes Pass', () => {
     expect(statusFilter?.args).toEqual(['status', ['active', 'expired']]);
   });
 
-  it('affiche des statuts de billet clairs, sans libellé « Pass : En attente »', async () => {
+  it('affiche le statut réel de livraison du billet officiel (fichier ajouté par Nexa)', async () => {
     data.event_attendees = [
       ticket('a', 'Festival solde', 'awaiting_balance', 'pending'),
-      ticket('b', 'Festival émission', 'not_checked_in', 'pending'),
-      ticket('c', 'Festival envoyé', 'not_checked_in', 'synced'),
-      ticket('d', 'Festival problème', 'not_checked_in', 'failed'),
+      ticket('b', 'Festival attente', 'not_checked_in', 'pending'),
+      ticket('c', 'Festival délivré', 'not_checked_in', 'pending', 'available'),
     ];
     await renderPage();
 
     expect(screen.getByText('Paiement du solde en attente')).toBeInTheDocument();
-    expect(screen.getByText('Billet officiel en attente d’émission')).toBeInTheDocument();
-    expect(screen.getByText('Billet officiel envoyé')).toBeInTheDocument();
-    expect(screen.getByText('Problème lors de l’émission du billet')).toBeInTheDocument();
+    expect(screen.getByText('Billet officiel en préparation')).toBeInTheDocument();
+    expect(screen.getByText('Billet officiel disponible')).toBeInTheDocument();
+    // Délai annoncé uniquement pour le billet payé en attente de fichier
+    expect(screen.getAllByText('Délivré sous 24 à 48 heures')).toHaveLength(1);
     expect(screen.queryByText(/Pass : /)).not.toBeInTheDocument();
-    expect(screen.queryByText('Vous n’avez pas encore de billet de festival.')).not.toBeInTheDocument();
   });
 
-  it('ne propose plus l’ancien PDF Nexa et reste neutre pour skipped', async () => {
+  it('le statut Weezevent ne fait plus foi : sans fichier, jamais « disponible »', async () => {
     data.event_attendees = [
-      ticket('p', 'Festival PDF Nexa', 'not_checked_in', 'pending', 'available'),
-      ticket('s', 'Festival sans Weezevent', 'not_checked_in', 'skipped'),
+      ticket('w', 'Festival Weezevent', 'not_checked_in', 'synced'),
+      // « available » sans fichier enregistré (import interrompu) : pas délivré
+      { ...ticket('x', 'Festival sans fichier', 'not_checked_in', 'pending', 'available'), pass_file_path: null },
     ];
     await renderPage();
 
-    // PDF disponible mais Weezevent pending : toujours « en attente d’émission »
-    expect(screen.getByText('Billet officiel en attente d’émission')).toBeInTheDocument();
+    expect(screen.getAllByText('Billet officiel en préparation')).toHaveLength(2);
     expect(screen.queryByText('Billet officiel disponible')).not.toBeInTheDocument();
-    expect(screen.getByText('Achat confirmé')).toBeInTheDocument();
-    expect(screen.getAllByText(/Billet officiel/)).toHaveLength(1);
-
-    // Détail : l'ancien PDF Nexa n'est plus proposé (seul le billet Weezevent fait foi)
-    fireEvent.click(screen.getByText('Billet officiel en attente d’émission'));
-    expect(await screen.findByText('Votre achat est confirmé. Votre billet officiel sera émis prochainement.')).toBeInTheDocument();
-    expect(screen.queryByText('Voir mon pass')).not.toBeInTheDocument();
-    expect(screen.queryByText('Document PDF ajouté par l’équipe Nexa.')).not.toBeInTheDocument();
+    expect(screen.queryByText('Billet officiel envoyé')).not.toBeInTheDocument();
   });
 
-  it('affiche le statut clair dans le détail du billet', async () => {
-    data.event_attendees = [ticket('c', 'Festival envoyé', 'not_checked_in', 'synced')];
+  it('détail d’un billet payé en attente : paiement confirmé et délai de 24 à 48 heures', async () => {
+    data.event_attendees = [ticket('c', 'Festival attente', 'not_checked_in', 'pending')];
     await renderPage();
 
-    fireEvent.click(screen.getByText('Billet officiel envoyé'));
+    fireEvent.click(screen.getByText('Billet officiel en préparation'));
 
-    expect(await screen.findByText('Votre billet officiel a été émis et vous a été envoyé.')).toBeInTheDocument();
-    expect(screen.queryByText(/Pass : En attente/)).not.toBeInTheDocument();
+    expect(await screen.findByText('Paiement confirmé. Billet officiel délivré sous 24 à 48 heures.')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Télécharger mon billet' })).not.toBeInTheDocument();
   });
 
   it('le client ne peut plus annuler un billet (ni bouton, ni requête)', async () => {
-    data.event_attendees = [ticket('c', 'Festival envoyé', 'not_checked_in', 'synced')];
+    data.event_attendees = [ticket('c', 'Festival délivré', 'not_checked_in', 'pending', 'available')];
     await renderPage();
 
-    fireEvent.click(screen.getByText('Billet officiel envoyé'));
-    await screen.findByText('Votre billet officiel a été émis et vous a été envoyé.');
+    fireEvent.click(screen.getByText('Billet officiel disponible'));
+    await screen.findByRole('button', { name: 'Télécharger mon billet' });
 
     expect(screen.queryByRole('button', { name: 'Annuler' })).not.toBeInTheDocument();
     expect(queries.filter((q) => q.method === 'update')).toEqual([]);
@@ -407,7 +400,7 @@ describe('Mes Pass', () => {
 
       expect(screen.getByText('Festival F')).toBeInTheDocument();
       expect(screen.getAllByText('Festival F')).toHaveLength(1);
-      expect(screen.getByText('Billet officiel en attente d’émission')).toBeInTheDocument();
+      expect(screen.getByText('Billet officiel en préparation')).toBeInTheDocument();
       // Un billet annulé sans lien avec un Price Lock expiré reste visible
       expect(screen.getByText('Festival G')).toBeInTheDocument();
       expect(rpcCalls.map((c) => c.fn)).toContain('get_my_expired_price_lock_reservation_ids');

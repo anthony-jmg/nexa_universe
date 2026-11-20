@@ -632,7 +632,7 @@ export function EventSalesStats({ eventId, eventTitle, onClose }: EventSalesStat
                             Pass : {attendee.pass_status === 'available' ? 'Disponible' : 'En attente'}
                           </span>
                           <div className="flex items-center gap-2">
-                            {attendee.pass_status === 'available' && (
+                            {attendee.pass_status === 'available' && attendee.check_in_status === 'not_checked_in' && (
                               <>
                                 <button
                                   onClick={() => handleViewPass(attendee)}
@@ -653,7 +653,7 @@ export function EventSalesStats({ eventId, eventTitle, onClose }: EventSalesStat
                                 </button>
                               </>
                             )}
-                            {(attendee.pass_status === 'pending' || replacingPassId === attendee.id) && (
+                            {attendee.check_in_status === 'not_checked_in' && (attendee.pass_status === 'pending' || replacingPassId === attendee.id) && (
                               <button
                                 onClick={() => {
                                   setReplacingPassId(null);

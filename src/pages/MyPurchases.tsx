@@ -24,6 +24,7 @@ import {
 import { formatPrice } from '../lib/formatEuro';
 import { formatDate, formatLongDate } from '../lib/locale';
 import { priceLockErrorMessage } from '../lib/purchaseErrors';
+import { getPassDownloadUrl, isPassDelivered } from '../lib/passService';
 
 interface AttendeeWithDetails {
   id: string;
@@ -126,6 +127,10 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
   const [selectedTicket, setSelectedTicket] = useState<AttendeeWithDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const [verifyingPayment, setVerifyingPayment] = useState(false);
+  // Paiement complet confirmé (achat ou solde) : billet délivré sous 24 à 48 h.
+  const [paymentConfirmed, setPaymentConfirmed] = useState(false);
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const [downloadError, setDownloadError] = useState<{ id: string; message: string } | null>(null);
   const [errorPay, setErrorPay] = useState<{ lockId: string; message: string } | null>(null);
   // Price Locks expirés : offre de rachat calculée côté serveur (prix actuel − versement).
   const [repurchaseQuotes, setRepurchaseQuotes] = useState<Record<string, PriceLockRepurchaseQuote | null>>({});
@@ -189,7 +194,10 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
         body: JSON.stringify({ session_id: sessionId }),
       });
 
-      await response.json();
+      const result = await response.json();
+      if (response.ok && result?.success && ['order', 'price_lock_balance', 'price_lock_repurchase'].includes(result.payment_type)) {
+        setPaymentConfirmed(true);
+      }
     } catch (err) {
       console.error('Payment verification error:', err);
     } finally {
@@ -344,8 +352,22 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
     return amount == null ? null : Number(amount);
   };
 
-  // Statut lisible du billet : paiement du solde, puis émission du billet
-  // officiel (Weezevent). Aucune erreur technique n'est affichée au client.
+  // Téléchargement du billet officiel : lien signé de courte durée, refusé par
+  // la base si le billet est annulé, remboursé ou d'un événement annulé.
+  const downloadTicket = async (ticket: AttendeeWithDetails) => {
+    setDownloadingId(ticket.id);
+    setDownloadError(null);
+    const result = await getPassDownloadUrl(ticket, { download: 'nexa-ticket.pdf' });
+    setDownloadingId(null);
+    if (!result.ok) {
+      setDownloadError({ id: ticket.id, message: t(result.reason === 'not_available' ? 'myPasses.ticket.notAvailable' : 'myPasses.ticket.downloadFailed') });
+      return;
+    }
+    window.location.assign(result.url);
+  };
+
+  // Statut lisible du billet : paiement du solde, puis livraison du billet
+  // officiel (fichier ajouté par Nexa). Aucune erreur technique affichée.
   const getTicketStatusBadge = (ticket: AttendeeWithDetails) => {
     const badge = (className: string, Icon: typeof Clock, label: string) => (
       <span className={`inline-flex items-center space-x-1 px-3 py-1 rounded-full text-sm border ${className}`}>
@@ -367,17 +389,10 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
       case 'awaiting_balance':
         return badge(gold, Clock, t('myPasses.status.awaitingBalance'));
     }
-    if (ticket.weezevent_sync_status === 'failed') {
-      return badge('bg-orange-900 bg-opacity-40 text-orange-400 border-orange-600 border-opacity-40', AlertCircle, t('myPasses.status.issueFailed'));
+    if (isPassDelivered(ticket)) {
+      return badge(green, CheckCircle, t('myPasses.status.ticketAvailable'));
     }
-    if (ticket.weezevent_sync_status === 'synced') {
-      return badge(green, CheckCircle, t('myPasses.status.sent'));
-    }
-    if (ticket.weezevent_sync_status === 'skipped') {
-      // Pas d'émission Weezevent prévue pour ce billet : on ne promet rien.
-      return badge(green, CheckCircle, t('myPasses.status.confirmed'));
-    }
-    return badge(gold, Clock, t('myPasses.status.pendingIssue'));
+    return badge(gold, Clock, t('myPasses.status.ticketPending'));
   };
 
   if (!profile) return null;
@@ -408,6 +423,12 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
           </div>
         ) : (
           <div className="space-y-8 sm:space-y-10">
+          {paymentConfirmed && (
+            <div role="status" className="flex items-start gap-3 rounded-xl border border-green-600/40 bg-green-900/20 px-4 py-3 text-sm text-green-200">
+              <CheckCircle className="w-5 h-5 flex-shrink-0 text-green-400" />
+              <p>{t('myPasses.ticket.paymentConfirmedDelay')}</p>
+            </div>
+          )}
           <section className="space-y-4 sm:space-y-6">
             <h2 className="flex items-center gap-2 text-lg sm:text-xl font-medium text-white">
               <Lock className="w-5 h-5 text-[#B8913D] flex-shrink-0" />
@@ -656,6 +677,9 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
 
                               <div className="mt-3 pt-3 border-t border-gray-700">
                                 {getTicketStatusBadge(ticket)}
+                                {!isEventCancelled(ticket.event_id) && ticket.check_in_status === 'not_checked_in' && !isPassDelivered(ticket) && (
+                                  <p className="text-xs text-gray-400 mt-2">{t('myPasses.ticket.deliveryDelay')}</p>
+                                )}
                               </div>
 
                               {ticket.check_in_status === 'checked_in' && ticket.checked_in_at && (
@@ -757,37 +781,28 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
               </div>
             )}
 
-            {/* Billet officiel = billet Weezevent uniquement : l'ancien PDF importé
-                par l'admin (pass_file_path) n'est plus proposé ici. Données conservées. */}
-
             {!isEventCancelled(selectedTicket.event_id) && selectedTicket.check_in_status === 'not_checked_in' && (
-              selectedTicket.weezevent_sync_status === 'synced' ? (
+              isPassDelivered(selectedTicket) ? (
                 <div className="text-center py-2">
                   <CheckCircle className="w-10 h-10 sm:w-12 sm:h-12 text-green-400 mx-auto mb-3" />
-                  <p className="text-sm sm:text-base text-green-400 font-medium mb-1">{t('myPasses.status.sent')}</p>
-                  <p className="text-xs text-gray-400">{t('myPasses.modal.sentText')}</p>
-                </div>
-              ) : selectedTicket.weezevent_sync_status === 'failed' ? (
-                <div className="text-center py-2">
-                  <AlertCircle className="w-10 h-10 sm:w-12 sm:h-12 text-orange-400 mx-auto mb-3" />
-                  <p className="text-sm sm:text-base text-orange-400 font-medium mb-1">{t('myPasses.status.issueFailed')}</p>
-                  <p className="text-xs text-gray-400">
-                    {t('myPasses.modal.issueFailedText')}
-                  </p>
-                </div>
-              ) : selectedTicket.weezevent_sync_status === 'skipped' ? (
-                <div className="text-center py-2">
-                  <CheckCircle className="w-10 h-10 sm:w-12 sm:h-12 text-green-400 mx-auto mb-3" />
-                  <p className="text-sm sm:text-base text-green-400 font-medium mb-1">{t('myPasses.status.confirmed')}</p>
-                  <p className="text-xs text-gray-400">{t('myPasses.modal.confirmedText')}</p>
+                  <p className="text-sm sm:text-base text-green-400 font-medium mb-1">{t('myPasses.status.ticketAvailable')}</p>
+                  <p className="text-xs text-gray-400 mb-4">{t('myPasses.ticket.availableText')}</p>
+                  <button
+                    onClick={() => downloadTicket(selectedTicket)}
+                    disabled={downloadingId === selectedTicket.id}
+                    className="w-full py-2.5 bg-gradient-to-r from-[#D4AC5B] to-[#B8913D] text-gray-950 text-sm font-semibold rounded-lg hover:shadow-lg transition-all disabled:opacity-50"
+                  >
+                    {downloadingId === selectedTicket.id ? t('myPasses.ticket.downloading') : t('myPasses.ticket.download')}
+                  </button>
+                  {downloadError?.id === selectedTicket.id && (
+                    <p className="mt-2 text-xs text-red-400">{downloadError.message}</p>
+                  )}
                 </div>
               ) : (
                 <div className="text-center py-2">
                   <Clock className="w-10 h-10 sm:w-12 sm:h-12 text-[#D4AC5B] mx-auto mb-3" />
-                  <p className="text-sm sm:text-base text-[#F0D38A] font-medium mb-1">{t('myPasses.status.pendingIssue')}</p>
-                  <p className="text-xs text-gray-400">
-                    {t('myPasses.modal.pendingIssueText')}
-                  </p>
+                  <p className="text-sm sm:text-base text-[#F0D38A] font-medium mb-1">{t('myPasses.status.ticketPending')}</p>
+                  <p className="text-xs text-gray-400">{t('myPasses.ticket.paymentConfirmedDelay')}</p>
                 </div>
               )
             )}

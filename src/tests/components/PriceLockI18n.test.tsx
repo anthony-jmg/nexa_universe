@@ -343,25 +343,22 @@ describe('10 à 15 — Mes Pass', () => {
     expect(screen.queryByRole('button', { name: /Buy at the current price/ })).not.toBeInTheDocument();
   });
 
-  it('13 — statuts des billets (paiement du solde, émission, annulé, utilisé)', async () => {
+  it('13 — statuts des billets (paiement du solde, livraison, annulé, utilisé)', async () => {
     db.event_attendees = [
       attendee('a', 'awaiting_balance', 'pending'),
-      attendee('b', 'not_checked_in', 'synced'),
-      attendee('c', 'not_checked_in', 'skipped'),
       attendee('d', 'not_checked_in', 'pending'),
-      attendee('e', 'not_checked_in', 'failed'),
+      { ...attendee('b', 'not_checked_in', 'pending'), pass_status: 'available', pass_file_path: 'user-1/b/pass.pdf' },
       attendee('f', 'cancelled', 'pending'),
       attendee('g', 'checked_in', 'synced'),
     ];
     await renderPasses('en');
     expect(screen.getByText('My tickets')).toBeInTheDocument();
     expect(screen.getByText('No active Price Lock')).toBeInTheDocument();
+    expect(screen.getByText('Delivered within 24 to 48 hours')).toBeInTheDocument();
     for (const label of [
       'Balance payment pending',
-      'Official ticket sent',
-      'Purchase confirmed',
-      'Official ticket awaiting issue',
-      'Problem issuing the ticket',
+      'Official ticket being prepared',
+      'Official ticket available',
       'Cancelled',
       'Used',
     ]) {

@@ -8,6 +8,7 @@ import { VideoUpload } from '../components/VideoUpload';
 import { ProductTypesManagement } from '../components/ProductTypesManagement';
 import { EventsManagement } from '../components/EventsManagement';
 import { TicketTypesManagement } from '../components/TicketTypesManagement';
+import { TicketDeliveryList } from '../components/TicketDeliveryList';
 import ProfessorPayments from '../components/ProfessorPayments';
 import { getPresentationVideoUrlError } from '../lib/videoUrl';
 import { isValidHttpUrl } from '../lib/academyDiscovery';
@@ -17,7 +18,7 @@ import { BilingualTextField } from '../components/BilingualTextField';
 import { optionalText, translationStatus } from '../lib/localized';
 import { SPECIALTY_CODES, SpecialtyCode, isSpecialtyCode, specialtyLabel } from '../lib/specialties';
 import { translate } from '../i18n/translations';
-import { Video, Users, Plus, CreditCard as Edit2, Trash2, X, Check, AlertCircle, ShoppingBag, Package, Search, Filter, Tag, Calendar, Ticket, DollarSign, GraduationCap, Globe } from 'lucide-react';
+import { Video, Users, Plus, CreditCard as Edit2, Trash2, X, Check, AlertCircle, ShoppingBag, Package, Search, Filter, Tag, Calendar, Ticket, DollarSign, GraduationCap, Globe, FileText } from 'lucide-react';
 
 type Video = Database['public']['Tables']['videos']['Row'];
 
@@ -92,7 +93,7 @@ interface AdminProps {
 
 export function Admin({ onNavigate }: AdminProps) {
   const { user, profile } = useAuth();
-  const [activeTab, setActiveTab] = useState<'videos' | 'users' | 'products' | 'product-types' | 'orders' | 'events' | 'ticket-types' | 'payments' | 'professor-requests' | 'professors'>('videos');
+  const [activeTab, setActiveTab] = useState<'videos' | 'users' | 'products' | 'product-types' | 'orders' | 'events' | 'ticket-deliveries' | 'ticket-types' | 'payments' | 'professor-requests' | 'professors'>('videos');
   const [videos, setVideos] = useState<Video[]>([]);
   const [users, setUsers] = useState<Profile[]>([]);
   const [professors, setProfessors] = useState<Professor[]>([]);
@@ -768,6 +769,7 @@ export function Admin({ onNavigate }: AdminProps) {
               { id: 'product-types', icon: Tag, label: 'Product Types' },
               { id: 'orders', icon: Package, label: 'Orders' },
               { id: 'events', icon: Calendar, label: 'Events' },
+              { id: 'ticket-deliveries', icon: FileText, label: 'Billets à fournir' },
               { id: 'ticket-types', icon: Ticket, label: 'Ticket Types' },
               { id: 'payments', icon: DollarSign, label: 'Payments' },
               { id: 'professor-requests', icon: GraduationCap, label: 'Demandes Prof' },
@@ -1632,6 +1634,8 @@ export function Admin({ onNavigate }: AdminProps) {
           />
         ) : activeTab === 'events' ? (
           <EventsManagement />
+        ) : activeTab === 'ticket-deliveries' ? (
+          <TicketDeliveryList />
         ) : activeTab === 'ticket-types' ? (
           <TicketTypesManagement />
         ) : activeTab === 'payments' ? (
