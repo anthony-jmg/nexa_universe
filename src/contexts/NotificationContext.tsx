@@ -7,10 +7,9 @@ import { useLanguage } from './LanguageContext';
 export interface Notification {
   id: string;
   professor_id: string | null;
-  type: 'new_video' | 'new_program' | 'professor_subscription_expiring' | 'professor_subscription_expired' | 'order_paid' | 'order_processing' | 'order_shipped' | 'order_completed' | 'order_cancelled' | 'professor_approved' | 'professor_rejected';
+  type: 'new_video' | 'new_program' | 'professor_subscription_expiring' | 'professor_subscription_expired' | 'order_paid' | 'order_processing' | 'order_shipped' | 'order_completed' | 'order_cancelled' | 'professor_approved' | 'professor_rejected' | 'pass_available';
   title: string;
   message: string;
-  link: string;
   item_id: string;
   is_read: boolean;
   created_at: string;

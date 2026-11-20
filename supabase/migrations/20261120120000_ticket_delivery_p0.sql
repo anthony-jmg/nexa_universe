@@ -6,6 +6,7 @@
 -- 2. Lien de téléchargement réservé au propriétaire d'un billet délivré et
 --    valide : annulé, remboursé ou événement annulé → aucun lien.
 -- 3. Bucket limité aux PDF de 10 Mo.
+-- 4. Notification « billet disponible » : renvoie à « Mes Pass ».
 -- Aucune donnée existante modifiée.
 
 -- 1. Ajout du fichier officiel -------------------------------------------------
@@ -88,3 +89,26 @@ UPDATE storage.buckets
    SET file_size_limit = 10485760,
        allowed_mime_types = ARRAY['application/pdf']
  WHERE id = 'event-passes';
+
+-- 4. Notification « billet disponible » -------------------------------------
+-- Ancien texte : « Retrouve-le dans « Mes achats » » (page renommée Mes Pass).
+-- Les notifications déjà envoyées ne sont pas modifiées.
+CREATE OR REPLACE FUNCTION public.notify_pass_available()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+BEGIN
+IF NEW.pass_status = 'available' AND OLD.pass_status IS DISTINCT FROM 'available' THEN
+INSERT INTO notifications (user_id, type, title, message, item_id)
+VALUES (
+NEW.user_id,
+'pass_available',
+'Ton billet officiel est disponible',
+'Ton billet officiel est disponible. Télécharge-le dans « Mes Pass ».',
+NEW.id
+);
+END IF;
+RETURN NEW;
+END $function$;

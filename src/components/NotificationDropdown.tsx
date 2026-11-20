@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useNotifications } from '../contexts/NotificationContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { formatRelativeTime } from '../lib/relativeTime';
+import { notificationPath } from '../lib/notificationLinks';
 
 export default function NotificationDropdown() {
   const { user } = useAuth();
@@ -23,11 +24,12 @@ export default function NotificationDropdown() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  function handleNotificationClick(notification: { id: string; is_read: boolean; link: string }) {
+  function handleNotificationClick(notification: { id: string; is_read: boolean; type: string }) {
     if (!notification.is_read) {
       markAsRead(notification.id);
     }
-    window.location.href = notification.link;
+    const path = notificationPath(notification);
+    if (path) window.location.href = path;
     setIsOpen(false);
   }
 

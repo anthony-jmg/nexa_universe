@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { Bell, Check, CheckCheck, Trash2, Video, BookOpen, ArrowLeft, AlertTriangle, Clock, ShoppingBag, Package, Truck, CheckCircle, XCircle, GraduationCap } from 'lucide-react';
+import { Bell, Check, CheckCheck, Trash2, Video, BookOpen, ArrowLeft, AlertTriangle, Clock, ShoppingBag, Package, Truck, CheckCircle, XCircle, GraduationCap, Ticket } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useNotifications } from '../contexts/NotificationContext';
 import type { Notification } from '../contexts/NotificationContext';
 import PageTransition from '../components/PageTransition';
 import { useLanguage } from '../contexts/LanguageContext';
 import { formatRelativeTime } from '../lib/relativeTime';
+import { notificationPath } from '../lib/notificationLinks';
 
 interface NotificationsPageProps {
   onNavigate: (page: string) => void;
@@ -21,7 +22,8 @@ export default function NotificationsPage({ onNavigate }: NotificationsPageProps
     if (!notification.is_read) {
       markAsRead(notification.id);
     }
-    window.location.href = notification.link;
+    const path = notificationPath(notification);
+    if (path) window.location.href = path;
   }
 
   // Au-delà de 7 jours : date longue, année affichée seulement si différente.
@@ -176,6 +178,8 @@ export default function NotificationsPage({ onNavigate }: NotificationsPageProps
                             ? 'bg-green-500/20 text-green-400'
                             : notification.type === 'professor_rejected'
                             ? 'bg-red-500/20 text-red-400'
+                            : notification.type === 'pass_available'
+                            ? 'bg-green-500/20 text-green-400'
                             : notification.type.includes('expiring')
                             ? 'bg-yellow-500/20 text-yellow-400'
                             : 'bg-red-500/20 text-red-400'
@@ -198,6 +202,8 @@ export default function NotificationsPage({ onNavigate }: NotificationsPageProps
                             <GraduationCap className="w-6 h-6" />
                           ) : notification.type === 'professor_rejected' ? (
                             <XCircle className="w-6 h-6" />
+                          ) : notification.type === 'pass_available' ? (
+                            <Ticket className="w-6 h-6" />
                           ) : notification.type.includes('expiring') ? (
                             <Clock className="w-6 h-6" />
                           ) : (
