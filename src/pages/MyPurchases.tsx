@@ -202,6 +202,8 @@ export function MyPurchases({ onNavigate }: MyPurchasesProps) {
       console.error('Payment verification error:', err);
     } finally {
       setVerifyingPayment(false);
+      // Paramètres de retour de paiement effacés : pas de nouvelle vérification au rechargement.
+      window.history.replaceState(window.history.state, '', window.location.pathname);
       await loadData();
     }
   };

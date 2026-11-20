@@ -193,6 +193,18 @@ describe('2. Message après paiement complet', () => {
     });
   }
 
+  it('paramètres de retour de paiement effacés après vérification (pas de double vérification au rechargement)', async () => {
+    const replace = vi.spyOn(window.history, 'replaceState');
+    await pay({ success: true, payment_type: 'order' });
+    await waitFor(() => expect(replace).toHaveBeenCalledWith(window.history.state, '', '/my-purchases'));
+    replace.mockRestore();
+  });
+
+  it('au démarrage, l’application conserve les paramètres de l’URL (sinon Mes Pass ne voit jamais le retour de paiement)', () => {
+    const app = readFileSync(join(__dirname, '../../App.tsx'), 'utf8');
+    expect(app).toContain('const currentPath = window.location.pathname + window.location.search;');
+  });
+
   it('premier versement Price Lock : pas d’annonce de billet', async () => {
     await pay({ success: true, payment_type: 'price_lock_deposit' });
     expect(screen.queryByRole('status')).not.toBeInTheDocument();

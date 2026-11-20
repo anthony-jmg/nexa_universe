@@ -83,7 +83,9 @@ function AppContent() {
     const hasRecoveryToken = hash.includes('type=recovery') || hash.includes('access_token');
     if (hasRecoveryToken) return;
 
-    const currentPath = window.location.pathname;
+    // Paramètres conservés (retour de paiement Stripe : ?payment=success&session_id=…),
+    // lus puis effacés par la page concernée.
+    const currentPath = window.location.pathname + window.location.search;
     window.history.replaceState(
       {
         page: currentPage,
